@@ -1,0 +1,418 @@
+/**
+ * @akalin/ai_management_module - Stiller ve Grid Yapılandırması
+ */
+
+/* AI Sağlayıcıları (MD3 Uyumlu) - Yan yana 2 kart, ekran daraldığında tek kolon */
+.ai-saglayicilar-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .ai-saglayicilar-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ai-provider-brand-openai {
+  background-color: rgba(16, 163, 127, 0.12) !important;
+  color: #10a37f !important;
+  border: 1px solid rgba(16, 163, 127, 0.3) !important;
+}
+
+.ai-provider-brand-gemini {
+  background-color: rgba(66, 133, 244, 0.12) !important;
+  color: #4285f4 !important;
+  border: 1px solid rgba(66, 133, 244, 0.3) !important;
+}
+
+.ai-provider-brand-anthropic {
+  background-color: rgba(217, 119, 6, 0.12) !important;
+  color: #d97706 !important;
+  border: 1px solid rgba(217, 119, 6, 0.3) !important;
+}
+
+.ai-provider-brand-ollama {
+  background-color: rgba(139, 92, 246, 0.12) !important;
+  color: #8b5cf6 !important;
+  border: 1px solid rgba(139, 92, 246, 0.3) !important;
+}
+
+.ai-provider-brand-deepseek {
+  background-color: rgba(6, 182, 212, 0.12) !important;
+  color: #06b6d4 !important;
+  border: 1px solid rgba(6, 182, 212, 0.3) !important;
+}
+
+.ai-provider-brand-custom {
+  background-color: rgba(99, 102, 241, 0.12) !important;
+  color: var(--accent-primary, #6366f1) !important;
+  border: 1px solid rgba(99, 102, 241, 0.3) !important;
+}
+
+/* Modeller Etiket Havuzu */
+.ai-models-chip-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ai-models-chip-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ai-models-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 90px;
+  overflow-y: auto;
+}
+
+.ai-model-chip {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: var(--md3-shape-small, 6px);
+  background-color: var(--bg-primary);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.ai-model-chip.is-default {
+  background-color: rgba(99, 102, 241, 0.15);
+  border-color: var(--accent-primary, #6366f1);
+  color: var(--accent-primary, #6366f1);
+  font-weight: 700;
+}
+
+/* AI Test Sonucu Bildirim Kutusu */
+.ai-test-alert {
+  padding: 10px 12px;
+  border-radius: var(--md3-shape-small, 8px);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.ai-test-alert.success {
+  background-color: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: var(--success, #10b981);
+}
+
+.ai-test-alert.danger {
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: var(--danger, #ef4444);
+}
+
+.ai-saglayici-footer-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.ai-saglayici-footer-actions .btn-secondary {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  border-radius: var(--md3-shape-small, 8px);
+  padding: 8px 12px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.ai-saglayici-footer-actions .btn-secondary:hover:not(:disabled) {
+  background-color: var(--bg-hover, rgba(0, 0, 0, 0.04));
+  border-color: var(--accent-primary, #6366f1);
+  color: var(--accent-primary, #6366f1);
+}
+
+/* ─── AI Dinamik Protokoller & Script Editör Stilleri ───────────────────────── */
+.ai-protocol-code-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--md3-shape-small, 4px);
+  background-color: rgba(99, 102, 241, 0.12);
+  color: var(--accent-primary, #6366f1);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  letter-spacing: 0.5px;
+}
+
+.ai-tab-header {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 10px;
+  margin-bottom: 16px;
+  overflow-x: auto;
+}
+
+.ai-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--md3-shape-small, 8px);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ai-tab-btn:hover {
+  background-color: var(--bg-hover, rgba(0, 0, 0, 0.04));
+  color: var(--text-primary);
+}
+
+.ai-tab-btn.active {
+  background-color: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: var(--accent-primary, #6366f1);
+  font-weight: 600;
+}
+
+.ai-script-editor-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.ai-script-editor-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.ai-script-textarea {
+  width: 100%;
+  min-height: 280px;
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  padding: 14px;
+  border-radius: var(--md3-shape-medium, 10px);
+  background-color: #1e1e2e;
+  color: #cdd6f4;
+  border: 1px solid var(--glass-border);
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.ai-script-textarea:focus {
+  border-color: var(--accent-primary, #6366f1);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.ai-script-help {
+  font-size: 11.5px;
+  color: var(--text-tertiary, #94a3b8);
+  line-height: 1.4;
+}
+
+/* ─── AI Token & Cüzdan Yönetimi Stilleri ──────────────────────────────────── */
+.ai-token-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 1100px) {
+  .ai-token-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .ai-token-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ai-token-stat-card {
+  padding: 16px 20px;
+  background-color: var(--surface-card, var(--bg-secondary));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--md3-shape-large, 16px);
+  box-shadow: var(--md3-elevation-1, 0 1px 3px rgba(0,0,0,0.05));
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ai-token-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--md3-elevation-2, 0 4px 12px rgba(0,0,0,0.08));
+}
+
+.ai-token-stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--md3-shape-medium, 12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ai-token-stat-icon.primary {
+  background-color: rgba(99, 102, 241, 0.12);
+  color: var(--accent-primary, #6366f1);
+}
+
+.ai-token-stat-icon.success {
+  background-color: rgba(16, 185, 129, 0.12);
+  color: var(--success, #10b981);
+}
+
+.ai-token-stat-icon.warning {
+  background-color: rgba(245, 158, 11, 0.12);
+  color: var(--warning, #f59e0b);
+}
+
+.ai-token-stat-icon.purple {
+  background-color: rgba(168, 85, 247, 0.12);
+  color: #a855f7;
+}
+
+.ai-token-stat-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ai-token-stat-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.ai-token-stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+}
+
+.ai-token-progress-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background-color: rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+[data-theme='dark'] .ai-token-progress-bar {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.ai-token-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  transition: width 0.4s ease;
+}
+
+.ai-table-container {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--md3-shape-medium, 12px);
+  background-color: var(--surface-card, var(--bg-secondary));
+}
+
+.ai-custom-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+
+.ai-custom-table th {
+  padding: 12px 16px;
+  background-color: var(--bg-primary);
+  color: var(--text-secondary);
+  font-weight: 600;
+  border-bottom: 1px solid var(--glass-border);
+  white-space: nowrap;
+}
+
+.ai-custom-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.ai-custom-table tr:last-child td {
+  border-bottom: none;
+}
+
+.ai-custom-table tr:hover td {
+  background-color: var(--hover-bg, rgba(255, 255, 255, 0.03));
+}
+
+[data-theme='dark'] .ai-token-stat-card {
+  background-color: var(--surface-card, #121217);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme='dark'] .ai-table-container {
+  background-color: var(--surface-card, #121217);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme='dark'] .ai-custom-table th {
+  background-color: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme='dark'] .ai-custom-table td {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme='dark'] .ai-custom-table tr:hover td {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.ai-chip-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--md3-shape-small, 6px);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--glass-border);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: all 0.15s ease;
+}
