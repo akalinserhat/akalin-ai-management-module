@@ -17,6 +17,7 @@ const AiProtokolFormPage = lazy(() => import('./pages/AiProtokolForm'));
 const AiTokenYonetimiPage = lazy(() => import('./pages/AiTokenYonetimi'));
 const AiAjanlarPage = lazy(() => import('./pages/AiAjanlar'));
 const AiAjanFormPage = lazy(() => import('./pages/AiAjanForm'));
+const AiMcpYonetimiPage = lazy(() => import('./pages/AiMcpYonetimi'));
 
 export interface CreateAiManagementModuleOptions {
   adapter?: IAiManagementAdapter;
@@ -51,6 +52,7 @@ export function createAiManagementModule(options: CreateAiManagementModuleOption
   const AiTokenYonetimiComponent = options.customComponents?.AiTokenYonetimi || AiTokenYonetimiPage;
   const AiAjanlarComponent = options.customComponents?.AiAjanlar || AiAjanlarPage;
   const AiAjanFormComponent = options.customComponents?.AiAjanForm || AiAjanFormPage;
+  const AiMcpYonetimiComponent = options.customComponents?.AiMcpYonetimi || AiMcpYonetimiPage;
 
   return {
     id: 'ai_yonetimi',
@@ -112,7 +114,7 @@ export function createAiManagementModule(options: CreateAiManagementModuleOption
       {
         path: '/ai-ajanlar',
         element: withProvider(AiAjanlarComponent),
-        title: 'Ajanlar & MCP'
+        title: 'Ajanlar'
       },
       {
         path: '/ai-ajanlar/yeni',
@@ -128,6 +130,16 @@ export function createAiManagementModule(options: CreateAiManagementModuleOption
         path: '/ai-ajanlar/:id',
         element: withProvider(AiAjanFormComponent),
         title: 'Ajanı Yapılandır'
+      },
+      {
+        path: '/ai-mcp',
+        element: withProvider(AiMcpYonetimiComponent),
+        title: 'Model Context Protocol (MCP)'
+      },
+      {
+        path: '/ayarlar/YapayZekaAyarlari/AiMcp',
+        element: withProvider(AiMcpYonetimiComponent),
+        title: 'Model Context Protocol (MCP)'
       }
     ],
     menuItems: [
@@ -155,7 +167,8 @@ export function createAiManagementModule(options: CreateAiManagementModuleOption
       AiProtokolForm: AiProtokolFormComponent,
       AiTokenYonetimi: AiTokenYonetimiComponent,
       AiAjanlar: AiAjanlarComponent,
-      AiAjanForm: AiAjanFormComponent
+      AiAjanForm: AiAjanFormComponent,
+      AiMcpYonetimi: AiMcpYonetimiComponent
     }
   };
 }

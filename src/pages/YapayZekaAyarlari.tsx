@@ -4,7 +4,8 @@
  * BaseSystemPage mimarisinde çalışan ve altında:
  * 1. Model Sağlayıcıları (AiSaglayicilar)
  * 2. API Protokolleri & Scriptler (AiProtokoller)
- * 3. Ajanlar & MCP (AiAjanlar)
+ * 3. Ajanlar (AiAjanlar)
+ * 4. Model Context Protocol (AiMcpYonetimi)
  * seçeneklerini SistemKart grid görünümü ile ayrı ayrı listeleyen ana yönetim sayfası.
  * 
  * Kesinlikle inline CSS barındırmaz, %100 i18n ve MD3 tasarım sistemine uyumludur.
@@ -14,11 +15,12 @@ import React, { useMemo, useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { Bot, Cpu, Code2, Sparkles } from 'lucide-react';
+import { Bot, Cpu, Code2, Sparkles, Layers } from 'lucide-react';
 import { BaseSystemPage, BaseSwitch, type ActionMenuItem } from '@akalin/ui';
 import AiSaglayicilar from './AiSaglayicilar';
 import AiProtokoller from './AiProtokoller';
 import AiAjanlar from './AiAjanlar';
+import AiMcpYonetimi from './AiMcpYonetimi';
 import { firmaAiSettingsService } from '../services/firmaAiSettingsService';
 
 export interface YapayZekaAyarlariProps {
@@ -90,13 +92,27 @@ export const YapayZekaAyarlari: React.FC<YapayZekaAyarlariProps> = ({ onBack }) 
     },
     {
       id: 'AiAjanlar',
-      name: t('menu_ai_ajanlar', 'Ajanlar & MCP'),
-      desc: t('ai_ajanlar_desc', 'ERP ve Admin kapsamlarındaki otonom AI uzman ajanları, kuralları ve MCP araç yetkileri'),
+      name: t('menu_ai_ajanlar', 'Ajanlar'),
+      desc: t('ai_ajanlar_desc', 'ERP ve Admin kapsamlarındaki otonom AI uzman ajanları, kuralları ve sistem promptları'),
       icon: <Bot size={28} />,
-      keywords: 'ai ajan agent mcp bot kural prompt uzman rol yapay zeka',
+      keywords: 'ai ajan agent bot kural prompt uzman rol yapay zeka',
       hasOwnLayout: true,
       component: () => (
         <AiAjanlar 
+          backRoute={baseRoute} 
+          onBack={() => navigate(baseRoute)} 
+        />
+      )
+    },
+    {
+      id: 'AiMcp',
+      name: t('menu_ai_mcp', 'Model Context Protocol (MCP)'),
+      desc: t('ai_mcp_desc', 'ERP ve Admin modüllerine ait tescilli liste, kart ve belgeler ile bunlara bağlı otonom MCP fonksiyonları'),
+      icon: <Layers size={28} />,
+      keywords: 'ai mcp model context protocol fonksiyon arac tool modul liste kart belge schema erp api',
+      hasOwnLayout: true,
+      component: () => (
+        <AiMcpYonetimi 
           backRoute={baseRoute} 
           onBack={() => navigate(baseRoute)} 
         />
@@ -110,8 +126,10 @@ export const YapayZekaAyarlari: React.FC<YapayZekaAyarlariProps> = ({ onBack }) 
       return params.subModuleId;
     }
     const currentMod = params.moduleId;
-    if (currentMod && ['aisaglayicilar', 'aiprotokoller', 'aiajanlar'].includes(currentMod.toLowerCase())) {
-      const match = aiModules.find(m => m.id.toLowerCase() === currentMod.toLowerCase());
+    if (currentMod && ['aisaglayicilar', 'aiprotokoller', 'aiajanlar', 'aimcp', 'mcp'].includes(currentMod.toLowerCase())) {
+      const match = aiModules.find(
+        m => m.id.toLowerCase() === currentMod.toLowerCase() || (currentMod.toLowerCase() === 'mcp' && m.id === 'AiMcp')
+      );
       return match ? match.id : null;
     }
     return null;

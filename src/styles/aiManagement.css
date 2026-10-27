@@ -416,3 +416,153 @@
   color: var(--text-primary);
   transition: all 0.15s ease;
 }
+
+/* ─── MCP TreeView & Yönetim Stilleri ────────────────────────────────────────── */
+.ai-mcp-summary-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 1024px) {
+  .ai-mcp-summary-bar {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .ai-mcp-summary-bar {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ai-mcp-stat-card {
+  padding: 16px 20px;
+  background-color: var(--surface-card, var(--bg-secondary));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--md3-shape-large, 14px);
+  box-shadow: var(--md3-elevation-1, 0 1px 3px rgba(0,0,0,0.05));
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ai-mcp-stat-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--md3-shape-medium, 10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ai-mcp-stat-icon.primary {
+  background-color: rgba(99, 102, 241, 0.12);
+  color: var(--accent-primary, #6366f1);
+}
+
+.ai-mcp-stat-icon.success {
+  background-color: rgba(16, 185, 129, 0.12);
+  color: var(--success, #10b981);
+}
+
+.ai-mcp-stat-icon.warning {
+  background-color: rgba(245, 158, 11, 0.12);
+  color: var(--warning, #f59e0b);
+}
+
+.ai-mcp-stat-icon.purple {
+  background-color: rgba(168, 85, 247, 0.12);
+  color: #a855f7;
+}
+
+.ai-mcp-stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-mcp-stat-value {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.ai-mcp-stat-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.ai-mcp-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.ai-mcp-search-input-wrap {
+  position: relative;
+  min-width: 260px;
+  max-width: 380px;
+  flex: 1;
+}
+
+.ai-mcp-filter-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ai-mcp-schema-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 75vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.ai-mcp-code-block {
+  position: relative;
+  background-color: #1e1e2e;
+  border-radius: var(--md3-shape-medium, 10px);
+  padding: 16px;
+  overflow-x: auto;
+  border: 1px solid var(--glass-border);
+}
+
+.ai-mcp-code-block pre {
+  margin: 0;
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #cdd6f4;
+}
+
+.ai-mcp-code-copy-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 6px 10px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 6px;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ai-mcp-code-copy-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+

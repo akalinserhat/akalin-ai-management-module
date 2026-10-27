@@ -31,6 +31,7 @@ export { default as AiProtokolForm, AiProtokolForm as NamedAiProtokolForm } from
 export { default as AiTokenYonetimi, AiTokenYonetimi as NamedAiTokenYonetimi } from './pages/AiTokenYonetimi';
 export { default as AiAjanlar, AiAjanlar as NamedAiAjanlar } from './pages/AiAjanlar';
 export { default as AiAjanForm, AiAjanForm as NamedAiAjanForm } from './pages/AiAjanForm';
+export { default as AiMcpYonetimi, AiMcpYonetimi as NamedAiMcpYonetimi } from './pages/AiMcpYonetimi';
 
 // Modül Fabrikası
 export * from './createAiManagementModule';

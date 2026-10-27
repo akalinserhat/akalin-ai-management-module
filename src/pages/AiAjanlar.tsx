@@ -371,7 +371,7 @@ export function AiAjanlar({
 
   return (
     <BaseSystemPage
-      title={t('menu_ai_ajanlar', 'Ajanlar & MCP')}
+      title={t('menu_ai_ajanlar', 'Ajanlar')}
       subtitle={t('ai_ajanlar_alt_baslik', 'ERP ve Admin kapsamlı akıllı asistanları yapılandırın; maddeleri tek tıkla özelleştirin.')}
       icon={<Bot size={26} />}
       baseRoute="/ayarlar/YapayZekaAyarlari/AiAjanlar"
