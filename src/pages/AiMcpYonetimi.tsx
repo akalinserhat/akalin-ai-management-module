@@ -26,17 +26,10 @@ import {
   Code2,
   Copy,
   Check,
-  Search,
-  ChevronRight,
-  ChevronDown,
   RefreshCw,
   Sparkles,
   Database,
   ArrowRight,
-  Eye,
-  CheckCircle2,
-  AlertCircle,
-  Info,
   ShieldCheck
 } from 'lucide-react';
 import {
@@ -88,7 +81,6 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
 
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [activeCategoryFilter, setActiveCategoryFilter] = useState<'ALL' | 'BELGE' | 'KART' | 'LISTE' | 'MCP'>('ALL');
   const [apiKatalog, setApiKatalog] = useState<any[]>([]);
   const [selectedMcpNode, setSelectedMcpNode] = useState<McpTreeNode | null>(null);
   const [isCopiedSchema, setIsCopiedSchema] = useState<boolean>(false);
@@ -491,46 +483,17 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
     });
   }, [t]);
 
-  // ─── İSTATİSTİKLER ──────────────────────────────────────────────────────────
-
-  const stats = useMemo(() => {
-    let totalModules = rawTreeData.length;
-    let totalEntities = 0;
-    let totalMcpTools = 0;
-
-    rawTreeData.forEach(modNode => {
-      if (modNode.children) {
-        totalEntities += modNode.children.length;
-        modNode.children.forEach(entNode => {
-          if (entNode.children) {
-            totalMcpTools += entNode.children.length;
-          }
-        });
-      }
-    });
-
-    return { totalModules, totalEntities, totalMcpTools };
-  }, [rawTreeData]);
-
   // ─── FİLTRELENMİŞ TREE VIEW VERİSİ ──────────────────────────────────────────
 
   const filteredTreeData = useMemo<McpTreeNode[]>(() => {
     const q = searchTerm.trim().toLowerCase();
+    if (!q) return rawTreeData;
 
     return rawTreeData
       .map(modNode => {
-        // Eğer kategori filtresi varsa Level 2'yi filtrele
         const filteredEntities = (modNode.children || [])
           .map(entNode => {
-            // Kategori filtresi kontrolü
-            if (activeCategoryFilter === 'BELGE' && entNode.kategori !== 'belge') return null;
-            if (activeCategoryFilter === 'KART' && entNode.kategori !== 'kart') return null;
-            if (activeCategoryFilter === 'LISTE' && entNode.kategori !== 'liste') return null;
-
-            // Level 3 MCP fonksiyonları filtrele
             const filteredTools = (entNode.children || []).filter(toolNode => {
-              if (activeCategoryFilter === 'MCP' && toolNode.kategori !== 'mcp') return false;
-              if (!q) return true;
               return (
                 toolNode.ad.toLowerCase().includes(q) ||
                 toolNode.kod.toLowerCase().includes(q) ||
@@ -539,7 +502,7 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
               );
             });
 
-            const entMatches = !q || (
+            const entMatches = (
               entNode.ad.toLowerCase().includes(q) ||
               entNode.kod.toLowerCase().includes(q) ||
               (entNode.aciklama && entNode.aciklama.toLowerCase().includes(q)) ||
@@ -556,7 +519,7 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
           })
           .filter((n): n is McpTreeNode => n !== null);
 
-        const modMatches = !q || (
+        const modMatches = (
           modNode.ad.toLowerCase().includes(q) ||
           modNode.kod.toLowerCase().includes(q) ||
           (modNode.aciklama && modNode.aciklama.toLowerCase().includes(q))
@@ -571,7 +534,7 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
         return null;
       })
       .filter((n): n is McpTreeNode => n !== null);
-  }, [rawTreeData, searchTerm, activeCategoryFilter]);
+  }, [rawTreeData, searchTerm]);
 
   // ─── TÜMÜNÜ GENİŞLET / DARALT MOTORU ────────────────────────────────────────
 
@@ -597,15 +560,6 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
       setIsInitialExpanded(true);
     }
   }, [isInitialExpanded, rawTreeData, collectAllParentIds]);
-
-  const handleExpandAll = () => {
-    const allParentIds = collectAllParentIds(filteredTreeData);
-    setExpandedRowIds(allParentIds);
-  };
-
-  const handleCollapseAll = () => {
-    setExpandedRowIds([]);
-  };
 
   // ─── ŞEMA MODAL İNCELEME & KOPYALAMA ─────────────────────────────────────────
 
@@ -865,137 +819,6 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
 
   const renderContent = () => (
     <>
-      {/* Üst İstatistik Şeridi */}
-      <div className="ai-mcp-summary-bar">
-        <div className="ai-mcp-stat-card">
-          <div className="ai-mcp-stat-icon primary">
-            <Boxes size={22} />
-          </div>
-          <div className="ai-mcp-stat-info">
-            <span className="ai-mcp-stat-value">{stats.totalModules}</span>
-            <span className="ai-mcp-stat-label">{t('tescilli_modul', 'Tescilli Modül')}</span>
-          </div>
-        </div>
-
-        <div className="ai-mcp-stat-card">
-          <div className="ai-mcp-stat-icon success">
-            <FileText size={22} />
-          </div>
-          <div className="ai-mcp-stat-info">
-            <span className="ai-mcp-stat-value">{stats.totalEntities}</span>
-            <span className="ai-mcp-stat-label">{t('liste_kart_belge', 'Liste, Kart ve Belge')}</span>
-          </div>
-        </div>
-
-        <div className="ai-mcp-stat-card">
-          <div className="ai-mcp-stat-icon purple">
-            <Wrench size={22} />
-          </div>
-          <div className="ai-mcp-stat-info">
-            <span className="ai-mcp-stat-value">{stats.totalMcpTools}</span>
-            <span className="ai-mcp-stat-label">{t('aktif_mcp_fonksiyonu', 'Aktif MCP Fonksiyonu')}</span>
-          </div>
-        </div>
-
-        <div className="ai-mcp-stat-card">
-          <div className="ai-mcp-stat-icon warning">
-            <Sparkles size={22} />
-          </div>
-          <div className="ai-mcp-stat-info">
-            <span className="ai-mcp-stat-value">MCP v1.0</span>
-            <span className="ai-mcp-stat-label">{t('mcp_protokol_standardi', 'JSON-RPC / Lean Core')}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Kontrol & Filtre Çubuğu */}
-      <div className="ai-mcp-controls-bar">
-        {/* Arama Kutusu */}
-        <div className="ai-mcp-search-input-wrap">
-          <input
-            type="text"
-            className="input-field"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={t('mcp_arama_placeholder', 'Modül, liste, belge veya MCP fonksiyonu ara...')}
-          />
-        </div>
-
-        {/* Kategori Filtre Butonları */}
-        <div className="ai-mcp-filter-chips">
-          <button
-            type="button"
-            className={`btn btn-sm ${activeCategoryFilter === 'ALL' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveCategoryFilter('ALL')}
-          >
-            {t('tumu', 'Tümü')}
-          </button>
-          <button
-            type="button"
-            className={`btn btn-sm ${activeCategoryFilter === 'BELGE' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveCategoryFilter('BELGE')}
-          >
-            <FileText size={13} className="mr-4" />
-            {t('belgeler', 'Belgeler')}
-          </button>
-          <button
-            type="button"
-            className={`btn btn-sm ${activeCategoryFilter === 'KART' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveCategoryFilter('KART')}
-          >
-            <CreditCard size={13} className="mr-4" />
-            {t('kartlar', 'Kartlar')}
-          </button>
-          <button
-            type="button"
-            className={`btn btn-sm ${activeCategoryFilter === 'LISTE' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveCategoryFilter('LISTE')}
-          >
-            <Table size={13} className="mr-4" />
-            {t('listeler', 'Listeler')}
-          </button>
-          <button
-            type="button"
-            className={`btn btn-sm ${activeCategoryFilter === 'MCP' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveCategoryFilter('MCP')}
-          >
-            <Wrench size={13} className="mr-4" />
-            {t('mcp_araclari', 'MCP Araçları')}
-          </button>
-        </div>
-
-        {/* Tree Genişlet / Daralt ve Yenile Butonları */}
-        <div className="flex items-center gap-8">
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={handleExpandAll}
-            title={t('tumunu_genislet', 'Tüm Seviyeleri Aç')}
-          >
-            <ChevronDown size={14} className="mr-4" />
-            <span>{t('tumunu_genislet', 'Genişlet')}</span>
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={handleCollapseAll}
-            title={t('tumunu_daralt', 'Tüm Seviyeleri Kapat')}
-          >
-            <ChevronRight size={14} className="mr-4" />
-            <span>{t('tumunu_daralt', 'Daralt')}</span>
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={fetchKatalog}
-            disabled={loading}
-            title={t('Yenile', 'Yenile')}
-          >
-            <RefreshCw size={14} className={loading ? 'spinning' : ''} />
-          </button>
-        </div>
-      </div>
-
       {/* 3 Kademeli Hiyerarşik TreeView Tablosu */}
       <div className="glass-card rounded-xl border border-border overflow-hidden">
         <DataTable<McpTreeNode>
@@ -1125,6 +948,9 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
       headerSync={false}
       onRefresh={fetchKatalog}
       refreshLoading={loading}
+      searchPlaceholder={t('mcp_arama_placeholder', 'Modül, varlık veya MCP fonksiyonu ara...')}
+      searchTerm={searchTerm}
+      onSearchChange={(term) => setSearchTerm(term)}
     >
       {renderContent()}
     </BaseSystemPage>
