@@ -820,22 +820,20 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
   const renderContent = () => (
     <>
       {/* 3 Kademeli Hiyerarşik TreeView Tablosu */}
-      <div className="glass-card rounded-xl border border-border overflow-hidden">
-        <DataTable<McpTreeNode>
-          data={filteredTreeData}
-          columns={treeColumns}
-          enableTreeView={true}
-          childrenField="children"
-          defaultExpandAll={true}
-          expandedRowIds={expandedRowIds}
-          onExpandedRowsChange={setExpandedRowIds}
-          treeColumnId="ad"
-          keyExtractor={(item) => item.id}
-          pageSize={100}
-          emptyMessage={t('mcp_kayit_bulunamadi', 'Arama kriterlerine uygun modül veya MCP fonksiyonu bulunamadı.')}
-          loading={loading}
-        />
-      </div>
+      <DataTable<McpTreeNode>
+        data={filteredTreeData}
+        columns={treeColumns}
+        enableTreeView={true}
+        childrenField="children"
+        defaultExpandAll={true}
+        expandedRowIds={expandedRowIds}
+        onExpandedRowsChange={setExpandedRowIds}
+        treeColumnId="ad"
+        keyExtractor={(item) => item.id}
+        pageSize={100}
+        emptyMessage={t('mcp_kayit_bulunamadi', 'Arama kriterlerine uygun modül veya MCP fonksiyonu bulunamadı.')}
+        loading={loading}
+      />
 
       {/* Şema ve Parametre İnceleme Modal Penceresi */}
       {selectedMcpNode && (
