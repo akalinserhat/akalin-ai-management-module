@@ -119,6 +119,7 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
       // 1. Kademe: Modül Bilgileri
       const modKod = mod.id || '';
       const modAd = mod.title || mod.name || modKod;
+      const modBaseRoute = (mod as any).baseRoute || mod.routes?.[0]?.path || '';
 
       // 2. Kademe: Modüle tescil edilmiş listeler, kartlar ve belgeler
       let entities = ModuleRegistry.getModuleEntities(modKod);
@@ -142,9 +143,10 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
         {
           id: `${modKod}_genel_liste`,
           category: 'liste',
+          titleKey: `${modKod}_genel_liste`,
           title: `${modAd} ${t('listesi', 'Listesi')}`,
           description: `${modAd} ${t('kayitlari_ve_tablo_verileri', 'kayıtları ve tablo verileri')}`,
-          route: mod.baseRoute || ''
+          route: modBaseRoute
         }
       ];
 
@@ -153,7 +155,7 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
         const entKod = ent.id;
         const entAd = ent.title || ent.titleKey || entKod;
         const entCat = (ent.category || 'liste') as 'liste' | 'kart' | 'belge';
-        const entRoute = ent.route || ent.listRoute || ent.formRoute || mod.baseRoute || '';
+        const entRoute = ent.route || ent.listRoute || ent.formRoute || modBaseRoute;
 
         // 3. Kademe: Bu varlığa ait MCP Fonksiyonları
         const mcpFunctions: McpTreeNode[] = [];
@@ -476,7 +478,7 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
         kod: modKod,
         kategori: 'modul',
         aciklama: mod.description || '',
-        rota: mod.baseRoute || '',
+        rota: modBaseRoute,
         rawModule: mod,
         children: entityNodes
       };
@@ -490,9 +492,9 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
     if (!q) return rawTreeData;
 
     return rawTreeData
-      .map(modNode => {
+      .map((modNode): McpTreeNode | null => {
         const filteredEntities = (modNode.children || [])
-          .map(entNode => {
+          .map((entNode): McpTreeNode | null => {
             const filteredTools = (entNode.children || []).filter(toolNode => {
               return (
                 toolNode.ad.toLowerCase().includes(q) ||
