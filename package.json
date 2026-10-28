@@ -5,7 +5,8 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
-    "build": "tsc"
+    "typecheck": "../akalin-ai-assistants/node_modules/.bin/tsc --noEmit",
+    "build": "../akalin-ai-assistants/node_modules/.bin/tsc --noEmit"
   },
   "keywords": [
     "webakus",

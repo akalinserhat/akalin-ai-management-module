@@ -17,25 +17,25 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { 
-  Bot, Sparkles, Sliders, Cpu, Code2, Search, Copy, 
+import {
+  Bot, Sparkles, Sliders, Cpu, Code2, Search, Copy,
   Compass, FilePlus, Database, Layers, Terminal, Info,
   Zap, RotateCcw, Plus, Trash2, ChevronDown, ChevronUp, Eye, CheckCircle2,
   SlidersHorizontal, GitBranch, ArrowUp, ArrowDown, Check, X, Shield, ShieldAlert,
   FileCode, Layers2, BookOpen, FileSpreadsheet, FileText, Users, AlertCircle, TrendingUp, FolderOpen,
   Power, Package, Edit2, Thermometer
 } from 'lucide-react';
-import { 
-  BaseCardPage, 
+import {
+  BaseCardPage,
   BaseCard,
   BasitInput,
   BaseButton,
   SaveButton,
   CancelButton,
-  TamsayiInput, 
-  BaseSwitch, 
+  TamsayiInput,
+  BaseSwitch,
   BasePopup,
-  LLMSeciciInput, 
+  LLMSeciciInput,
   YZModelSecici,
   PageLoader,
   useHeaderApi,
@@ -55,12 +55,13 @@ import {
 
 // ─── UI Aksiyonu Seçenekleri ──────────────────────────────────────────────────
 export const UI_ACTION_OPTIONS = [
-  { value: 'YOK', label: '💬 Salt Metin İstemi (Ekran Açma)', badge: 'Metin', color: '#64748b' },
-  { value: 'BULUT_DOSYA_SEC', label: '📁 Bulut Dosyası Seçici (FilesOnClouds)', badge: 'Bulut Dosyası', color: '#3b82f6' },
-  { value: 'EXCEL_IMPORT', label: '📊 Excel İçe Aktarım Ekranı (/excel-import)', badge: 'Excel Aktarım', color: '#10b981' },
-  { value: 'CARI_SEC', label: '👤 Cari Kart Seçici (CariSeciciModal)', badge: 'Cari Seçici', color: '#8b5cf6' },
-  { value: 'URUN_SEC', label: '📦 Ürün & Hizmet Seçici (UrunSeciciModal)', badge: 'Ürün Seçici', color: '#f59e0b' },
-  { value: 'OZEL_ROTA', label: '🔗 Özel ERP Rota Yönlendirmesi', badge: 'Rota / Sayfa', color: '#06b6d4' }
+  { id: 'YOK', value: 'YOK', tanim: '💬 Salt Metin İstemi (Ekran Açma)', label: '💬 Salt Metin İstemi (Ekran Açma)', badge: 'Metin', color: '#64748b' },
+  { id: 'BULUT_DOSYA_SEC', value: 'BULUT_DOSYA_SEC', tanim: '📁 Bulut Dosyası Seçici (FilesOnClouds)', label: '📁 Bulut Dosyası Seçici (FilesOnClouds)', badge: 'Bulut Dosyası', color: '#3b82f6' },
+  { id: 'METIN_YAPISTIR_MODAL', value: 'METIN_YAPISTIR_MODAL', tanim: 'Metin / Kampanya Giriş Penceresi Aç (Önce Metin Al)', label: '📝 Metin / Kampanya Giriş Penceresi Aç (Önce Metin Al)', badge: 'Metin Girişi', color: '#ec4899' },
+  { id: 'EXCEL_IMPORT', value: 'EXCEL_IMPORT', tanim: '📊 Excel İçe Aktarım Ekranı (/excel-import)', label: '📊 Excel İçe Aktarım Ekranı (/excel-import)', badge: 'Excel Aktarım', color: '#10b981' },
+  { id: 'CARI_SEC', value: 'CARI_SEC', tanim: '👤 Cari Kart Seçici (CariSeciciModal)', label: '👤 Cari Kart Seçici (CariSeciciModal)', badge: 'Cari Seçici', color: '#8b5cf6' },
+  { id: 'URUN_SEC', value: 'URUN_SEC', tanim: '📦 Ürün & Hizmet Seçici (UrunSeciciModal)', label: '📦 Ürün & Hizmet Seçici (UrunSeciciModal)', badge: 'Ürün Seçici', color: '#f59e0b' },
+  { id: 'OZEL_ROTA', value: 'OZEL_ROTA', tanim: '🔗 Özel ERP Rota Yönlendirmesi', label: '🔗 Özel ERP Rota Yönlendirmesi', badge: 'Rota / Sayfa', color: '#06b6d4' }
 ];
 
 // ─── Hızlı İstek Şablonları (Presets) ─────────────────────────────────────────
@@ -70,6 +71,12 @@ export const HIZLI_ISTEK_PRESETS = [
     prompt: 'Seçilen dökümanı analiz et, ürün kodlarını, miktarları ve fiyatları çıkararak forma aktar.',
     ikon: 'FileSpreadsheet',
     uiAksiyonu: 'BULUT_DOSYA_SEC'
+  },
+  {
+    baslik: '📝 Metinden / Kampanya Yazısından Belge Oluştur',
+    prompt: 'Girilen kampanya veya fiyat listesi metnini analiz et, koşulları ve kalemleri çıkararak belge taslağı oluştur.',
+    ikon: 'FileText',
+    uiAksiyonu: 'METIN_YAPISTIR_MODAL'
   },
   {
     baslik: '📊 Excel İçe Aktarım Ekranını Aç',
@@ -176,10 +183,10 @@ export interface AiAjanFormProps {
   allAgents?: any[];
 }
 
-export const AiAjanForm: React.FC<AiAjanFormProps> = ({ 
+export const AiAjanForm: React.FC<AiAjanFormProps> = ({
   id: propId,
-  initialData: propInitialData, 
-  onSuccess, 
+  initialData: propInitialData,
+  onSuccess,
   onClose,
   onBack,
   backRoute,
@@ -200,8 +207,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
   const defaultBackRoute = isUnderAyarlar ? '/ayarlar/YapayZekaAyarlari/AiAjanlar' : '/ai-ajanlar';
   const effectiveBackRoute = backRoute || defaultBackRoute;
 
-  const rawId = (propId && propId !== 'yeni') 
-    ? propId 
+  const rawId = (propId && propId !== 'yeni')
+    ? propId
     : (params.id && params.id !== 'yeni' && !isNaN(Number(params.id)) ? params.id : null);
   const effectiveId = (rawId && !isNaN(Number(rawId))) ? rawId : null;
 
@@ -319,7 +326,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       try {
         const parsed = JSON.parse(localInitialData.hizliIsteklerJson);
         if (Array.isArray(parsed)) return parsed;
-      } catch {}
+      } catch { }
     }
     if (localInitialData?.ustAjanId) {
       const parent = internalAllAgents.find(a => a.id === localInitialData.ustAjanId);
@@ -339,7 +346,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       try {
         const parsed = JSON.parse(localInitialData.alternatifModellerJson);
         if (Array.isArray(parsed)) return parsed;
-      } catch {}
+      } catch { }
     }
     return [];
   }, [localInitialData]);
@@ -411,7 +418,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         try {
           const parsed = JSON.parse(localInitialData.alternatifModellerJson);
           if (Array.isArray(parsed)) altModeller = parsed;
-        } catch {}
+        } catch { }
       }
 
       setFormData(prev => ({
@@ -536,7 +543,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       // Düzenleme
       setFormData(prev => ({
         ...prev,
-        hizliIstekler: (prev.hizliIstekler || []).map(x => 
+        hizliIstekler: (prev.hizliIstekler || []).map(x =>
           x.id === modalFormState.id ? { ...x, ...modalFormState } : x
         )
       }));
@@ -602,7 +609,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
   const handleUpdateHizliIstek = (id: string, field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
-      hizliIstekler: (prev.hizliIstekler || []).map(item => 
+      hizliIstekler: (prev.hizliIstekler || []).map(item =>
         item.id === id ? { ...item, [field]: value } : item
       )
     }));
@@ -840,14 +847,14 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       const isToolAdmin = tool.kapsam === 2 || tool.aracKodu?.toLowerCase().startsWith('admin_');
       const isToolErp = !isToolAdmin;
 
-      const matchScope = 
+      const matchScope =
         toolScopeFilter === 'ALL' ||
         (toolScopeFilter === 'ERP' && isToolErp) ||
         (toolScopeFilter === 'ADMIN' && isToolAdmin);
 
       const matchCat = selectedCategory === 'Tümü' || tool.kategoriAdi === selectedCategory;
       const searchLower = toolSearch.toLowerCase().trim();
-      const matchSearch = !searchLower || 
+      const matchSearch = !searchLower ||
         tool.aracAdi?.toLowerCase().includes(searchLower) ||
         tool.aracKodu?.toLowerCase().includes(searchLower) ||
         tool.aciklama?.toLowerCase().includes(searchLower);
@@ -973,18 +980,18 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
             });
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [selectedProvider?.id]);
 
   // ─── MODEL YAPILANDIRMASI & YÖNETİMİ ─────────────────────────────────────────
   const parseModelsFromData = useCallback((data: any, providers: any[]): AiModelConfig[] => {
     const list: AiModelConfig[] = [];
-    
+
     // 1. Birincil Model
     if (data?.modelAdi) {
       const prov = providers.find(p => p.id === Number(data.aiSaglayiciId)) ||
-                   providers.find(p => p.desteklenenModeller?.some((m: string) => m.toLowerCase() === data.modelAdi.toLowerCase()));
+        providers.find(p => p.desteklenenModeller?.some((m: string) => m.toLowerCase() === data.modelAdi.toLowerCase()));
       list.push({
         id: `primary-${data.modelAdi}`,
         modelAdi: data.modelAdi,
@@ -1001,7 +1008,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       try {
         const parsed = JSON.parse(data.alternatifModellerJson);
         if (Array.isArray(parsed)) altList = parsed;
-      } catch {}
+      } catch { }
     }
     if (altList.length === 0 && Array.isArray(data?.alternatifModeller)) {
       altList = data.alternatifModeller;
@@ -1012,7 +1019,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         const trimmed = alt.trim();
         if (!list.some(m => m.modelAdi.toLowerCase() === trimmed.toLowerCase())) {
           const prov = providers.find(p => p.desteklenenModeller?.some((m: string) => m.toLowerCase() === trimmed.toLowerCase())) ||
-                       providers.find(p => p.varsayilanModel?.toLowerCase() === trimmed.toLowerCase());
+            providers.find(p => p.varsayilanModel?.toLowerCase() === trimmed.toLowerCase());
           list.push({
             id: `alt-${trimmed}`,
             modelAdi: trimmed,
@@ -1025,7 +1032,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       } else if (alt && typeof alt === 'object' && alt.modelAdi) {
         if (!list.some(m => m.modelAdi.toLowerCase() === alt.modelAdi.toLowerCase())) {
           const prov = providers.find(p => p.id === Number(alt.aiSaglayiciId)) ||
-                       providers.find(p => p.desteklenenModeller?.some((m: string) => m.toLowerCase() === alt.modelAdi.toLowerCase()));
+            providers.find(p => p.desteklenenModeller?.some((m: string) => m.toLowerCase() === alt.modelAdi.toLowerCase()));
           list.push({
             id: alt.id || `alt-${alt.modelAdi}`,
             modelAdi: alt.modelAdi,
@@ -1157,7 +1164,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                 )}
               </div>
               <span className="text-xs text-secondary">
-                {isPrimary 
+                {isPrimary
                   ? t('birincil_model_aciklama', 'İstekler ilk olarak bu modele yönlendirilir')
                   : t('alternatif_model_aciklama', 'Birincil modele ulaşılamazsa fallback olarak kullanılır')}
               </span>
@@ -1185,10 +1192,10 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       accessor: 'sicaklik',
       render: (item: AiModelConfig) => {
         const val = typeof item.sicaklik === 'number' ? item.sicaklik : 0.7;
-        const category = val <= 0.2 
+        const category = val <= 0.2
           ? { text: t('deterministik', 'Deterministik'), badgeClass: 'badge-info' }
-          : val <= 0.7 
-            ? { text: t('dengeli', 'Dengeli'), badgeClass: 'badge-success' } 
+          : val <= 0.7
+            ? { text: t('dengeli', 'Dengeli'), badgeClass: 'badge-success' }
             : { text: t('yaratici', 'Yaratıcı'), badgeClass: 'badge-warning' };
         return (
           <div className="flex-row items-center gap-8">
@@ -1482,7 +1489,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                 <ShieldAlert size={15} color="var(--accent-primary)" />
                 {t('ajan_kapsami_baslik', 'Ajan Çalışma Kapsamı & Yetki Alanı')} *
               </label>
-              <span style={{ 
+              <span style={{
                 fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '12px',
                 background: formData.kapsam === 2 ? 'rgba(139, 92, 246, 0.15)' : 'rgba(59, 130, 246, 0.15)',
                 color: formData.kapsam === 2 ? '#a855f7' : '#3b82f6',
@@ -1551,8 +1558,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
               </button>
             </div>
             <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-              {formData.kapsam === 2 
-                ? t('kapsam_admin_hint', 'Bu ajan yalnızca Admin paneli süper adminlerine özeldir; ERP kullanıcı ekranlarına kapatılır.') 
+              {formData.kapsam === 2
+                ? t('kapsam_admin_hint', 'Bu ajan yalnızca Admin paneli süper adminlerine özeldir; ERP kullanıcı ekranlarına kapatılır.')
                 : t('kapsam_erp_hint', 'Bu ajan ERP web uygulamasındaki şirket kullanıcıları ve yetkili personeller tarafından kullanılır.')}
             </span>
           </div>
@@ -1563,9 +1570,9 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: 'var(--text-primary)' }}>
                 {t('ajan_adi_label', 'Ajan Adı')} *
               </label>
-              <input 
-                type="text" 
-                className="form-input" 
+              <input
+                type="text"
+                className="form-input"
                 value={formData.ad}
                 onChange={e => setFormData({ ...formData, ad: e.target.value })}
                 placeholder={t('ajan_adi_placeholder', 'Örn: ERP Stok & Fiyat Asistanı')}
@@ -1578,9 +1585,9 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: 'var(--text-primary)' }}>
                 {t('ajan_kodu_label', 'Ajan Kodu (Benzersiz)')} *
               </label>
-              <input 
-                type="text" 
-                className="form-input" 
+              <input
+                type="text"
+                className="form-input"
                 value={formData.kod}
                 onChange={e => setFormData({ ...formData, kod: e.target.value })}
                 placeholder={t('ajan_kodu_placeholder', 'Örn: STOK_ASISTANI')}
@@ -1595,9 +1602,9 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: 'var(--text-primary)' }}>
                 {t('ajan_rol_label', 'Rol / Görev Ünvanı')}
               </label>
-              <input 
-                type="text" 
-                className="form-input" 
+              <input
+                type="text"
+                className="form-input"
                 value={formData.rol}
                 onChange={e => setFormData({ ...formData, rol: e.target.value })}
                 placeholder={t('ajan_rol_placeholder', 'Örn: Envanter ve Depo Uzmanı')}
@@ -1608,9 +1615,9 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
               <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: 'var(--text-primary)' }}>
                 {t('ajan_aciklama_label', 'Ajan Açıklaması')}
               </label>
-              <input 
-                type="text" 
-                className="form-input" 
+              <input
+                type="text"
+                className="form-input"
                 value={formData.aciklama}
                 onChange={e => setFormData({ ...formData, aciklama: e.target.value })}
                 placeholder={t('ajan_aciklama_placeholder', 'Örn: Stok kartları, fiyat listeleri ve depo hareketlerini yönetir.')}
@@ -1647,14 +1654,14 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                 {t('ai_yanit_sentezi_aciklama', 'Araç ve validasyon çıktılarının LLM tarafından insansı yorumlanması')}
               </span>
             </div>
-            
+
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '6px' }}>
               {[
                 { value: 0, label: t('yanit_sentezi_sistem', '🌐 Sistem Ayarını Kullan'), desc: t('yanit_sentezi_sistem_desc', 'Genel sistem ayarını miras alır') },
                 { value: 1, label: t('yanit_sentezi_acik', '✨ Zorunlu Açık (LLM Sentezi)'), desc: t('yanit_sentezi_acik_desc', 'Araç sonuçlarını daima LLM doğal dille sentezler (+1 tur token)') },
                 { value: 2, label: t('yanit_sentezi_kapali', '⚡ Zorunlu Kapalı (Hızlı Mod)'), desc: t('yanit_sentezi_kapali_desc', 'Token tasarrufu, doğrudan teknik araç çıktısını döner') }
               ].map(opt => (
-                <label 
+                <label
                   key={opt.value}
                   style={{
                     flex: '1 1 240px',
@@ -1941,10 +1948,10 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                             padding: '8px 10px',
                             borderRadius: '8px',
                             border: `1px solid ${isSelected ? 'var(--accent-primary)' : 'transparent'}`,
-                            background: isSelected 
-                              ? 'rgba(99, 102, 241, 0.12)' 
-                              : isDisabled 
-                                ? 'rgba(0,0,0,0.04)' 
+                            background: isSelected
+                              ? 'rgba(99, 102, 241, 0.12)'
+                              : isDisabled
+                                ? 'rgba(0,0,0,0.04)'
                                 : 'var(--bg-secondary)',
                             cursor: 'pointer',
                             display: 'flex',
@@ -2331,13 +2338,13 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
           )}
 
           {/* Üst Filtre & Toplu İşlem Çubuğu */}
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            background: 'var(--bg-primary)', 
-            padding: '12px 16px', 
-            borderRadius: '12px', 
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            background: 'var(--bg-primary)',
+            padding: '12px 16px',
+            borderRadius: '12px',
             border: '1px solid var(--glass-border)',
             flexWrap: 'wrap',
             gap: '12px'
@@ -2404,8 +2411,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '240px', justifyContent: 'flex-end' }}>
               <div style={{ position: 'relative', flex: 1, maxWidth: '240px' }}>
                 <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={toolSearch}
                   onChange={e => setToolSearch(e.target.value)}
                   placeholder="Araç ara..."
@@ -2441,8 +2448,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
 
               {/* Toplu Seçim Butonları */}
               <div style={{ display: 'flex', gap: '6px' }}>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={handleSelectAllTools}
                   className="btn btn-secondary"
                   style={{ fontSize: '11.5px', padding: '5px 10px' }}
@@ -2450,8 +2457,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                 >
                   Listelenenleri Seç
                 </button>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={handleClearAllTools}
                   className="btn btn-secondary"
                   style={{ fontSize: '11.5px', padding: '5px 10px' }}
@@ -2463,11 +2470,11 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
           </div>
 
           {/* Araç Kartları Listesi */}
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', 
-            gap: '12px', 
-            maxHeight: '440px', 
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+            gap: '12px',
+            maxHeight: '440px',
             overflowY: 'auto',
             paddingRight: '4px'
           }}>
@@ -2487,8 +2494,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                     onClick={() => handleToggleTool(tool.aracKodu)}
                     style={{
                       border: `1px solid ${isSelected ? (isToolAdmin ? '#a855f7' : 'var(--accent-primary)') : 'var(--glass-border)'}`,
-                      background: isSelected 
-                        ? (isToolAdmin ? 'rgba(168, 85, 247, 0.09)' : 'rgba(99, 102, 241, 0.08)') 
+                      background: isSelected
+                        ? (isToolAdmin ? 'rgba(168, 85, 247, 0.09)' : 'rgba(99, 102, 241, 0.08)')
                         : 'var(--bg-secondary)',
                       borderRadius: '12px',
                       padding: '12px 14px',
@@ -2502,8 +2509,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                     {/* Üst Kısım: İkon, Ad, Kapsam Rozeti & Checkbox */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ 
-                          width: '32px', height: '32px', borderRadius: '8px', 
+                        <div style={{
+                          width: '32px', height: '32px', borderRadius: '8px',
                           background: isSelected ? (isToolAdmin ? '#a855f7' : 'var(--accent-primary)') : 'var(--bg-primary)',
                           color: isSelected ? '#fff' : (isToolAdmin ? '#a855f7' : 'var(--text-primary)'),
                           display: 'flex', alignItems: 'center', justifyContent: 'center'
@@ -2515,7 +2522,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                             <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>
                               {tool.aracAdi || tool.aracKodu}
                             </span>
-                            <span style={{ 
+                            <span style={{
                               fontSize: '9.5px', fontWeight: '700', padding: '1px 5px', borderRadius: '4px',
                               background: isToolAdmin ? 'rgba(168, 85, 247, 0.2)' : 'rgba(59, 130, 246, 0.18)',
                               color: isToolAdmin ? '#a855f7' : '#3b82f6'
@@ -2529,14 +2536,14 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                         </div>
                       </div>
 
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         checked={isSelected}
-                        onChange={() => {}} // onClick ile yönetiliyor
-                        style={{ 
-                          width: '16px', height: '16px', 
-                          accentColor: isToolAdmin ? '#a855f7' : 'var(--accent-primary)', 
-                          cursor: 'pointer' 
+                        onChange={() => { }} // onClick ile yönetiliyor
+                        style={{
+                          width: '16px', height: '16px',
+                          accentColor: isToolAdmin ? '#a855f7' : 'var(--accent-primary)',
+                          cursor: 'pointer'
                         }}
                       />
                     </div>
@@ -2580,15 +2587,15 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
 
                     {/* Genişletilmiş JSON Şeması */}
                     {isExpanded && tool.parametreSemasi && (
-                      <div 
+                      <div
                         onClick={e => e.stopPropagation()}
-                        style={{ 
-                          marginTop: '6px', 
-                          background: 'var(--bg-primary)', 
-                          padding: '10px', 
-                          borderRadius: '8px', 
+                        style={{
+                          marginTop: '6px',
+                          background: 'var(--bg-primary)',
+                          padding: '10px',
+                          borderRadius: '8px',
                           border: '1px solid var(--glass-border)',
-                          fontSize: '11px' 
+                          fontSize: '11px'
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
@@ -2833,7 +2840,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                 <label className="form-label flex-row items-center gap-8">
                   <span>{t('durum', 'Durum')}</span>
                 </label>
-                <div style={{ marginTop: '8px' }}>
+                <div className="mt-8">
                   <BaseSwitch
                     id="modalHizliIstekAktif"
                     checked={modalFormState.aktifMi}
@@ -2857,7 +2864,6 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                   value={modalFormState.prompt}
                   onChange={(e) => setModalFormState(prev => ({ ...prev, prompt: e.target.value }))}
                   placeholder={t('hizli_istek_prompt_placeholder', 'Örn: Açık olan cari kartın son hareketlerini özetle ve risk durumunu bildir.')}
-                  style={{ resize: 'vertical' }}
                 />
               </div>
 
@@ -2871,9 +2877,17 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                   value={modalFormState.uiAksiyonu}
                   onChange={(e) => setModalFormState(prev => ({ ...prev, uiAksiyonu: e.target.value }))}
                 >
-                  {UI_ACTION_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
+                  {[
+                    { id: 'YOK', tanim: t('💬 Salt Metin İstemi (Ekran Açma)') },
+                    { id: 'BULUT_DOSYA_SEC', tanim: t('📁 Bulut Dosyası Seçici (FilesOnClouds)') },
+                    { id: 'METIN_YAPISTIR_MODAL', tanim: t('Metin / Kampanya Giriş Penceresi Aç (Önce Metin Al)') },
+                    { id: 'EXCEL_IMPORT', tanim: t('📊 Excel İçe Aktarım Ekranı (/excel-import)') },
+                    { id: 'CARI_SEC', tanim: t('👤 Cari Kart Seçici (CariSeciciModal)') },
+                    { id: 'URUN_SEC', tanim: t('📦 Ürün & Hizmet Seçici (UrunSeciciModal)') },
+                    { id: 'OZEL_ROTA', tanim: t('🔗 Özel ERP Rota Yönlendirmesi') }
+                  ].map(opt => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.tanim}
                     </option>
                   ))}
                 </select>
@@ -2882,9 +2896,9 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
 
             {/* Modal Aksiyon Butonları */}
             <div className="flex-row items-center justify-between gap-12 modal-footer-actions">
-              <CancelButton 
-                onClick={() => setHizliIstekModal({ isOpen: false, item: null })} 
-                text={t('vazgec', 'Vazgeç')} 
+              <CancelButton
+                onClick={() => setHizliIstekModal({ isOpen: false, item: null })}
+                text={t('vazgec', 'Vazgeç')}
               />
               <SaveButton
                 onClick={handleSaveHizliIstekModal}

@@ -94,6 +94,27 @@ export interface AiSaglayici {
   sistemKaydiMi?: boolean;
 }
 
+export type AiHizliIstekUiAksiyonu =
+  | 'YOK'
+  | 'BULUT_DOSYA_SEC'
+  | 'METIN_YAPISTIR_MODAL'
+  | 'EXCEL_IMPORT'
+  | 'CARI_SEC'
+  | 'URUN_SEC'
+  | 'OZEL_ROTA'
+  | string;
+
+export interface AiHizliIstek {
+  id?: string;
+  baslik: string;
+  prompt?: string;
+  ikon?: string;
+  uiAksiyonu?: AiHizliIstekUiAksiyonu;
+  uiParametreleriJson?: string;
+  sira?: number;
+  aktifMi?: boolean;
+}
+
 export interface AiAjan {
   id: number;
   ad: string;
@@ -113,7 +134,7 @@ export interface AiAjan {
   aktifMi: boolean;
   sistemKaydiMi: boolean;
   ajanAraclari?: any[];
-  hizliIstekler?: any[];
+  hizliIstekler?: AiHizliIstek[];
 }
 
 export interface AiAracKatalogItem {
