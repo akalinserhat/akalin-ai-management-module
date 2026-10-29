@@ -162,7 +162,18 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       uiAksiyonu: 'YOK',
       aktifMi: true,
       tetiklemeAnahtarlari: '',
-      akisDugumleri: []
+      akisDugumleri: [
+        {
+          id: 'BASLA',
+          tip: 'BASLA',
+          baslik: t('basla', 'Başla'),
+          prompt: '',
+          aracKodu: '',
+          uiAksiyonu: 'YOK',
+          hedefRota: '',
+          sonrakiDugumId: ''
+        }
+      ]
     };
   });
 

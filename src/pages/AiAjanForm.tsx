@@ -56,6 +56,7 @@ export const UI_ACTION_OPTIONS = [
 
 // ─── Flowchart Düğüm Tipleri ──────────────────────────────────────────────────
 export const FLOWCHART_NODE_TYPES = [
+  { id: 'BASLA', label: '▶️ Başla', shortLabel: 'Başla' },
   { id: 'BASLANGIC_GIRDI', label: '🏁 Başlangıç & Girdi Al', shortLabel: 'Başlangıç / Girdi' },
   { id: 'MCP_SORGULA', label: '🔍 MCP Veri Sorgulama (Cari / Ürün)', shortLabel: 'MCP Sorgu' },
   { id: 'KARAR_ONAY', label: '⚖️ Kullanıcı Onayı & Seçim (Evet / Hayır)', shortLabel: 'Karar / Onay (E/H)' },
