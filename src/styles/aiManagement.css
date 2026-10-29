@@ -1341,28 +1341,61 @@
   scrollbar-color: var(--glass-border, rgba(0, 0, 0, 0.2)) transparent;
 }
 
-/* Tam Sayfa Flowchart Diyagramı Düzeni */
+/* ─── AiAjanHizliIstekForm - Tam Ekrana Sıfır Boşlukla Yayılan (Fit) Flowchart Düzeni ─── */
+#aiAjanHizliIstekForm .base-page-content-area,
+#aiAjanHizliIstekForm .base-page-content-inner,
+#aiAjanHizliIstekForm .tab-layout-wrapper,
+#aiAjanHizliIstekForm .md3-tab-container,
+#aiAjanHizliIstekForm .md3-tab-panel {
+  padding: 0 !important;
+  margin: 0 !important;
+  height: 100% !important;
+  flex: 1 1 0% !important;
+  overflow: hidden !important;
+}
+
 .ai-flowchart-full-page {
   width: 100%;
+  height: 100%;
   flex: 1 1 0%;
-  min-height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  padding: 0;
+  margin: 0;
 }
 
 .ai-flowchart-full-page .base-flowchart-container {
   width: 100%;
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
   flex: 1 1 0%;
   display: flex;
   flex-direction: column;
+  border: none !important;
+  border-radius: 0 0 calc(var(--page-card-border-radius, 16px) - 1px) calc(var(--page-card-border-radius, 16px) - 1px) !important;
+  box-shadow: none !important;
+  background: var(--bg-secondary);
+}
+
+.ai-flowchart-full-page .base-flowchart-main-body {
+  height: 100%;
+  flex: 1 1 0%;
+  min-height: 0;
+  border-radius: 0 0 calc(var(--page-card-border-radius, 16px) - 1px) calc(var(--page-card-border-radius, 16px) - 1px);
 }
 
 .ai-flowchart-full-page .base-flowchart-stage {
+  height: 100%;
   flex: 1 1 0%;
-  min-height: 520px;
+  min-height: 0 !important;
+  border-radius: 0 0 calc(var(--page-card-border-radius, 16px) - 1px) 0;
   overflow-x: auto !important;
   overflow-y: auto !important;
+}
+
+.ai-flowchart-full-page .base-flowchart-sidebar-palette {
+  border-radius: 0 0 0 calc(var(--page-card-border-radius, 16px) - 1px);
 }
 
 .ai-flowchart-full-page .base-flowchart-spine {

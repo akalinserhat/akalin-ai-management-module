@@ -441,7 +441,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       content: (
         <div className="ai-flowchart-full-page">
           <BaseFlowchart
-            title={t('gorev_akis_diyagrami', 'Görev Akış Diyagramı')}
+            fit={true}
             startNodeId={START_NODE_ID}
             startTitle={formState.baslik || t('gorev_basligi_giriniz', 'Görev Başlığı')}
             startSubtitle={startNodeSubtitle}
