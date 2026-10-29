@@ -236,21 +236,23 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     });
   }, [formState.akisDugumleri, t]);
 
-  const handleAddFlowNode = (nodeType: string = 'MCP_SORGULA', insertAtIndex?: number) => {
+  const handleAddFlowNode = (nodeType: string = 'BASLA', insertAtIndex?: number) => {
     setFormState(prev => {
       const existing = [...(prev.akisDugumleri || [])];
       const nextNum = existing.length + 1;
-      const newId = `ADIM_${nextNum}`;
+      const newId = nodeType === 'BASLA' ? 'BASLA' : `ADIM_${nextNum}`;
       const newNode: AiAkisDugumu = {
         id: newId,
         tip: nodeType,
-        baslik: nodeType === 'KARAR_ONAY'
-          ? `${t('karar_onay_adimi', 'Kullanıcı Onayı')} (${nextNum}. ${t('adim', 'Adım')})`
-          : nodeType === 'BELGE_OLUSTUR'
-            ? `${t('belge_olusturma_adimi', 'Belge Taslağı Oluştur')} (${nextNum}. ${t('adim', 'Adım')})`
-            : nodeType === 'EKRAN_AC'
-              ? `${t('ekran_acma_adimi', 'ERP Ekranı Aç')} (${nextNum}. ${t('adim', 'Adım')})`
-              : `${nextNum}. ${t('islem_adimi', 'İşlem Adımı')}`,
+        baslik: nodeType === 'BASLA'
+          ? t('basla', 'Başla')
+          : nodeType === 'KARAR_ONAY'
+            ? `${t('karar_onay_adimi', 'Kullanıcı Onayı')} (${nextNum}. ${t('adim', 'Adım')})`
+            : nodeType === 'BELGE_OLUSTUR'
+              ? `${t('belge_olusturma_adimi', 'Belge Taslağı Oluştur')} (${nextNum}. ${t('adim', 'Adım')})`
+              : nodeType === 'EKRAN_AC'
+                ? `${t('ekran_acma_adimi', 'ERP Ekranı Aç')} (${nextNum}. ${t('adim', 'Adım')})`
+                : `${nextNum}. ${t('islem_adimi', 'İşlem Adımı')}`,
         prompt: '',
         aracKodu: nodeType === 'KARAR_ONAY'
           ? 'erp_request_confirmation'
@@ -425,6 +427,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
             steps={flowchartSteps}
             selectedStepId={selectedFlowNodeId}
             onSelectStep={(stepId) => setSelectedFlowNodeId(stepId)}
+            onAddStep={(stepType, insertAtIndex) => handleAddFlowNode(stepType, insertAtIndex)}
             onMoveStep={handleMoveFlowNode}
             onDeleteStep={handleDeleteFlowNode}
             className="ai-flowchart-fit"
