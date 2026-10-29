@@ -125,6 +125,7 @@ export interface AiAkisDugumu {
   evetDugumId?: string;
   hayirDugumId?: string;
   hizliErisimDugmesi?: boolean;
+  dugmeBasligi?: string;
 }
 
 export interface AiHizliIstek {
@@ -137,6 +138,7 @@ export interface AiHizliIstek {
   sira?: number;
   aktifMi?: boolean;
   hizliErisimDugmesi?: boolean;
+  dugmeBasligi?: string;
   tetiklemeAnahtarlari?: string;
   akisDugumleri?: AiAkisDugumu[];
 }

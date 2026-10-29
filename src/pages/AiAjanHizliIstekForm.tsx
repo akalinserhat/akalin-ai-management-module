@@ -140,6 +140,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     uiAksiyonu: string;
     aktifMi: boolean;
     hizliErisimDugmesi: boolean;
+    dugmeBasligi?: string;
     sira?: number;
     tetiklemeAnahtarlari: string;
     akisDugumleri: AiAkisDugumu[];
@@ -157,6 +158,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         uiAksiyonu: targetItem.uiAksiyonu || 'YOK',
         aktifMi: targetItem.aktifMi !== false,
         hizliErisimDugmesi: targetItem.hizliErisimDugmesi !== false,
+        dugmeBasligi: targetItem.dugmeBasligi || '',
         sira: targetItem.sira,
         tetiklemeAnahtarlari: targetItem.tetiklemeAnahtarlari || '',
         akisDugumleri: nodes
@@ -171,6 +173,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       uiAksiyonu: 'YOK',
       aktifMi: true,
       hizliErisimDugmesi: true,
+      dugmeBasligi: '',
       tetiklemeAnahtarlari: '',
       akisDugumleri: [
         {
@@ -182,7 +185,8 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
           uiAksiyonu: 'YOK',
           hedefRota: '',
           sonrakiDugumId: '',
-          hizliErisimDugmesi: true
+          hizliErisimDugmesi: true,
+          dugmeBasligi: ''
         }
       ]
     };
@@ -218,6 +222,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         uiAksiyonu: targetItem.uiAksiyonu || 'YOK',
         aktifMi: targetItem.aktifMi !== false,
         hizliErisimDugmesi: targetItem.hizliErisimDugmesi !== false,
+        dugmeBasligi: targetItem.dugmeBasligi || '',
         sira: targetItem.sira,
         tetiklemeAnahtarlari: targetItem.tetiklemeAnahtarlari || '',
         akisDugumleri: nodes
@@ -242,7 +247,8 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
             uiAksiyonu: item.uiAksiyonu || 'YOK',
             hedefRota: '',
             sonrakiDugumId: '',
-            hizliErisimDugmesi: true
+            hizliErisimDugmesi: true,
+            dugmeBasligi: ''
           }
         ];
 
@@ -254,6 +260,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         uiAksiyonu: item.uiAksiyonu || 'YOK',
         aktifMi: item.aktifMi !== false,
         hizliErisimDugmesi: item.hizliErisimDugmesi !== false,
+        dugmeBasligi: item.dugmeBasligi || '',
         sira: item.sira,
         tetiklemeAnahtarlari: item.tetiklemeAnahtarlari || '',
         akisDugumleri: nodes
@@ -433,6 +440,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         prompt: effectiveMainPrompt,
         uiAksiyonu: effectiveMainUiAction,
         hizliErisimDugmesi: (baslaNode?.hizliErisimDugmesi !== undefined ? baslaNode.hizliErisimDugmesi : formState.hizliErisimDugmesi) !== false,
+        dugmeBasligi: (baslaNode?.dugmeBasligi !== undefined ? baslaNode.dugmeBasligi : formState.dugmeBasligi) || '',
         akisDugumleri: cleanedNodes
       };
 
