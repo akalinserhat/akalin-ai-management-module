@@ -10,7 +10,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Play, Key, Terminal, Sparkles, Tag } from 'lucide-react';
+import { Play, Terminal, Sparkles, Tag } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
@@ -190,12 +190,9 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
 
           currentReq.akisDugumleri = currentNodes;
           // DİKKAT: İstek başlığı (currentReq.baslik) korunur, ezilmez!
-          currentReq.tetiklemeAnahtarlari = payloadNode.tetiklemeAnahtarlari || currentReq.tetiklemeAnahtarlari;
           currentReq.hizliErisimDugmesi = payloadNode.hizliErisimDugmesi !== false;
           currentReq.dugmeBasligi = payloadNode.dugmeBasligi || '';
-          if (payloadNode.prompt) {
-            currentReq.prompt = payloadNode.prompt;
-          }
+          currentReq.prompt = payloadNode.prompt ?? currentReq.prompt ?? '';
 
           currentRequests[reqIdx] = currentReq;
           updatedReq = currentReq;
@@ -297,26 +294,13 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
       <div className="form-grid max-w-4xl mx-auto flex flex-col gap-20">
         <div className="form-group">
           <label className="form-label font-semibold text-sm flex items-center gap-6">
-            <Key size={14} className="text-primary" />
-            <span>{t('tetikleyici_anahtarlar', 'Tetikleyici Anahtar Kelimeler')}</span>
-          </label>
-          <BaseInput
-            autoFocus
-            icon={<Key size={14} />}
-            value={formData.tetiklemeAnahtarlari}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, tetiklemeAnahtarlari: e.target.value }))}
-            placeholder={t('tetikleme_anahtarlari_placeholder', 'Örn: kampanya hazırla, teklif oluştur, cari bakiye sor')}
-          />
-        </div>
-
-        <div className="form-group">
-          <label className="form-label font-semibold text-sm flex items-center gap-6">
             <Sparkles size={14} className="text-primary" />
             <span>{t('hizli_erisim_dugmesi', 'Hızlı Erişim Düğmesi')}</span>
           </label>
           <div className="flex items-center gap-16 mt-4">
             <div className="flex-1">
               <BaseInput
+                autoFocus={formData.hizliErisimDugmesi !== false}
                 disabled={formData.hizliErisimDugmesi === false}
                 icon={<Tag size={14} />}
                 value={formData.dugmeBasligi || ''}
@@ -347,13 +331,14 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
         <div className="form-group">
           <label className="form-label font-semibold text-sm flex items-center gap-6">
             <Terminal size={14} className="text-warning" />
-            <span>{t('baslangic_prompt_talimati', 'Başlangıç Prompt Talimatı (İsteğe Bağlı)')}</span>
+            <span>{t('gorev_akisi_amaci_ve_baslangic_talimati', 'Görev Akışının Amacı ve Başlangıç Talimatı')}</span>
           </label>
           <NotInput
+            autoFocus={formData.hizliErisimDugmesi === false}
             rows={4}
             value={formData.prompt}
             onChange={(e) => setFormData((prev: any) => ({ ...prev, prompt: e.target.value }))}
-            placeholder={t('baslangic_prompt_placeholder', 'Ajan bu akışı başlatırken dikkat etmesi gereken özel talimatlar...')}
+            placeholder={t('gorev_akisi_amaci_placeholder', 'Kullanıcı hangi amaçla istekte bulunduğunda LLM bu görev akışını başlatmalı ve başlarken nasıl davranmalı? (Örn: Kullanıcı yeni bir satış kampanyası, promosyon veya indirim kurgulamak istediğinde bu akışı başlat...)')}
           />
         </div>
       </div>

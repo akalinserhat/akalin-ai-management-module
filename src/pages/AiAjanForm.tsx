@@ -1430,10 +1430,10 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
             <span className="ai-hizli-istek-title-text">
               {item.baslik || '-'}
             </span>
-            {item.tetiklemeAnahtarlari && (
+            {item.hizliErisimDugmesi !== false && (
               <span className="ai-hizli-istek-trigger-tags">
                 <Sparkles size={10} />
-                <span>{t('tetikleyici', 'Tetikleyici')}: {item.tetiklemeAnahtarlari}</span>
+                <span>{t('hizli_erisim_dugmesi', 'Hızlı Erişim Düğmesi')}: {item.dugmeBasligi || item.baslik}</span>
               </span>
             )}
           </div>
@@ -1494,10 +1494,10 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     },
     {
       id: 'prompt',
-      header: t('hizli_istek_kolon_prompt', 'Prompt Şablonu'),
+      header: t('gorev_amaci_kolon_baslik', 'Görev Amacı / Başlangıç Talimatı'),
       accessor: 'prompt',
       render: (item: any) => {
-        const prompt = item.prompt || item.akisDugumleri?.[0]?.prompt || '';
+        const prompt = item.akisDugumleri?.[0]?.prompt || item.prompt || '';
         return (
           <span className="ai-hizli-istek-prompt-preview" title={prompt}>
             {prompt.length > 65 ? `${prompt.substring(0, 65)}...` : (prompt || '-')}
