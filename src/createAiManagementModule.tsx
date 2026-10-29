@@ -19,6 +19,7 @@ const AiAjanlarPage = lazy(() => import('./pages/AiAjanlar'));
 const AiAjanFormPage = lazy(() => import('./pages/AiAjanForm'));
 const AiAjanHizliIstekFormPage = lazy(() => import('./pages/AiAjanHizliIstekForm'));
 const AiAjanFlowchartOgeAyarPage = lazy(() => import('./pages/BaseAiAjanFlowchartOgeAyarPage'));
+const BaslaFlowchartOgeAyarPage = lazy(() => import('./pages/BaslaFlowchartOgeAyarPage'));
 const AiMcpYonetimiPage = lazy(() => import('./pages/AiMcpYonetimi'));
 
 export interface CreateAiManagementModuleOptions {
@@ -56,6 +57,7 @@ export function createAiManagementModule(options: CreateAiManagementModuleOption
   const AiAjanFormComponent = options.customComponents?.AiAjanForm || AiAjanFormPage;
   const AiAjanHizliIstekFormComponent = options.customComponents?.AiAjanHizliIstekForm || AiAjanHizliIstekFormPage;
   const AiAjanFlowchartOgeAyarComponent = options.customComponents?.AiAjanFlowchartOgeAyarPage || AiAjanFlowchartOgeAyarPage;
+  const BaslaFlowchartOgeAyarComponent = options.customComponents?.BaslaFlowchartOgeAyarPage || BaslaFlowchartOgeAyarPage;
   const AiMcpYonetimiComponent = options.customComponents?.AiMcpYonetimi || AiMcpYonetimiPage;
 
   return {
@@ -146,6 +148,11 @@ export function createAiManagementModule(options: CreateAiManagementModuleOption
         title: 'Yeni Görev Akışı'
       },
       {
+        path: '/ai-ajanlar/:id/hizli-istek/:istekId/adim/BASLA',
+        element: withProvider(BaslaFlowchartOgeAyarComponent),
+        title: 'Başla Düğümü Ayarları'
+      },
+      {
         path: '/ai-ajanlar/:id/hizli-istek/:istekId/adim/:ogeId',
         element: withProvider(AiAjanFlowchartOgeAyarComponent),
         title: 'Flowchart Öğe Ayarları'
@@ -154,6 +161,11 @@ export function createAiManagementModule(options: CreateAiManagementModuleOption
         path: '/ayarlar/YapayZekaAyarlari/AiAjanlar/:id/hizli-istek/:istekId',
         element: withProvider(AiAjanHizliIstekFormComponent),
         title: 'Görev Akışı (Flowchart)'
+      },
+      {
+        path: '/ayarlar/YapayZekaAyarlari/AiAjanlar/:id/hizli-istek/:istekId/adim/BASLA',
+        element: withProvider(BaslaFlowchartOgeAyarComponent),
+        title: 'Başla Düğümü Ayarları'
       },
       {
         path: '/ayarlar/YapayZekaAyarlari/AiAjanlar/:id/hizli-istek/:istekId/adim/:ogeId',

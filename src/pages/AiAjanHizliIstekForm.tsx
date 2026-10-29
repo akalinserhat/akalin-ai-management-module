@@ -335,6 +335,32 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     }
   };
 
+  const handleNodeDoubleClick = (stepId: string) => {
+    const targetNode = (formState.akisDugumleri || []).find(n => n.id === stepId) || {
+      id: stepId,
+      tip: stepId === 'BASLA' ? 'BASLA' : 'MCP_SORGULA',
+      baslik: stepId === 'BASLA' ? t('basla', 'Başla') : ''
+    };
+
+    if (stepId === 'BASLA' || targetNode.tip === 'BASLA') {
+      navigate(`/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveAgentId}/hizli-istek/${effectiveIstekId}/adim/BASLA`, {
+        state: {
+          agentData,
+          istekData: formState,
+          nodeData: targetNode
+        }
+      });
+    } else {
+      navigate(`/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveAgentId}/hizli-istek/${effectiveIstekId}/adim/${stepId}`, {
+        state: {
+          agentData,
+          istekData: formState,
+          nodeData: targetNode
+        }
+      });
+    }
+  };
+
   const handleSave = async (e?: any) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!formState.baslik?.trim()) {
@@ -427,6 +453,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
             steps={flowchartSteps}
             selectedStepId={selectedFlowNodeId}
             onSelectStep={(stepId) => setSelectedFlowNodeId(stepId)}
+            onDoubleClickStep={handleNodeDoubleClick}
             onAddStep={(stepType, insertAtIndex) => handleAddFlowNode(stepType, insertAtIndex)}
             onMoveStep={handleMoveFlowNode}
             onDeleteStep={handleDeleteFlowNode}
