@@ -4,6 +4,7 @@
  */
 
 import React, { lazy } from 'react';
+import { useParams } from 'react-router-dom';
 import { Bot, Coins } from 'lucide-react';
 import type { IModuleDefinition } from '@akalin/module_core';
 import { IAiManagementAdapter } from './types';
@@ -21,6 +22,19 @@ const AiAjanHizliIstekFormPage = lazy(() => import('./pages/AiAjanHizliIstekForm
 const AiAjanFlowchartOgeAyarPage = lazy(() => import('./pages/BaseAiAjanFlowchartOgeAyarPage'));
 const BaslaFlowchartOgeAyarPage = lazy(() => import('./pages/BaslaFlowchartOgeAyarPage'));
 const AiMcpYonetimiPage = lazy(() => import('./pages/AiMcpYonetimi'));
+
+/**
+ * Flowchart öğe ayar sayfaları için dinamik yönlendirici bileşen
+ * Adım parametresi (ogeId) 'BASLA' ise BaslaFlowchartOgeAyarPage'e, diğer durumlarda temel sınıfa yönlendirir.
+ */
+const FlowchartOgeAyarDispatcher: React.FC = () => {
+  const { ogeId } = useParams<{ ogeId?: string }>();
+  const idUpper = (ogeId || '').toUpperCase();
+  if (idUpper === 'BASLA' || idUpper === 'START') {
+    return <BaslaFlowchartOgeAyarPage />;
+  }
+  return <AiAjanFlowchartOgeAyarPage />;
+};
 
 export interface CreateAiManagementModuleOptions {
   adapter?: IAiManagementAdapter;
@@ -154,7 +168,7 @@ export function createAiManagementModule(options: CreateAiManagementModuleOption
       },
       {
         path: '/ai-ajanlar/:id/hizli-istek/:istekId/adim/:ogeId',
-        element: withProvider(AiAjanFlowchartOgeAyarComponent),
+        element: withProvider(FlowchartOgeAyarDispatcher),
         title: 'Flowchart Öğe Ayarları'
       },
       {
@@ -169,7 +183,7 @@ export function createAiManagementModule(options: CreateAiManagementModuleOption
       },
       {
         path: '/ayarlar/YapayZekaAyarlari/AiAjanlar/:id/hizli-istek/:istekId/adim/:ogeId',
-        element: withProvider(AiAjanFlowchartOgeAyarComponent),
+        element: withProvider(FlowchartOgeAyarDispatcher),
         title: 'Flowchart Öğe Ayarları'
       },
       {

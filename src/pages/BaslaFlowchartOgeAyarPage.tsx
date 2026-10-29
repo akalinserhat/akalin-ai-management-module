@@ -64,13 +64,16 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
 
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
+  const isUnderAyarlar = location.pathname.startsWith('/ayarlar');
   const effectiveBackRoute = useMemo(() => {
     if (backRoute) return backRoute;
     if (effectiveAgentId && effectiveIstekId) {
-      return `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveAgentId}/hizli-istek/${effectiveIstekId}`;
+      return isUnderAyarlar
+        ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveAgentId}/hizli-istek/${effectiveIstekId}`
+        : `/ai-ajanlar/${effectiveAgentId}/hizli-istek/${effectiveIstekId}`;
     }
     return -1 as any;
-  }, [backRoute, effectiveAgentId, effectiveIstekId]);
+  }, [backRoute, effectiveAgentId, effectiveIstekId, isUnderAyarlar]);
 
   const handleSave = async (dataToSave: any) => {
     try {
@@ -80,9 +83,14 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
         ...dataToSave
       };
 
-      if (effectiveAgentId && incomingAgentData && effectiveIstekId) {
-        const agentToUpdate = { ...incomingAgentData };
-        const currentRequests = Array.isArray(agentToUpdate.hizliIstekler) ? [...agentToUpdate.hizliIstekler] : [];
+      if (effectiveAgentId && effectiveIstekId) {
+        let agentToUpdate = incomingAgentData;
+        if (!agentToUpdate) {
+          const res = await axios.get(`/api/AiAjanlar/${effectiveAgentId}`);
+          agentToUpdate = res.data;
+        }
+
+        const currentRequests = Array.isArray(agentToUpdate?.hizliIstekler) ? [...agentToUpdate.hizliIstekler] : [];
         const currentReq = currentRequests.find((x: any) => x.id === effectiveIstekId);
 
         if (currentReq) {

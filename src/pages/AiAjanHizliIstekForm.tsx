@@ -338,27 +338,25 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
   const handleNodeDoubleClick = (stepId: string) => {
     const targetNode = (formState.akisDugumleri || []).find(n => n.id === stepId) || {
       id: stepId,
-      tip: stepId === 'BASLA' ? 'BASLA' : 'MCP_SORGULA',
-      baslik: stepId === 'BASLA' ? t('basla', 'Başla') : ''
+      tip: (stepId === 'BASLA' || stepId === '__START__') ? 'BASLA' : 'MCP_SORGULA',
+      baslik: (stepId === 'BASLA' || stepId === '__START__') ? t('basla', 'Başla') : ''
     };
 
-    if (stepId === 'BASLA' || targetNode.tip === 'BASLA') {
-      navigate(`/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveAgentId}/hizli-istek/${effectiveIstekId}/adim/BASLA`, {
-        state: {
-          agentData,
-          istekData: formState,
-          nodeData: targetNode
-        }
-      });
-    } else {
-      navigate(`/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveAgentId}/hizli-istek/${effectiveIstekId}/adim/${stepId}`, {
-        state: {
-          agentData,
-          istekData: formState,
-          nodeData: targetNode
-        }
-      });
-    }
+    const isStart = stepId === 'BASLA' || stepId === '__START__' || targetNode.tip === 'BASLA';
+    const ogeParam = isStart ? 'BASLA' : stepId;
+    const currentIstekId = effectiveIstekId || formState.id;
+
+    const targetUrl = isUnderAyarlar
+      ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveAgentId}/hizli-istek/${currentIstekId}/adim/${ogeParam}`
+      : `/ai-ajanlar/${effectiveAgentId}/hizli-istek/${currentIstekId}/adim/${ogeParam}`;
+
+    navigate(targetUrl, {
+      state: {
+        agentData,
+        istekData: formState,
+        nodeData: targetNode
+      }
+    });
   };
 
   const handleSave = async (e?: any) => {
