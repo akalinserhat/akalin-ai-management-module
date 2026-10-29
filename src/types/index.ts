@@ -104,6 +104,28 @@ export type AiHizliIstekUiAksiyonu =
   | 'OZEL_ROTA'
   | string;
 
+export type AiAkisDugumuTipi =
+  | 'BASLANGIC_GIRDI'
+  | 'MCP_SORGULA'
+  | 'KARAR_ONAY'
+  | 'EKRAN_AC'
+  | 'BELGE_OLUSTUR'
+  | 'SONUC'
+  | string;
+
+export interface AiAkisDugumu {
+  id: string;
+  tip: AiAkisDugumuTipi;
+  baslik: string;
+  prompt: string;
+  aracKodu?: string;
+  uiAksiyonu?: AiHizliIstekUiAksiyonu;
+  hedefRota?: string;
+  sonrakiDugumId?: string;
+  evetDugumId?: string;
+  hayirDugumId?: string;
+}
+
 export interface AiHizliIstek {
   id?: string;
   baslik: string;
@@ -113,6 +135,8 @@ export interface AiHizliIstek {
   uiParametreleriJson?: string;
   sira?: number;
   aktifMi?: boolean;
+  tetiklemeAnahtarlari?: string;
+  akisDugumleri?: AiAkisDugumu[];
 }
 
 export interface AiAjan {

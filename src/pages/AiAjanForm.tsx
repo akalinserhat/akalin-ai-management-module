@@ -1,15 +1,11 @@
 /**
- * Webakus AdminUI - Yapay Zeka (AI) Ajanı, Madde Bazlı Kural & Override Sayfası (AiAjanForm)
- * 
+ * Webakus AdminUI - Yapay Zeka (AI) Ajanı, Sabit Sistem İstemi & Görsel Flowchart Görev Akışı Sayfası (AiAjanForm)
+ *
  * Başlıca Sorumlulukları ve Görevleri:
+ * - Katman 1: Sabit Sistem İstemi (System Prompt & Yetki Sınırları) ile ajanın kimliğini, yetki sınırlarını ve konu dışı soruları nazikçe reddetme politikasını tanımlamak
+ * - Katman 2: MCP araçları (erp_query_data, erp_navigate, erp_request_confirmation, erp_create_document vb.) ile ajanın kendi zekasıyla otonom çalışmasını yetkilendirmek
+ * - Katman 3: Tanımlı görevler (Hızlı İstekler & Görev Akışları) için Görsel Flowchart (Akış Diyagramı) ve Adım Bazlı Prompt Giriş Ekranı sunmak
  * - BaseCardPage temel bileşeninden türetilerek tüm diğer kart sayfalarıyla %100 görsel ve mimari tutarlılık sağlamak
- * - Breadcrumb üzerinde ajanın adının (recordTitle) anlık senkronize edilmesi
- * - Master-Detail (Sol Liste + Sağ Geniş Editör) mimarisiyle Madde Madde Kural ve OOP Override yönetimi
- * - Base (Kök) Ajan seçimi ve miras alınan kuralların görsel olarak yönetilmesi
- * - LLMSeciciInput ve YZModelSecici ile sağlayıcı ve model yapılandırması
- * - Model Context Protocol (MCP) ERP araçlarının ajana yetkilendirilmesi
- * - Hızlı İstekler & UI butonlarının yönetimi
- * - Sayfa başlığında ActionMenu ve global Kaydet (Cmd+S / Ctrl+S) entegrasyonu
  */
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -18,40 +14,34 @@ import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
-  Bot, Sparkles, Sliders, Cpu, Code2, Search, Copy,
+  Bot, Sparkles, Cpu, Code2, Search, Copy,
   Compass, FilePlus, Database, Layers, Terminal, Info,
-  Zap, RotateCcw, Plus, Trash2, ChevronDown, ChevronUp, Eye, CheckCircle2,
-  SlidersHorizontal, GitBranch, ArrowUp, ArrowDown, Check, X, Shield, ShieldAlert,
-  FileCode, Layers2, BookOpen, FileSpreadsheet, FileText, Users, AlertCircle, TrendingUp, FolderOpen,
-  Power, Package, Edit2, Thermometer
+  Zap, RotateCcw, Plus, Trash2, Eye, CheckCircle2,
+  SlidersHorizontal, GitBranch, ArrowUp, ArrowDown, X, Shield, ShieldAlert,
+  BookOpen, FileSpreadsheet, FileText, Users, AlertCircle, TrendingUp, FolderOpen,
+  Power, Package, Edit2
 } from 'lucide-react';
 import {
   BaseCardPage,
-  BaseCard,
   BasitInput,
-  BaseButton,
   SaveButton,
   CancelButton,
-  TamsayiInput,
   BaseSwitch,
-  BasePopup,
-  LLMSeciciInput,
-  YZModelSecici,
   PageLoader,
   useHeaderApi,
   useAlertDialog,
-  BaseListPage,
-  ActionMenu,
   DataTable,
   EkleFloatCircleButton,
+  ActionMenu,
   type Column,
-  type ActionMenuItem,
-  type BaseTabItem
+  type ActionMenuItem
 } from '@akalin/ui';
 import {
   AiModelSelection,
   type AiModelConfig
 } from '@akalin/ai-assistants';
+import type { AiAkisDugumu } from '../types';
+import AiAjanHizliIstekForm from './AiAjanHizliIstekForm';
 
 // ─── UI Aksiyonu Seçenekleri ──────────────────────────────────────────────────
 export const UI_ACTION_OPTIONS = [
@@ -64,43 +54,161 @@ export const UI_ACTION_OPTIONS = [
   { id: 'OZEL_ROTA', value: 'OZEL_ROTA', tanim: '🔗 Özel ERP Rota Yönlendirmesi', label: '🔗 Özel ERP Rota Yönlendirmesi', badge: 'Rota / Sayfa', color: '#06b6d4' }
 ];
 
-// ─── Hızlı İstek Şablonları (Presets) ─────────────────────────────────────────
+// ─── Flowchart Düğüm Tipleri ──────────────────────────────────────────────────
+export const FLOWCHART_NODE_TYPES = [
+  { id: 'BASLANGIC_GIRDI', label: '🏁 Başlangıç & Girdi Al', shortLabel: 'Başlangıç / Girdi' },
+  { id: 'MCP_SORGULA', label: '🔍 MCP Veri Sorgulama (Cari / Ürün)', shortLabel: 'MCP Sorgu' },
+  { id: 'KARAR_ONAY', label: '⚖️ Kullanıcı Onayı & Seçim (Evet / Hayır)', shortLabel: 'Karar / Onay (E/H)' },
+  { id: 'EKRAN_AC', label: '🖥️ ERP Ekranı Aç & Kayıt Bekle (Handshake)', shortLabel: 'Ekran Aç' },
+  { id: 'BELGE_OLUSTUR', label: '📄 Belge / Taslak Oluştur', shortLabel: 'Belge Oluştur' },
+  { id: 'SONUC', label: '✅ Tamamlama & Yönetici Özeti', shortLabel: 'Sonuç' }
+];
+
+// ─── Hazır Görev Akışı (Flowchart) & Hızlı İstek Şablonları ───────────────────
 export const HIZLI_ISTEK_PRESETS = [
+  {
+    baslik: '🛒 Kontrollü Satış & Fatura Oluştur (Adres Onaylı)',
+    prompt: 'Müşteri ve ürün bilgilerini kontrol ederek adres onayı al ve satış faturası/siparişi oluştur.',
+    ikon: 'Package',
+    uiAksiyonu: 'YOK',
+    tetiklemeAnahtarlari: 'satış yap, fatura kes, sipariş oluştur, ürün sat, satış faturası',
+    akisDugumleri: [
+      {
+        id: 'ADIM_1',
+        tip: 'MCP_SORGULA',
+        baslik: 'Cari Hesap & Kayıtlı Adresleri Sorgula',
+        aracKodu: 'erp_query_data',
+        uiAksiyonu: 'YOK',
+        prompt: 'Kullanıcının belirttiği müşteri adını veya unvanını erp_query_data (entity: "cari") aracı ile sorgula. Müşterinin Cari ID bilgisini ve kayıtlı teslimat/fatura adreslerini (Adresler listesi) tespit et.',
+        sonrakiDugumId: 'ADIM_2'
+      },
+      {
+        id: 'ADIM_2',
+        tip: 'MCP_SORGULA',
+        baslik: 'Ürün Kartı & Fiyat Bilgisini Sorgula',
+        aracKodu: 'erp_query_data',
+        uiAksiyonu: 'YOK',
+        prompt: 'Satılacak ürün kodunu veya adını erp_query_data (entity: "urun") aracı ile sorgula. Ürün kodunu, adını ve birim fiyatını doğrula (kullanıcı özel bir satış fiyatı belirttiyse o fiyatı baz al).',
+        sonrakiDugumId: 'ADIM_3'
+      },
+      {
+        id: 'ADIM_3',
+        tip: 'KARAR_ONAY',
+        baslik: 'Teslimat Adresi Onayı İste (Evet / Hayır)',
+        aracKodu: 'erp_request_confirmation',
+        uiAksiyonu: 'YOK',
+        hedefRota: '/cariler/:id/adres?tip=2',
+        prompt: 'Fatura veya sipariş taslağını oluşturmadan önce erp_request_confirmation aracını çağırarak müşterinin mevcut kayıtlı adresini kullanıcıya göster ve "Satış bu adrese mi yapılacak?" diye onay iste. Red yönlendirme URL olarak "/cariler/{cariId}/adres?tip=2" gönder.',
+        evetDugumId: 'ADIM_4',
+        hayirDugumId: 'ADIM_5'
+      },
+      {
+        id: 'ADIM_4',
+        tip: 'BELGE_OLUSTUR',
+        baslik: 'Satış Faturası / Sipariş Taslağını Oluştur',
+        aracKodu: 'erp_create_document',
+        uiAksiyonu: 'YOK',
+        prompt: 'Kullanıcı mevcut adresi onayladı veya yeni adres kaydını tamamladı. Şimdi erp_create_document (documentType: "Fatura" veya "Siparis") aracını çağırarak gerçek cariId, onaylanan teslimatAdresi, odemeYontemi ve kalemler (urunKodu, miktar, birimFiyat) ile belge taslağını oluştur.',
+        sonrakiDugumId: ''
+      },
+      {
+        id: 'ADIM_5',
+        tip: 'EKRAN_AC',
+        baslik: 'Cari Kart Yeni Adres Ekranını Aç & Kaydı Bekle',
+        aracKodu: 'erp_navigate',
+        uiAksiyonu: 'OZEL_ROTA',
+        hedefRota: '/cariler/:id/adres?tip=2',
+        prompt: 'Kullanıcı yeni adres tanımlamak istedi. Sol ana ekranda ilgili müşterinin Cari Kart Adres sekmesi (/cariler/{cariId}/adres?tip=2) açıldı. Kullanıcı yeni adresi kaydedip tamamladığında otomatik olarak Belge Oluşturma adımına (ADIM_4) geç.',
+        sonrakiDugumId: 'ADIM_4'
+      }
+    ] as AiAkisDugumu[]
+  },
+  {
+    baslik: '📝 Kampanya Metninden Belge Oluştur',
+    prompt: 'Girilen kampanya veya fiyat listesi metnini analiz et, koşulları ve kalemleri çıkararak belge taslağı oluştur.',
+    ikon: 'FileText',
+    uiAksiyonu: 'METIN_YAPISTIR_MODAL',
+    tetiklemeAnahtarlari: 'kampanya metni, bülten analizi, kampanya belgesi oluştur, metinden kampanya',
+    akisDugumleri: [
+      {
+        id: 'ADIM_1',
+        tip: 'BASLANGIC_GIRDI',
+        baslik: 'Kampanya / Bülten Metnini Al',
+        aracKodu: '',
+        uiAksiyonu: 'METIN_YAPISTIR_MODAL',
+        prompt: 'Kullanıcıya önce Metin / Kampanya Giriş Penceresi açarak analiz edilecek kampanya bülteni veya fiyat listesi metnini al.',
+        sonrakiDugumId: 'ADIM_2'
+      },
+      {
+        id: 'ADIM_2',
+        tip: 'MCP_SORGULA',
+        baslik: 'Metindeki Ürün Kodlarını ERP Stoklarında Doğrula',
+        aracKodu: 'erp_query_data',
+        uiAksiyonu: 'YOK',
+        prompt: 'Kullanıcının girdiği kampanya metnindeki ürün kodlarını, kampanya fiyatlarını ve tarih aralığını ayrıştır. Gerekirse erp_query_data (entity: "urun") ile ürün karşılıklarını kontrol et.',
+        sonrakiDugumId: 'ADIM_3'
+      },
+      {
+        id: 'ADIM_3',
+        tip: 'BELGE_OLUSTUR',
+        baslik: 'Kampanya / Fiyat Listesi Taslağını Oluştur',
+        aracKodu: 'erp_create_document',
+        uiAksiyonu: 'YOK',
+        prompt: 'Analiz edilen kampanya başlığı, geçerlilik tarihleri ve ürün/fiyat kalemleriyle erp_create_document aracını çağırarak belge taslağını oluştur ve kullanıcıya yönetici özeti sun.',
+        sonrakiDugumId: ''
+      }
+    ] as AiAkisDugumu[]
+  },
   {
     baslik: '📁 Bulut Dosyasından Fiyat/Belge Aktar',
     prompt: 'Seçilen dökümanı analiz et, ürün kodlarını, miktarları ve fiyatları çıkararak forma aktar.',
     ikon: 'FileSpreadsheet',
-    uiAksiyonu: 'BULUT_DOSYA_SEC'
-  },
-  {
-    baslik: '📝 Metinden / Kampanya Yazısından Belge Oluştur',
-    prompt: 'Girilen kampanya veya fiyat listesi metnini analiz et, koşulları ve kalemleri çıkararak belge taslağı oluştur.',
-    ikon: 'FileText',
-    uiAksiyonu: 'METIN_YAPISTIR_MODAL'
+    uiAksiyonu: 'BULUT_DOSYA_SEC',
+    tetiklemeAnahtarlari: 'bulut dosyası, dosyadan aktar, pdf analiz',
+    akisDugumleri: [
+      {
+        id: 'ADIM_1',
+        tip: 'BASLANGIC_GIRDI',
+        baslik: 'Bulut Dosyası Seçiciyi Aç',
+        aracKodu: 'erp_list_cloud_files',
+        uiAksiyonu: 'BULUT_DOSYA_SEC',
+        prompt: 'Kullanıcının bulut depolamadan (FilesOnClouds) belge seçmesini sağla ve seçilen dosyanın içeriğini analiz et.',
+        sonrakiDugumId: 'ADIM_2'
+      },
+      {
+        id: 'ADIM_2',
+        tip: 'BELGE_OLUSTUR',
+        baslik: 'Dosyadaki Kalemlerden Belge Taslağı Oluştur',
+        aracKodu: 'erp_create_document',
+        uiAksiyonu: 'YOK',
+        prompt: 'Seçilen bulut dosyasındaki cari, ürün ve fiyat bilgilerini ayrıştırarak erp_create_document aracıyla ERP belge taslağını hazırla.',
+        sonrakiDugumId: ''
+      }
+    ] as AiAkisDugumu[]
   },
   {
     baslik: '📊 Excel İçe Aktarım Ekranını Aç',
     prompt: 'Excel dosyasındaki ürün ve fiyat sütunlarını bu formla eşleştir ve aktar.',
     ikon: 'FileText',
-    uiAksiyonu: 'EXCEL_IMPORT'
+    uiAksiyonu: 'EXCEL_IMPORT',
+    tetiklemeAnahtarlari: 'excel aktar, toplu ürün yükle',
+    akisDugumleri: [] as AiAkisDugumu[]
   },
   {
     baslik: '👤 Seçili Cariye Özel Fiyat Çıkar',
     prompt: 'Seçilen cari hesabın geçmiş alış/satış koşullarını analiz ederek özel fiyat listesi öner.',
     ikon: 'Users',
-    uiAksiyonu: 'CARI_SEC'
+    uiAksiyonu: 'CARI_SEC',
+    tetiklemeAnahtarlari: 'cari özel fiyat, müşteri fiyat analizi',
+    akisDugumleri: [] as AiAkisDugumu[]
   },
   {
     baslik: '🔍 Riskli ve Düşük Karlı Kalemleri Raporla',
     prompt: 'Formdaki birim fiyatları son alış maliyetleriyle karşılaştırarak kar marjı düşük kalemleri listele.',
     ikon: 'AlertCircle',
-    uiAksiyonu: 'YOK'
-  },
-  {
-    baslik: '📈 Bu Sayfadaki Verileri Özetle',
-    prompt: 'Açık olan belgenin genel toplamlarını, kalem sayılarını ve kritik noktalarını özetle.',
-    ikon: 'TrendingUp',
-    uiAksiyonu: 'YOK'
+    uiAksiyonu: 'YOK',
+    tetiklemeAnahtarlari: 'düşük kar, zarar kontrolü, maliyet analizi',
+    akisDugumleri: [] as AiAkisDugumu[]
   }
 ];
 
@@ -112,34 +220,50 @@ const ERP_RULE_PRESETS = [
     icerik: 'Yalnızca kullanıcının yetkili olduğu şube ve firma verileri üzerinden işlem yap. Gizli verileri veya maliyet analizlerini kullanıcı açıkça sormadıkça yanıtlarda paylaşma.'
   },
   {
-    baslik: 'ERP Modül & Ekran Yönlendirmesi',
-    aciklama: 'Otomatik ERP sayfa navigasyonu',
-    icerik: 'Kullanıcının talebini yerine getirdikten sonra ilgili ERP ekranına (Stok Kartı, Sipariş Formu, Fatura Listesi vb.) gitmesi için erp_navigate aracını kullan ve kullanıcıyı yönlendir.'
+    baslik: 'Konu Dışı Soruları Nazikçe Reddetme',
+    aciklama: 'ERP kapsamı dışındaki talepleri geri çevirme kuralı',
+    icerik: 'Görev ve yetki alanın yalnızca Webakus ERP işlemleri, ticari belgeler, cari hesaplar, stok/ürün yönetimi ve şirket içi analizlerle sınırlıdır. Kullanıcı bu kapsamın dışında (genel kültür, yemek tarifi, spor, siyaset, eğlence vb.) bir soru sorduğunda nazik ve profesyonel bir dille yalnızca Webakus ERP süreçlerinde yardımcı olabileceğini belirterek geri çevir.'
   },
   {
-    baslik: 'MCP Araç Çağırma & Belge Standardı',
-    aciklama: 'Belge oluşturma ve MCP araç kuralı',
-    icerik: 'Belge ve veri oluşturma işlemlerinde erp_create_document gibi tanımlı MCP araçlarını çağırarak işlem yap. Sohbet metninde kullanıcıya ham JSON dökümü yapmak yerine şık bir Türkçe yönetici özeti sun.'
-  },
-  {
-    baslik: 'Fiyat Politikası & İskonto Sınırı',
-    aciklama: 'Fiyat ve iskonto limitleri',
-    icerik: 'Ürün fiyat listelerini ve KDV dahil/hariç birim fiyatlarını doğru listeler üzerinden kontrol et. Tanımlı iskonto limitinin üzerinde indirim uygulama.'
+    baslik: 'Otonom MCP Araç Kullanımı',
+    aciklama: 'MCP fonksiyonlarını kendi zekasıyla kullanma ilkesi',
+    icerik: 'Kullanıcının talebi yetki sınırların içerisindeyse, sana tanımlı MCP araçlarının (erp_query_data, erp_navigate, erp_get_page_context vb.) açıklamalarını okuyarak kendi zekanla doğru aracı seç ve çalıştır. Ancak tanımlı bir Görev Akışı (Flowchart) tetiklendiyse o akıştaki adımları sırasıyla ve eksiksiz uygula.'
   },
   {
     baslik: 'Veri Doğrulama & Teyit',
     aciklama: 'Eksik veri onay mekanizması',
-    icerik: 'Cari hesap veya ürün kodları eksik veya belirsizse kullanıcıdan onay iste, hiçbir veriyi tahmini veya varsayımsal olarak doldurma.'
+    icerik: 'Cari hesap, teslimat adresi veya ürün kodları eksik ya da belirsizse erp_request_confirmation aracıyla kullanıcıdan onay iste; hiçbir veriyi tahmini olarak doldurma.'
+  }
+];
+
+// ─── Adım Prompt Hızlı Parçacıkları (Flowchart Step Snippets) ─────────────────
+const STEP_PROMPT_SNIPPETS = [
+  {
+    label: '+ Cari & Adres Sorgula',
+    text: 'Kullanıcının belirttiği müşteriyi erp_query_data (entity: "cari") aracıyla ara, Cari ID ve kayıtlı Adresler listesini al.'
+  },
+  {
+    label: '+ Ürün & Fiyat Doğrula',
+    text: 'Belirtilen ürün kodunu veya adını erp_query_data (entity: "urun") ile sorgula; kullanıcı özel bir satış fiyatı belirttiyse o fiyatı kullan.'
+  },
+  {
+    label: '+ Adres Onay Kartı Göster (Evet/Hayır)',
+    text: 'erp_request_confirmation aracını çağırarak müşterinin kayıtlı adresini göster ve "Satış bu adrese mi yapılacak?" diye onay iste. Hayır durumunda "/cariler/{cariId}/adres?tip=2" rotasına yönlendir.'
+  },
+  {
+    label: '+ Belge Taslağı Oluştur',
+    text: 'Onaylanan cariId, teslimatAdresi, odemeYontemi ve kalemler (urunKodu, miktar, birimFiyat) bilgileriyle erp_create_document aracını çağır.'
   }
 ];
 
 // ─── Araç Kategori ve İkon Eşleştirici ──────────────────────────────────────────
-const getToolIcon = (iconName, categoryName) => {
+const getToolIcon = (iconName?: string, categoryName?: string) => {
   const name = (iconName || '').toLowerCase();
   const cat = (categoryName || '').toLowerCase();
 
   if (name === 'compass' || cat.includes('navigasyon')) return <Compass size={18} />;
   if (name === 'fileplus' || cat.includes('belge') || cat.includes('işlem')) return <FilePlus size={18} />;
+  if (name === 'checkcircle2' || cat.includes('etkileşim') || cat.includes('onay')) return <CheckCircle2 size={18} />;
   if (name === 'database' || cat.includes('veri') || cat.includes('analiz') || cat.includes('rapor')) return <Database size={18} />;
   if (name === 'layers' || cat.includes('sistem') || cat.includes('bağlam')) return <Layers size={18} />;
   return <Terminal size={18} />;
@@ -160,7 +284,7 @@ export const getHizliIstekIcon = (iconName?: string) => {
 };
 
 // ─── Canlı Prompt Derleyici ───────────────────────────────────────────────────
-const compilePromptPreview = (rules = []) => {
+const compilePromptPreview = (rules: any[] = []) => {
   return rules
     .filter(r => r.durum !== 'DevreDisi' && r.icerik?.trim())
     .sort((a, b) => (a.sira || 0) - (b.sira || 0))
@@ -227,6 +351,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         kapsam: src.kapsam || 1,
         ustAjanId: src.id,
         ustAjanAdi: src.ad,
+        sistemIstemi: src.sistemIstemi || '',
         kurallar: src.kurallar?.map((k: any) => ({
           ...k,
           durum: 'MirasAlindi',
@@ -292,32 +417,24 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     }
   }, [effectiveId]);
 
-  const [activeTabId, setActiveTabId] = useState('genel');
-  const [showPromptPreview, setShowPromptPreview] = useState(false);
+  const [activeTabId, setActiveTabId] = useState<string>(() => {
+    return location.state?.activeTabId || 'genel';
+  });
+
+  useEffect(() => {
+    if (location.state?.activeTabId) {
+      setActiveTabId(location.state.activeTabId);
+    }
+  }, [location.state?.activeTabId]);
+
+  // Katman 1 görünüm modu: 'sabitPrompt' (Sabit Sistem İstemi & Yetki Sınırları) veya 'kurallar' (Madde Bazlı Kurallar)
+  const [systemPromptViewMode, setSystemPromptViewMode] = useState<'sabitPrompt' | 'kurallar'>('sabitPrompt');
   const [showPresetsModal, setShowPresetsModal] = useState(false);
-  const [selectedRuleId, setSelectedRuleId] = useState(null);
+  const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
   const [ruleFilter, setRuleFilter] = useState('Tümü');
   const [hizliIsteklerRefreshKey, setHizliIsteklerRefreshKey] = useState(0);
 
-  // Hızlı İstek Ekle / Düzenle Modal Durumu
-  const [hizliIstekModal, setHizliIstekModal] = useState<{
-    isOpen: boolean;
-    item: any | null;
-  }>({
-    isOpen: false,
-    item: null
-  });
-
-  const [modalFormState, setModalFormState] = useState<any>({
-    id: '',
-    baslik: '',
-    prompt: '',
-    ikon: 'Sparkles',
-    uiAksiyonu: 'YOK',
-    aktifMi: true
-  });
-
-  // Hızlı İstekler listesini başlat (Miras veya localInitialData'dan)
+  // Hızlı İstekler listesini başlat
   const initialHizliIstekler = useMemo(() => {
     if (Array.isArray(localInitialData?.hizliIstekler) && localInitialData.hizliIstekler.length > 0) {
       return localInitialData.hizliIstekler;
@@ -351,12 +468,11 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     return [];
   }, [localInitialData]);
 
-  // Kural listesini başlat (Kök ajanların kuralları 'Yeni'/düzenlenebilir olarak başlatılır)
+  // Kural listesini başlat
   const initialRules = useMemo(() => {
     if (localInitialData?.kurallar && localInitialData.kurallar.length > 0) {
       if (!localInitialData.ustAjanId) {
-        // Kök veya bağımsız ajanın kuralları doğrudan düzenlenebilir olmalıdır
-        return localInitialData.kurallar.map(k => ({
+        return localInitialData.kurallar.map((k: any) => ({
           ...k,
           durum: k.durum === 'DevreDisi' ? 'DevreDisi' : (k.durum === 'MirasAlindi' ? 'Yeni' : (k.durum || 'Yeni'))
         }));
@@ -366,7 +482,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     if (localInitialData?.ustAjanId) {
       const parent = internalAllAgents.find(a => a.id === localInitialData.ustAjanId);
       if (parent?.kurallar?.length > 0) {
-        return parent.kurallar.map(k => ({
+        return parent.kurallar.map((k: any) => ({
           ...k,
           durum: 'MirasAlindi',
           orijinalBaseIcerik: k.icerik
@@ -376,8 +492,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     return [
       {
         id: 'KIMLIK',
-        baslik: 'Ajan Kimliği ve Misyonu',
-        icerik: localInitialData?.sistemIstemi || 'Sen Webakus ERP sisteminde çalışan yetkili ve akıllı bir yapay zeka asistanısın.',
+        baslik: 'Ajan Kimliği ve Yetki Sınırları',
+        icerik: localInitialData?.sistemIstemi || 'Sen Webakus ERP sisteminde çalışan yetkili bir yapay zeka asistanısın. Yalnızca ERP kapsamındaki işlemlerde yardımcı ol; konu dışı soruları nazikçe reddet.',
         sira: 1,
         durum: 'Yeni',
         kilitliMi: false
@@ -385,7 +501,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     ];
   }, [localInitialData, internalAllAgents]);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<any>({
     ad: localInitialData?.ad || '',
     kod: localInitialData?.kod || '',
     rol: localInitialData?.rol || 'Genel ERP Asistanı',
@@ -395,7 +511,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     kapsam: localInitialData?.kapsam || 1,
     ustAjanId: localInitialData?.ustAjanId || null,
     kurallar: initialRules,
-    sistemIstemi: localInitialData?.sistemIstemi || '',
+    sistemIstemi: localInitialData?.sistemIstemi || compilePromptPreview(initialRules),
     aiSaglayiciId: localInitialData?.aiSaglayiciId || (internalProviders.find(p => p.aktifMi)?.id || internalProviders[0]?.id || ''),
     modelAdi: localInitialData?.modelAdi || (internalProviders.find(p => p.aktifMi)?.varsayilanModel || internalProviders[0]?.varsayilanModel || 'gpt-4o'),
     alternatifModeller: initialAlternatifModeller,
@@ -404,7 +520,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     yanitSenteziModu: localInitialData?.yanitSenteziModu ?? 0,
     aktifMi: localInitialData?.aktifMi ?? true,
     sistemKaydiMi: localInitialData?.sistemKaydiMi ?? false,
-    seciliAracKodlari: localInitialData?.ajanAraclari?.map(a => a.aracKodu) || internalTools.map(t => t.aracKodu),
+    seciliAracKodlari: localInitialData?.ajanAraclari?.map((a: any) => a.aracKodu) || internalTools.map(t => t.aracKodu),
     hizliIstekler: initialHizliIstekler
   });
 
@@ -421,7 +537,11 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         } catch { }
       }
 
-      setFormData(prev => ({
+      const loadedRules = (localInitialData.kurallar && localInitialData.kurallar.length > 0)
+        ? localInitialData.kurallar
+        : formData.kurallar;
+
+      setFormData((prev: any) => ({
         ...prev,
         ad: localInitialData.ad ?? prev.ad,
         kod: localInitialData.kod ?? prev.kod,
@@ -440,9 +560,13 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         aktifMi: localInitialData.aktifMi ?? prev.aktifMi,
         sistemKaydiMi: localInitialData.sistemKaydiMi ?? prev.sistemKaydiMi,
         seciliAracKodlari: localInitialData.ajanAraclari ? localInitialData.ajanAraclari.map((a: any) => a.aracKodu) : prev.seciliAracKodlari,
-        kurallar: (localInitialData.kurallar && localInitialData.kurallar.length > 0) ? localInitialData.kurallar : prev.kurallar,
+        kurallar: loadedRules,
+        sistemIstemi: localInitialData.sistemIstemi?.trim()
+          ? localInitialData.sistemIstemi
+          : (prev.sistemIstemi || compilePromptPreview(loadedRules)),
         hizliIstekler: (localInitialData.hizliIstekler && localInitialData.hizliIstekler.length > 0) ? localInitialData.hizliIstekler : prev.hizliIstekler
       }));
+      setHizliIsteklerRefreshKey(k => k + 1);
     }
   }, [localInitialData]);
 
@@ -453,31 +577,28 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     }
   }, [formData.kurallar, selectedRuleId]);
 
-  // Seçili Kural Nesnesi
   const activeRule = useMemo(() => {
-    return formData.kurallar.find(k => k.id === selectedRuleId) || formData.kurallar[0] || null;
+    return formData.kurallar.find((k: any) => k.id === selectedRuleId) || formData.kurallar[0] || null;
   }, [formData.kurallar, selectedRuleId]);
 
-  // Base Ajan Seçenekleri
   const baseAgentOptions = useMemo(() => {
     return internalAllAgents.filter(a => a.id !== (localInitialData?.id || effectiveId));
   }, [internalAllAgents, localInitialData?.id, effectiveId]);
 
-  // Base Ajan Değiştiğinde Kuralları Güncelle
-  const handleBaseAgentChange = (e) => {
-    const selectedId = e.target.value ? parseInt(e.target.value) : null;
+  const handleBaseAgentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedId = e.target.value ? parseInt(e.target.value, 10) : null;
     if (!selectedId) {
-      setFormData(prev => ({
+      setFormData((prev: any) => ({
         ...prev,
         ustAjanId: null,
-        kurallar: prev.kurallar.map(k => ({ ...k, durum: k.durum === 'DevreDisi' ? 'DevreDisi' : 'Yeni' }))
+        kurallar: prev.kurallar.map((k: any) => ({ ...k, durum: k.durum === 'DevreDisi' ? 'DevreDisi' : 'Yeni' }))
       }));
       return;
     }
 
     const selectedBase = internalAllAgents.find(a => a.id === selectedId);
     if (selectedBase && selectedBase.kurallar && selectedBase.kurallar.length > 0) {
-      const inheritedRules = selectedBase.kurallar.map(k => ({
+      const inheritedRules = selectedBase.kurallar.map((k: any) => ({
         id: k.id,
         baslik: k.baslik,
         aciklama: k.aciklama,
@@ -488,11 +609,12 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         orijinalBaseIcerik: k.icerik
       }));
 
-      setFormData(prev => ({
+      setFormData((prev: any) => ({
         ...prev,
         ustAjanId: selectedId,
         kapsam: selectedBase.kapsam || prev.kapsam,
         kurallar: inheritedRules,
+        sistemIstemi: selectedBase.sistemIstemi || compilePromptPreview(inheritedRules),
         rol: prev.rol === 'Genel ERP Asistanı' ? selectedBase.rol : prev.rol,
         renk: selectedBase.renk || prev.renk,
         hizliIstekler: (prev.hizliIstekler && prev.hizliIstekler.length > 0)
@@ -500,75 +622,64 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
           : (selectedBase.hizliIstekler ? JSON.parse(JSON.stringify(selectedBase.hizliIstekler)) : [])
       }));
       setSelectedRuleId(inheritedRules[0]?.id || null);
-      toast.success(`'${selectedBase.ad}' kuralları ve kapsamı miras alındı.`);
+      toast.success(t('base_ajan_miras_alindi', `'${selectedBase.ad}' kuralları ve kapsamı miras alındı.`));
     } else {
-      setFormData(prev => ({ ...prev, ustAjanId: selectedId }));
+      setFormData((prev: any) => ({ ...prev, ustAjanId: selectedId }));
     }
   };
 
-  // ─── HIZLI İSTEK OPERASYONLARI ────────────────────────────────────────────────
-  const handleOpenHizliIstekModal = (item: any = null, index: number | null = null) => {
-    if (item) {
-      setModalFormState({
-        id: item.id,
-        baslik: item.baslik || '',
-        prompt: item.prompt || '',
-        ikon: item.ikon || 'Sparkles',
-        uiAksiyonu: item.uiAksiyonu || 'YOK',
-        aktifMi: item.aktifMi !== false,
-        sira: item.sira
-      });
-      setHizliIstekModal({ isOpen: true, item });
-    } else {
-      setModalFormState({
-        id: `req_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-        baslik: '',
-        prompt: '',
-        ikon: 'Sparkles',
-        uiAksiyonu: 'YOK',
-        aktifMi: true,
-        sira: (formData.hizliIstekler?.length || 0) + 1
-      });
-      setHizliIstekModal({ isOpen: true, item: null });
-    }
+  // ─── SABİT SİSTEM İSTEMİ (KATMAN 1) YARDIMCILARI ──────────────────────────────
+  const handleAppendGuardrailToSystemPrompt = (snippetTitle: string, snippetBody: string) => {
+    setFormData((prev: any) => {
+      const current = (prev.sistemIstemi || '').trim();
+      const block = `[${snippetTitle.toUpperCase()}]:\n${snippetBody}`;
+      return {
+        ...prev,
+        sistemIstemi: current ? `${current}\n\n${block}` : block
+      };
+    });
+    toast.success(t('sistem_istemine_eklendi', `'${snippetTitle}' sistem istemine eklendi.`));
   };
 
-  const handleSaveHizliIstekModal = () => {
-    if (!modalFormState.baslik?.trim()) {
-      toast.error(t('istek_baslik_zorunlu', 'Lütfen istek başlığını giriniz.'));
+  const handleSyncRulesToSystemPrompt = () => {
+    const compiled = compilePromptPreview(formData.kurallar);
+    if (!compiled) {
+      toast.error(t('aktif_kural_bulunamadi', 'Derlenecek aktif kural maddesi bulunamadı.'));
       return;
     }
-
-    if (hizliIstekModal.item) {
-      // Düzenleme
-      setFormData(prev => ({
-        ...prev,
-        hizliIstekler: (prev.hizliIstekler || []).map(x =>
-          x.id === modalFormState.id ? { ...x, ...modalFormState } : x
-        )
-      }));
-      toast.success(t('istek_guncellendi', 'Hızlı istek güncellendi.'));
-    } else {
-      // Yeni ekleme
-      setFormData(prev => ({
-        ...prev,
-        hizliIstekler: [...(prev.hizliIstekler || []), modalFormState]
-      }));
-      toast.success(t('istek_eklendi', 'Yeni hızlı istek eklendi.'));
-    }
-
-    setHizliIstekModal({ isOpen: false, item: null });
-    setHizliIsteklerRefreshKey(k => k + 1);
+    setFormData((prev: any) => ({
+      ...prev,
+      sistemIstemi: compiled
+    }));
+    toast.success(t('maddeler_sistem_istemine_aktarildi', 'Kural maddeleri Sabit Sistem İstemine aktarıldı.'));
   };
+
+  // ─── HIZLI İSTEK & GÖREV AKIŞI SAYFASINA YÖNLENDİRME (KATMAN 3) ───────────────
+  const handleOpenHizliIstekPage = useCallback((item: any = null) => {
+    const targetId = item?.id || 'yeni';
+    const basePath = effectiveId
+      ? (isUnderAyarlar ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveId}` : `/ai-ajanlar/${effectiveId}`)
+      : location.pathname.replace(/\/hizli-istek.*$/, '');
+
+    navigate(`${basePath}/hizli-istek/${targetId}`, {
+      state: {
+        agentData: formData,
+        hizliIstekItem: item,
+        activeTabId: 'hizliIstekler'
+      }
+    });
+  }, [effectiveId, isUnderAyarlar, location.pathname, formData, navigate]);
 
   const handleAddHizliIstek = (preset: any = null) => {
     const newItem = preset ? {
       id: `req_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-      baslik: preset.baslik || 'Yeni ERP İsteği',
+      baslik: preset.baslik || 'Yeni ERP Görev Akışı',
       prompt: preset.prompt || '',
       ikon: preset.ikon || 'Sparkles',
       uiAksiyonu: preset.uiAksiyonu || 'YOK',
       uiParametreleriJson: '',
+      tetiklemeAnahtarlari: preset.tetiklemeAnahtarlari || '',
+      akisDugumleri: preset.akisDugumleri ? JSON.parse(JSON.stringify(preset.akisDugumleri)) : [],
       sira: (formData.hizliIstekler?.length || 0) + 1,
       aktifMi: true
     } : {
@@ -578,38 +689,40 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       ikon: 'Sparkles',
       uiAksiyonu: 'YOK',
       uiParametreleriJson: '',
+      tetiklemeAnahtarlari: '',
+      akisDugumleri: [],
       sira: (formData.hizliIstekler?.length || 0) + 1,
       aktifMi: true
     };
 
-    setFormData(prev => ({
+    setFormData((prev: any) => ({
       ...prev,
       hizliIstekler: [...(prev.hizliIstekler || []), newItem]
     }));
     setHizliIsteklerRefreshKey(k => k + 1);
-    toast.success(preset ? `'${preset.baslik}' şablonu eklendi.` : 'Hızlı ERP isteği eklendi.');
+    toast.success(preset ? `'${preset.baslik}' şablonu eklendi.` : t('istek_eklendi', 'Hızlı ERP isteği eklendi.'));
   };
 
   const handleDuplicateHizliIstek = (item: any) => {
     const list = [...(formData.hizliIstekler || [])];
     const idx = list.findIndex(x => x.id === item.id);
     const copy = {
-      ...item,
+      ...JSON.parse(JSON.stringify(item)),
       id: `req_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
       baslik: `${item.baslik} (${t('kopya', 'Kopya')})`,
       sira: (list.length || 0) + 1
     };
     list.splice(idx + 1, 0, copy);
     const reordered = list.map((x, i) => ({ ...x, sira: i + 1 }));
-    setFormData(prev => ({ ...prev, hizliIstekler: reordered }));
+    setFormData((prev: any) => ({ ...prev, hizliIstekler: reordered }));
     setHizliIsteklerRefreshKey(k => k + 1);
-    toast.success(t('istek_cogaltildi', 'Hızlı istek çoğaltıldı.'));
+    toast.success(t('istek_cogaltildi', 'Görev akışı çoğaltıldı.'));
   };
 
   const handleUpdateHizliIstek = (id: string, field: string, value: any) => {
-    setFormData(prev => ({
+    setFormData((prev: any) => ({
       ...prev,
-      hizliIstekler: (prev.hizliIstekler || []).map(item =>
+      hizliIstekler: (prev.hizliIstekler || []).map((item: any) =>
         item.id === id ? { ...item, [field]: value } : item
       )
     }));
@@ -617,9 +730,9 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
   };
 
   const handleRemoveHizliIstek = (id: string) => {
-    setFormData(prev => ({
+    setFormData((prev: any) => ({
       ...prev,
-      hizliIstekler: (prev.hizliIstekler || []).filter(item => item.id !== id)
+      hizliIstekler: (prev.hizliIstekler || []).filter((item: any) => item.id !== id)
     }));
     setHizliIsteklerRefreshKey(k => k + 1);
     toast.success(t('istek_kaldirildi', 'İstek kaldırıldı.'));
@@ -635,15 +748,15 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     list[targetIndex] = temp;
 
     const updated = list.map((item, idx) => ({ ...item, sira: idx + 1 }));
-    setFormData(prev => ({ ...prev, hizliIstekler: updated }));
+    setFormData((prev: any) => ({ ...prev, hizliIstekler: updated }));
     setHizliIsteklerRefreshKey(k => k + 1);
   };
 
   // ─── KURAL OPERASYONLARI ─────────────────────────────────────────────────────
-  const handleOverrideRule = (ruleId) => {
-    setFormData(prev => ({
+  const handleOverrideRule = (ruleId: string) => {
+    setFormData((prev: any) => ({
       ...prev,
-      kurallar: prev.kurallar.map(k => {
+      kurallar: prev.kurallar.map((k: any) => {
         if (k.id === ruleId) {
           return {
             ...k,
@@ -654,13 +767,13 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         return k;
       })
     }));
-    toast.success('Kural düzenleme moduna alındı (Override).');
+    toast.success(t('kural_override_alindi', 'Kural düzenleme moduna alındı (Override).'));
   };
 
-  const handleResetRule = (ruleId) => {
-    setFormData(prev => ({
+  const handleResetRule = (ruleId: string) => {
+    setFormData((prev: any) => ({
       ...prev,
-      kurallar: prev.kurallar.map(k => {
+      kurallar: prev.kurallar.map((k: any) => {
         if (k.id === ruleId) {
           return {
             ...k,
@@ -671,13 +784,13 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         return k;
       })
     }));
-    toast.success('Kural orijinal Base içeriğine sıfırlandı.');
+    toast.success(t('kural_base_sifirlandi', 'Kural orijinal Base içeriğine sıfırlandı.'));
   };
 
-  const handleToggleRuleStatus = (ruleId) => {
-    setFormData(prev => ({
+  const handleToggleRuleStatus = (ruleId: string) => {
+    setFormData((prev: any) => ({
       ...prev,
-      kurallar: prev.kurallar.map(k => {
+      kurallar: prev.kurallar.map((k: any) => {
         if (k.id === ruleId) {
           if (k.durum === 'DevreDisi') {
             const isModified = k.orijinalBaseIcerik && k.icerik !== k.orijinalBaseIcerik;
@@ -691,10 +804,10 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     }));
   };
 
-  const handleUpdateRuleContent = (ruleId, newContent) => {
-    setFormData(prev => ({
+  const handleUpdateRuleContent = (ruleId: string, newContent: string) => {
+    setFormData((prev: any) => ({
       ...prev,
-      kurallar: prev.kurallar.map(k => {
+      kurallar: prev.kurallar.map((k: any) => {
         if (k.id === ruleId) {
           const isInherited = k.durum === 'MirasAlindi';
           return {
@@ -709,10 +822,10 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     }));
   };
 
-  const handleUpdateRuleTitle = (ruleId, newTitle) => {
-    setFormData(prev => ({
+  const handleUpdateRuleTitle = (ruleId: string, newTitle: string) => {
+    setFormData((prev: any) => ({
       ...prev,
-      kurallar: prev.kurallar.map(k => {
+      kurallar: prev.kurallar.map((k: any) => {
         if (k.id === ruleId) {
           const isInherited = k.durum === 'MirasAlindi';
           return {
@@ -731,7 +844,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     const newId = `KURAL_${Date.now()}`;
     const newRule = {
       id: newId,
-      baslik: `Özel Kural ${formData.kurallar.length + 1}`,
+      baslik: `${t('ozel_kural', 'Özel Kural')} ${formData.kurallar.length + 1}`,
       icerik: '',
       sira: formData.kurallar.length + 1,
       durum: 'Yeni',
@@ -739,23 +852,23 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       orijinalBaseIcerik: null
     };
 
-    setFormData(prev => ({
+    setFormData((prev: any) => ({
       ...prev,
       kurallar: [...prev.kurallar, newRule]
     }));
     setSelectedRuleId(newId);
-    toast.success('Yeni kural maddesi eklendi.');
+    toast.success(t('yeni_kural_eklendi', 'Yeni kural maddesi eklendi.'));
   };
 
-  const handleDuplicateRule = (ruleId) => {
-    const target = formData.kurallar.find(k => k.id === ruleId);
+  const handleDuplicateRule = (ruleId: string) => {
+    const target = formData.kurallar.find((k: any) => k.id === ruleId);
     if (!target) return;
 
     const newId = `KURAL_${Date.now()}`;
-    const targetIndex = formData.kurallar.findIndex(k => k.id === ruleId);
+    const targetIndex = formData.kurallar.findIndex((k: any) => k.id === ruleId);
     const newRule = {
       id: newId,
-      baslik: `${target.baslik} (Kopya)`,
+      baslik: `${target.baslik} (${t('kopya', 'Kopya')})`,
       icerik: target.icerik,
       sira: target.sira + 1,
       durum: 'Yeni',
@@ -767,12 +880,12 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     updated.splice(targetIndex + 1, 0, newRule);
     const reordered = updated.map((k, idx) => ({ ...k, sira: idx + 1 }));
 
-    setFormData(prev => ({ ...prev, kurallar: reordered }));
+    setFormData((prev: any) => ({ ...prev, kurallar: reordered }));
     setSelectedRuleId(newId);
-    toast.success('Kural maddesi çoğaltıldı.');
+    toast.success(t('kural_cogaltildi', 'Kural maddesi çoğaltıldı.'));
   };
 
-  const handleApplyPreset = (preset) => {
+  const handleApplyPreset = (preset: any) => {
     const newId = `KURAL_${Date.now()}`;
     const newRule = {
       id: newId,
@@ -784,7 +897,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       orijinalBaseIcerik: null
     };
 
-    setFormData(prev => ({
+    setFormData((prev: any) => ({
       ...prev,
       kurallar: [...prev.kurallar, newRule]
     }));
@@ -793,19 +906,19 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     toast.success(`'${preset.baslik}' şablonu eklendi.`);
   };
 
-  const handleDeleteRule = (ruleId) => {
-    const remaining = formData.kurallar.filter(k => k.id !== ruleId);
-    setFormData(prev => ({
+  const handleDeleteRule = (ruleId: string) => {
+    const remaining = formData.kurallar.filter((k: any) => k.id !== ruleId);
+    setFormData((prev: any) => ({
       ...prev,
-      kurallar: remaining.map((k, idx) => ({ ...k, sira: idx + 1 }))
+      kurallar: remaining.map((k: any, idx: number) => ({ ...k, sira: idx + 1 }))
     }));
     if (selectedRuleId === ruleId) {
       setSelectedRuleId(remaining[0]?.id || null);
     }
-    toast.success('Kural maddesi silindi.');
+    toast.success(t('kural_silindi', 'Kural maddesi silindi.'));
   };
 
-  const handleMoveRule = (index, direction, e) => {
+  const handleMoveRule = (index: number, direction: 'up' | 'down', e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= formData.kurallar.length) return;
@@ -815,20 +928,20 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     list.splice(targetIndex, 0, moved);
 
     const reordered = list.map((k, idx) => ({ ...k, sira: idx + 1 }));
-    setFormData(prev => ({ ...prev, kurallar: reordered }));
+    setFormData((prev: any) => ({ ...prev, kurallar: reordered }));
   };
 
   // MCP Araçları Filtreleme & Arama
   const [toolSearch, setToolSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Tümü');
   const [toolScopeFilter, setToolScopeFilter] = useState('ALL');
-  const [expandedSchemaTool, setExpandedSchemaTool] = useState(null);
+  const [expandedSchemaTool, setExpandedSchemaTool] = useState<string | null>(null);
 
   const { erpToolsCount, adminToolsCount } = useMemo(() => {
     let erp = 0;
     let admin = 0;
-    internalTools.forEach(t => {
-      if (t.kapsam === 2 || t.aracKodu?.toLowerCase().startsWith('admin_')) admin++;
+    internalTools.forEach(tItem => {
+      if (tItem.kapsam === 2 || tItem.aracKodu?.toLowerCase().startsWith('admin_')) admin++;
       else erp++;
     });
     return { erpToolsCount: erp, adminToolsCount: admin };
@@ -836,8 +949,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
 
   const categories = useMemo<string[]>(() => {
     const set = new Set<string>();
-    internalTools.forEach(t => {
-      if (t.kategoriAdi) set.add(t.kategoriAdi);
+    internalTools.forEach(tItem => {
+      if (tItem.kategoriAdi) set.add(tItem.kategoriAdi);
     });
     return ['Tümü', ...Array.from(set)];
   }, [internalTools]);
@@ -862,46 +975,50 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     });
   }, [internalTools, toolScopeFilter, selectedCategory, toolSearch]);
 
-  const handleToggleTool = (aracKodu) => {
-    setFormData(prev => {
-      const isSelected = prev.seciliAracKodlari.some(k => k.toLowerCase() === aracKodu.toLowerCase());
+  const handleToggleTool = (aracKodu: string) => {
+    setFormData((prev: any) => {
+      const isSelected = prev.seciliAracKodlari.some((k: string) => k.toLowerCase() === aracKodu.toLowerCase());
       return {
         ...prev,
         seciliAracKodlari: isSelected
-          ? prev.seciliAracKodlari.filter(k => k.toLowerCase() !== aracKodu.toLowerCase())
+          ? prev.seciliAracKodlari.filter((k: string) => k.toLowerCase() !== aracKodu.toLowerCase())
           : [...prev.seciliAracKodlari, aracKodu]
       };
     });
   };
 
   const handleSelectAllTools = () => {
-    const targetCodes = filteredTools.map(t => t.aracKodu);
-    setFormData(prev => ({
+    const targetCodes = filteredTools.map(tItem => tItem.aracKodu);
+    setFormData((prev: any) => ({
       ...prev,
       seciliAracKodlari: Array.from(new Set([...prev.seciliAracKodlari, ...targetCodes]))
     }));
-    toast.success(`${targetCodes.length} adet MCP aracı yetkilendirildi`);
+    toast.success(`${targetCodes.length} ${t('mcp_araci_yetkilendirildi', 'adet MCP aracı yetkilendirildi')}`);
   };
 
   const handleClearAllTools = () => {
-    setFormData(prev => ({
+    setFormData((prev: any) => ({
       ...prev,
       seciliAracKodlari: []
     }));
-    toast.success('MCP araç seçimleri temizlendi');
+    toast.success(t('mcp_arac_secimleri_temizlendi', 'MCP araç seçimleri temizlendi'));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e?: any) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!formData.ad?.trim() || !formData.kod?.trim()) {
-      toast.error('Lütfen ajan adı ve benzersiz kodunu giriniz.');
+      toast.error(t('ajan_ad_ve_kod_zorunlu', 'Lütfen ajan adı ve benzersiz kodunu giriniz.'));
       setActiveTabId('genel');
       return;
     }
 
     try {
-      if (setIsSaving) setIsSaving(true);
+      setIsSaving(true);
       let agentId;
+
+      const finalSystemPrompt = formData.sistemIstemi?.trim()
+        ? formData.sistemIstemi.trim()
+        : compilePromptPreview(formData.kurallar);
 
       const payload = {
         ...formData,
@@ -910,7 +1027,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         sicaklik: parseFloat(formData.sicaklik) || 0.7,
         maxTokens: parseInt(formData.maxTokens, 10) || 2048,
         yanitSenteziModu: parseInt(formData.yanitSenteziModu as any, 10) || 0,
-        sistemIstemi: compilePromptPreview(formData.kurallar)
+        sistemIstemi: finalSystemPrompt
       };
 
       if (effectiveId || localInitialData?.id) {
@@ -947,10 +1064,9 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     }
   }, [internalProviders]);
 
-  const selectedProvider = localProviders.find(p => p.id === parseInt(formData.aiSaglayiciId));
+  const selectedProvider = localProviders.find(p => p.id === parseInt(formData.aiSaglayiciId, 10));
   const selectedCount = formData.seciliAracKodlari.length;
 
-  // Seçili sağlayıcının model listesi boşsa arka planda canlı modelleri çek ve senkronize et
   useEffect(() => {
     const prov = selectedProvider;
     if (!prov?.id) return;
@@ -971,7 +1087,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
               desteklenenModeller: fetched,
               varsayilanModel: defaultMod
             } : p));
-            setFormData(prev => {
+            setFormData((prev: any) => {
               const currentValid = prev.modelAdi && fetched.includes(prev.modelAdi);
               return {
                 ...prev,
@@ -985,13 +1101,12 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
   }, [selectedProvider?.id]);
 
   // ─── MODEL YAPILANDIRMASI & YÖNETİMİ ─────────────────────────────────────────
-  const parseModelsFromData = useCallback((data: any, providers: any[]): AiModelConfig[] => {
+  const parseModelsFromData = useCallback((data: any, provList: any[]): AiModelConfig[] => {
     const list: AiModelConfig[] = [];
 
-    // 1. Birincil Model
     if (data?.modelAdi) {
-      const prov = providers.find(p => p.id === Number(data.aiSaglayiciId)) ||
-        providers.find(p => p.desteklenenModeller?.some((m: string) => m.toLowerCase() === data.modelAdi.toLowerCase()));
+      const prov = provList.find(p => p.id === Number(data.aiSaglayiciId)) ||
+        provList.find(p => p.desteklenenModeller?.some((m: string) => m.toLowerCase() === data.modelAdi.toLowerCase()));
       list.push({
         id: `primary-${data.modelAdi}`,
         modelAdi: data.modelAdi,
@@ -1002,7 +1117,6 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       });
     }
 
-    // 2. Alternatif Modeller
     let altList: any[] = [];
     if (data?.alternatifModellerJson) {
       try {
@@ -1018,8 +1132,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       if (typeof alt === 'string' && alt.trim()) {
         const trimmed = alt.trim();
         if (!list.some(m => m.modelAdi.toLowerCase() === trimmed.toLowerCase())) {
-          const prov = providers.find(p => p.desteklenenModeller?.some((m: string) => m.toLowerCase() === trimmed.toLowerCase())) ||
-            providers.find(p => p.varsayilanModel?.toLowerCase() === trimmed.toLowerCase());
+          const prov = provList.find(p => p.desteklenenModeller?.some((m: string) => m.toLowerCase() === trimmed.toLowerCase())) ||
+            provList.find(p => p.varsayilanModel?.toLowerCase() === trimmed.toLowerCase());
           list.push({
             id: `alt-${trimmed}`,
             modelAdi: trimmed,
@@ -1031,8 +1145,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         }
       } else if (alt && typeof alt === 'object' && alt.modelAdi) {
         if (!list.some(m => m.modelAdi.toLowerCase() === alt.modelAdi.toLowerCase())) {
-          const prov = providers.find(p => p.id === Number(alt.aiSaglayiciId)) ||
-            providers.find(p => p.desteklenenModeller?.some((m: string) => m.toLowerCase() === alt.modelAdi.toLowerCase()));
+          const prov = provList.find(p => p.id === Number(alt.aiSaglayiciId)) ||
+            provList.find(p => p.desteklenenModeller?.some((m: string) => m.toLowerCase() === alt.modelAdi.toLowerCase()));
           list.push({
             id: alt.id || `alt-${alt.modelAdi}`,
             modelAdi: alt.modelAdi,
@@ -1052,7 +1166,6 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     return parseModelsFromData(localInitialData || formData, internalProviders);
   });
 
-  // localInitialData yüklendiğinde modelleri senkronize et
   useEffect(() => {
     if (localInitialData) {
       const parsed = parseModelsFromData(localInitialData, localProviders);
@@ -1062,13 +1175,12 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     }
   }, [localInitialData, localProviders, parseModelsFromData]);
 
-  // Modeller değiştikçe formData ile senkronize et
   const syncModelsToFormData = useCallback((newModels: AiModelConfig[]) => {
     setConfiguredModels(newModels);
     if (newModels.length > 0) {
       const primary = newModels[0];
       const altModels = newModels.slice(1);
-      setFormData(prev => ({
+      setFormData((prev: any) => ({
         ...prev,
         aiSaglayiciId: primary.aiSaglayiciId,
         modelAdi: primary.modelAdi,
@@ -1078,7 +1190,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         alternatifModellerJson: JSON.stringify(altModels)
       }));
     } else {
-      setFormData(prev => ({
+      setFormData((prev: any) => ({
         ...prev,
         aiSaglayiciId: null,
         modelAdi: '',
@@ -1088,7 +1200,6 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     }
   }, []);
 
-  // AiModelSelection modal state
   const [modelModalState, setModelModalState] = useState<{
     isOpen: boolean;
     item: AiModelConfig | null;
@@ -1136,7 +1247,6 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     toast.success(t('model_silindi', `'${target?.modelAdi || ''}' kaldırıldı.`));
   };
 
-  // Model DataTable Kolonları
   const modelTableColumns: Column<AiModelConfig>[] = useMemo(() => [
     {
       id: 'modelAdi',
@@ -1244,139 +1354,27 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     }
   ], [configuredModels, t]);
 
-  // Filtrelenmiş Kurallar (Sol Liste İçin)
   const filteredRules = useMemo(() => {
     if (ruleFilter === 'Tümü') return formData.kurallar;
-    return formData.kurallar.filter(r => r.durum === ruleFilter);
+    return formData.kurallar.filter((r: any) => r.durum === ruleFilter);
   }, [formData.kurallar, ruleFilter]);
 
-  // İstatistikler
-  const inheritedCount = formData.kurallar.filter(r => r.durum === 'MirasAlindi').length;
-  const overriddenCount = formData.kurallar.filter(r => r.durum === 'Ezildi').length;
-  const customCount = formData.kurallar.filter(r => r.durum === 'Yeni').length;
+  const inheritedCount = formData.kurallar.filter((r: any) => r.durum === 'MirasAlindi').length;
+  const overriddenCount = formData.kurallar.filter((r: any) => r.durum === 'Ezildi').length;
+  const customCount = formData.kurallar.filter((r: any) => r.durum === 'Yeni').length;
 
-  // ─── HIZLI İSTEKLER TABLO KOLONLARI (BaseListPage Standardı) ─────────────────
-  const hizliIstekColumns = useMemo(() => [
-    {
-      id: 'sira',
-      header: '#',
-      accessorKey: 'sira',
-      size: 50,
-      cell: (info: any) => {
-        const idx = info.row ? info.row.index : 0;
-        return (
-          <span style={{
-            background: 'var(--bg-secondary)',
-            color: 'var(--text-secondary)',
-            padding: '2px 8px',
-            borderRadius: '6px',
-            fontSize: '11px',
-            fontWeight: '800'
-          }}>
-            #{idx + 1}
-          </span>
-        );
-      }
-    },
-    {
-      id: 'baslik',
-      header: t('hizli_istek_kolon_baslik', 'İstek Başlığı'),
-      accessorKey: 'baslik',
-      cell: (info: any) => {
-        const item = info.row.original;
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '6px',
-              background: 'rgba(234, 179, 8, 0.12)',
-              color: '#eab308',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
-            }}>
-              {getHizliIstekIcon(item.ikon)}
-            </div>
-            <span style={{ fontWeight: '600', color: 'var(--text-primary)', fontSize: '13px' }}>
-              {item.baslik || '-'}
-            </span>
-          </div>
-        );
-      }
-    },
-    {
-      id: 'uiAksiyonu',
-      header: t('hizli_istek_kolon_aksiyon', 'UI Aksiyonu'),
-      accessorKey: 'uiAksiyonu',
-      cell: (info: any) => {
-        const item = info.row.original;
-        const opt = UI_ACTION_OPTIONS.find(o => o.value === item.uiAksiyonu) || UI_ACTION_OPTIONS[0];
-        return (
-          <span style={{
-            padding: '3px 8px',
-            borderRadius: '6px',
-            fontSize: '11px',
-            fontWeight: '700',
-            background: `${opt.color}15`,
-            color: opt.color,
-            border: `1px solid ${opt.color}35`,
-            whiteSpace: 'nowrap'
-          }}>
-            {opt.badge}
-          </span>
-        );
-      }
-    },
-    {
-      id: 'prompt',
-      header: t('hizli_istek_kolon_prompt', 'Prompt Şablonu'),
-      accessorKey: 'prompt',
-      cell: (info: any) => {
-        const prompt = info.getValue() || '';
-        return (
-          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }} title={prompt}>
-            {prompt.length > 70 ? `${prompt.substring(0, 70)}...` : prompt}
-          </span>
-        );
-      }
-    },
-    {
-      id: 'aktifMi',
-      header: t('durum', 'Durum'),
-      accessorKey: 'aktifMi',
-      size: 90,
-      cell: (info: any) => {
-        const item = info.row.original;
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={e => e.stopPropagation()}>
-            <BaseSwitch
-              checked={item.aktifMi !== false}
-              onChange={(val) => {
-                handleUpdateHizliIstek(item.id, 'aktifMi', val);
-              }}
-            />
-            <span style={{ fontSize: '11px', color: item.aktifMi !== false ? 'var(--success)' : 'var(--text-secondary)', fontWeight: '600' }}>
-              {item.aktifMi !== false ? t('aktif', 'Aktif') : t('pasif', 'Pasif')}
-            </span>
-          </div>
-        );
-      }
-    }
-  ], [t]);
-
-  const getHizliIstekRowActions = (item: any): ActionMenuItem[] => {
+  // ─── HIZLI İSTEK SATIR İŞLEM MENÜSÜ (ACTION MENU) ───────────────────────────
+  const getHizliIstekRowActions = useCallback((item: any): ActionMenuItem[] => {
     const list = formData.hizliIstekler || [];
-    const idx = list.findIndex(x => x.id === item.id);
+    const idx = list.findIndex((x: any) => x.id === item.id);
     const isFirst = idx === 0;
     const isLast = idx === list.length - 1;
 
     return [
       {
-        label: t('duzenle', 'Düzenle'),
-        icon: <Edit2 size={14} />,
-        onClick: () => handleOpenHizliIstekModal(item, idx)
+        label: t('flowchart_ve_prompt_duzenle', 'Flowchart & Adım Promptlarını Düzenle'),
+        icon: <GitBranch size={14} />,
+        onClick: () => handleOpenHizliIstekPage(item)
       },
       {
         label: t('yukari_tasi', 'Yukarı Taşı'),
@@ -1397,14 +1395,14 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       },
       {
         label: t('sil', 'Sil'),
-        icon: <Trash2 size={14} color="var(--danger, #ef4444)" />,
+        icon: <Trash2 size={14} />,
         variant: 'danger',
         dividerAbove: true,
         onClick: () => {
           showAlert(
             'confirm',
-            t('istek_sil_onay_baslik', 'Hızlı İsteği Sil'),
-            t('istek_sil_onay_mesaj', `'${item.baslik}' isteğini kaldırmak istediğinize emin misiniz?`),
+            t('istek_sil_onay_baslik', 'Görev Akışını Sil'),
+            t('istek_sil_onay_mesaj', `'${item.baslik}' görev akışını kaldırmak istediğinize emin misiniz?`),
             () => handleRemoveHizliIstek(item.id),
             t('sil', 'Sil'),
             t('auto_vazgec', 'Vazgeç')
@@ -1412,121 +1410,190 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         }
       }
     ];
-  };
+  }, [formData.hizliIstekler, t, showAlert, handleOpenHizliIstekPage]);
 
-  // ─── SEKME TANIMLARI (BaseTabItem[]) ──────────────────────────────────────────
+  // ─── HIZLI İSTEKLER & GÖREV AKIŞLARI TABLO KOLONLARI ─────────────────────────
+  const hizliIstekColumns: Column<any>[] = useMemo(() => [
+    {
+      id: 'baslik',
+      header: t('hizli_istek_kolon_baslik', 'Görev / İstek Başlığı'),
+      accessor: 'baslik',
+      render: (item: any) => (
+        <div className="ai-hizli-istek-title-cell">
+          <div className="ai-hizli-istek-icon-box">
+            {getHizliIstekIcon(item.ikon)}
+          </div>
+          <div className="flex-col">
+            <span className="ai-hizli-istek-title-text">
+              {item.baslik || '-'}
+            </span>
+            {item.tetiklemeAnahtarlari && (
+              <span className="ai-hizli-istek-trigger-tags">
+                <Sparkles size={10} />
+                <span>{t('tetikleyici', 'Tetikleyici')}: {item.tetiklemeAnahtarlari}</span>
+              </span>
+            )}
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'uiAksiyonu',
+      header: t('hizli_istek_kolon_aksiyon', 'Başlangıç UI Aksiyonu'),
+      accessor: 'uiAksiyonu',
+      render: (item: any) => {
+        const firstNodeAction = Array.isArray(item.akisDugumleri) && item.akisDugumleri.length > 0
+          ? item.akisDugumleri[0]?.uiAksiyonu
+          : undefined;
+        const effectiveAction = (item.uiAksiyonu && item.uiAksiyonu !== 'YOK')
+          ? item.uiAksiyonu
+          : (firstNodeAction || 'YOK');
+        const opt = UI_ACTION_OPTIONS.find(o => o.value === effectiveAction || o.id === effectiveAction) || UI_ACTION_OPTIONS[0];
+        return (
+          <span className={`ai-hizli-istek-action-badge action-${(opt.id || 'YOK').toLowerCase()}`}>
+            {t(opt.badge)}
+          </span>
+        );
+      }
+    },
+    {
+      id: 'akisDugumleri',
+      header: t('gorev_akisi_flowchart_kolon', 'Görev Akışı (Flowchart)'),
+      accessor: 'akisDugumleri',
+      render: (item: any) => {
+        const nodes: AiAkisDugumu[] = Array.isArray(item.akisDugumleri) ? item.akisDugumleri : [];
+        const hasDecision = nodes.some(n => n.tip === 'KARAR_ONAY');
+        return (
+          <div
+            className="ai-flowchart-table-cell"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenHizliIstekPage(item);
+            }}
+          >
+            {nodes.length > 0 ? (
+              <span className="ai-flowchart-count-badge has-flow">
+                <GitBranch size={12} />
+                <span>
+                  {nodes.length} {t('adimli_flowchart', 'Adımlı Flowchart')}
+                  {hasDecision ? ` (${t('dallanmali', 'Evet/Hayır Dallanmalı')})` : ''}
+                </span>
+              </span>
+            ) : (
+              <span className="ai-flowchart-count-badge single-step">
+                <Zap size={11} />
+                <span>{t('tek_adim_prompt', 'Tek Adım (Flowchart Tasarla)')}</span>
+              </span>
+            )}
+          </div>
+        );
+      }
+    },
+    {
+      id: 'prompt',
+      header: t('hizli_istek_kolon_prompt', 'Prompt Şablonu'),
+      accessor: 'prompt',
+      render: (item: any) => {
+        const prompt = item.prompt || item.akisDugumleri?.[0]?.prompt || '';
+        return (
+          <span className="ai-hizli-istek-prompt-preview" title={prompt}>
+            {prompt.length > 65 ? `${prompt.substring(0, 65)}...` : (prompt || '-')}
+          </span>
+        );
+      }
+    },
+    {
+      id: 'aktifMi',
+      header: t('durum', 'Durum'),
+      accessor: 'aktifMi',
+      width: 110,
+      render: (item: any) => (
+        <div className="ai-hizli-istek-status-cell" onClick={e => e.stopPropagation()}>
+          <BaseSwitch
+            checked={item.aktifMi !== false}
+            onChange={(val: any) => {
+              const checked = typeof val === 'boolean' ? val : val?.target?.checked;
+              handleUpdateHizliIstek(item.id, 'aktifMi', checked);
+            }}
+          />
+          <span className={item.aktifMi !== false ? 'ai-hizli-istek-status-active' : 'ai-hizli-istek-status-passive'}>
+            {item.aktifMi !== false ? t('aktif', 'Aktif') : t('pasif', 'Pasif')}
+          </span>
+        </div>
+      )
+    },
+    {
+      id: 'actions',
+      header: t('islemler', 'İşlemler'),
+      align: 'right',
+      width: 60,
+      render: (item: any) => (
+        <div onClick={e => e.stopPropagation()}>
+          <ActionMenu actions={getHizliIstekRowActions(item)} />
+        </div>
+      )
+    }
+  ], [t, formData.hizliIstekler, getHizliIstekRowActions]);
+
+  // ─── SEKME TANIMLARI ──────────────────────────────────────────────────────────
   const tabs = [
     {
       id: 'genel',
-      label: 'Genel Bilgiler',
+      label: t('genel_bilgiler_sekme', 'Genel Bilgiler'),
       icon: <Bot size={16} />,
       content: (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '12px 4px' }}>
-          {/* Miras Alınan Base Ajan (Eğer sistem ajanı değilse) */}
+        <div className="ai-ajan-tab-container">
           {!formData.sistemKaydiMi && (
-            <div style={{
-              background: 'var(--bg-primary)',
-              border: '1px solid var(--glass-border)',
-              borderRadius: '12px',
-              padding: '14px 16px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>
-                  <GitBranch size={16} color="var(--accent-primary)" />
-                  Miras Alınan Base (Temel) Ajan
+            <div className="ai-ajan-section-card">
+              <div className="ai-ajan-section-header">
+                <label className="ai-ajan-section-title">
+                  <GitBranch size={16} />
+                  <span>{t('miras_alinan_base_ajan', 'Miras Alınan Base (Temel) Ajan')}</span>
                 </label>
                 {formData.ustAjanId && (
-                  <span style={{ fontSize: '11px', color: 'var(--success)', fontWeight: '600' }}>
-                    ✓ Base kuralları miras alındı
+                  <span className="ai-ajan-inherit-badge">
+                    {t('base_kurallari_miras_alindi', '✓ Base kuralları miras alındı')}
                   </span>
                 )}
               </div>
 
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <div className="ai-ajan-select-row">
                 <select
                   value={formData.ustAjanId || ''}
                   onChange={handleBaseAgentChange}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--glass-border)',
-                    background: 'var(--bg-secondary)',
-                    color: 'var(--text-primary)',
-                    fontSize: '13px',
-                    fontWeight: '600'
-                  }}
+                  className="ai-ajan-base-select"
                 >
-                  <option value="">(Bağımsız / Kök Ajan - Miras Yok)</option>
+                  <option value="">{t('bagimsiz_kok_ajan_miras_yok', '(Bağımsız / Kök Ajan - Miras Yok)')}</option>
                   {baseAgentOptions.map(agent => (
                     <option key={agent.id} value={agent.id}>
-                      {agent.sistemKaydiMi ? `👑 ${agent.ad} (Sistem Base Ajanı)` : `🌿 ${agent.ad}`}
+                      {agent.sistemKaydiMi ? `👑 ${agent.ad} (${t('sistem_base_ajani', 'Sistem Base Ajanı')})` : `🌿 ${agent.ad}`}
                     </option>
                   ))}
                 </select>
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                Bir Base ajan seçildiğinde, onun çekirdek kuralları otomatik yüklenir. "Sistem Kuralları" sekmesinde maddeleri tek tek inceleyip dilediğinizi ezebilirsiniz (Override).
+              <div className="ai-ajan-hint-text">
+                {t('base_ajan_aciklama', 'Bir Base ajan seçildiğinde çekirdek sistem istemi ve görev akışları otomatik yüklenir.')}
               </div>
             </div>
           )}
 
-          {/* Ajan Kapsamı (ERP / Admin) - Modern Segmented Control */}
-          <div style={{
-            background: 'var(--bg-primary)',
-            border: '1px solid var(--glass-border)',
-            borderRadius: '12px',
-            padding: '12px 14px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>
-                <ShieldAlert size={15} color="var(--accent-primary)" />
-                {t('ajan_kapsami_baslik', 'Ajan Çalışma Kapsamı & Yetki Alanı')} *
+          {/* Ajan Kapsamı (ERP / Admin) */}
+          <div className="ai-ajan-section-card">
+            <div className="ai-ajan-section-header">
+              <label className="ai-ajan-section-title">
+                <ShieldAlert size={15} />
+                <span>{t('ajan_kapsami_baslik', 'Ajan Çalışma Kapsamı & Yetki Alanı')} *</span>
               </label>
-              <span style={{
-                fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '12px',
-                background: formData.kapsam === 2 ? 'rgba(139, 92, 246, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                color: formData.kapsam === 2 ? '#a855f7' : '#3b82f6',
-                border: `1px solid ${formData.kapsam === 2 ? 'rgba(139, 92, 246, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`
-              }}>
+              <span className={`ai-ajan-scope-badge ${formData.kapsam === 2 ? 'scope-admin' : 'scope-erp'}`}>
                 {formData.kapsam === 2 ? t('kapsam_admin_badge', '🛡️ Admin Paneli') : t('kapsam_erp_badge', '🏢 ERP Kullanıcıları')}
               </span>
             </div>
 
-            <div style={{
-              display: 'flex',
-              background: 'var(--bg-secondary)',
-              padding: '4px',
-              borderRadius: '10px',
-              border: '1px solid var(--glass-border)',
-              gap: '6px'
-            }}>
+            <div className="ai-ajan-segmented-bar">
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, kapsam: 1 })}
-                style={{
-                  flex: 1,
-                  padding: '8px 14px',
-                  borderRadius: '7px',
-                  border: 'none',
-                  background: formData.kapsam === 1 ? 'var(--accent-primary)' : 'transparent',
-                  color: formData.kapsam === 1 ? '#ffffff' : 'var(--text-secondary)',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  boxShadow: formData.kapsam === 1 ? '0 2px 6px rgba(99, 102, 241, 0.35)' : 'none'
-                }}
+                className={`ai-ajan-segment-btn ${formData.kapsam === 1 ? 'active-erp' : ''}`}
               >
                 <span>🏢</span>
                 <span>{t('kapsam_erp_btn', 'ERP & Şirket Kullanıcıları')}</span>
@@ -1535,29 +1602,13 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, kapsam: 2 })}
-                style={{
-                  flex: 1,
-                  padding: '8px 14px',
-                  borderRadius: '7px',
-                  border: 'none',
-                  background: formData.kapsam === 2 ? '#8b5cf6' : 'transparent',
-                  color: formData.kapsam === 2 ? '#ffffff' : 'var(--text-secondary)',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  boxShadow: formData.kapsam === 2 ? '0 2px 6px rgba(139, 92, 246, 0.35)' : 'none'
-                }}
+                className={`ai-ajan-segment-btn ${formData.kapsam === 2 ? 'active-admin' : ''}`}
               >
                 <span>🛡️</span>
                 <span>{t('kapsam_admin_btn', 'Sistem Yönetimi & Admin')}</span>
               </button>
             </div>
-            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+            <span className="ai-ajan-hint-text">
               {formData.kapsam === 2
                 ? t('kapsam_admin_hint', 'Bu ajan yalnızca Admin paneli süper adminlerine özeldir; ERP kullanıcı ekranlarına kapatılır.')
                 : t('kapsam_erp_hint', 'Bu ajan ERP web uygulamasındaki şirket kullanıcıları ve yetkili personeller tarafından kullanılır.')}
@@ -1565,9 +1616,9 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
           </div>
 
           {/* Ajan Adı & Kodu */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="ai-ajan-two-col-grid">
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: 'var(--text-primary)' }}>
+              <label className="ai-ajan-field-label">
                 {t('ajan_adi_label', 'Ajan Adı')} *
               </label>
               <input
@@ -1582,7 +1633,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: 'var(--text-primary)' }}>
+              <label className="ai-ajan-field-label">
                 {t('ajan_kodu_label', 'Ajan Kodu (Benzersiz)')} *
               </label>
               <input
@@ -1597,9 +1648,9 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
           </div>
 
           {/* Rol / Görev Ünvanı & Ajan Açıklaması */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="ai-ajan-two-col-grid">
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: 'var(--text-primary)' }}>
+              <label className="ai-ajan-field-label">
                 {t('ajan_rol_label', 'Rol / Görev Ünvanı')}
               </label>
               <input
@@ -1612,7 +1663,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: 'var(--text-primary)' }}>
+              <label className="ai-ajan-field-label">
                 {t('ajan_aciklama_label', 'Ajan Açıklaması')}
               </label>
               <input
@@ -1632,30 +1683,19 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       label: t('model_ve_parametreler_sekme', 'Model & Parametreler'),
       icon: <Cpu size={16} />,
       content: (
-        <div className="ai-model-tab-layer" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Akıllı Yanıt Sentezi & Token Politikası */}
-          <div style={{
-            background: 'var(--bg-primary)',
-            border: '1px solid var(--glass-border)',
-            borderRadius: '12px',
-            padding: '14px 16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Sparkles size={16} color="var(--accent-primary)" />
-                <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>
-                  {t('ai_yanit_sentezi_politikasi', 'Akıllı Yanıt Sentezi & Token Politikası')}
-                </span>
+        <div className="ai-model-tab-layer">
+          <div className="ai-ajan-section-card">
+            <div className="ai-ajan-section-header">
+              <div className="ai-ajan-section-title">
+                <Sparkles size={16} />
+                <span>{t('ai_yanit_sentezi_politikasi', 'Akıllı Yanıt Sentezi & Token Politikası')}</span>
               </div>
-              <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+              <span className="ai-ajan-hint-text">
                 {t('ai_yanit_sentezi_aciklama', 'Araç ve validasyon çıktılarının LLM tarafından insansı yorumlanması')}
               </span>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '6px' }}>
+            <div className="ai-synthesis-options-row">
               {[
                 { value: 0, label: t('yanit_sentezi_sistem', '🌐 Sistem Ayarını Kullan'), desc: t('yanit_sentezi_sistem_desc', 'Genel sistem ayarını miras alır') },
                 { value: 1, label: t('yanit_sentezi_acik', '✨ Zorunlu Açık (LLM Sentezi)'), desc: t('yanit_sentezi_acik_desc', 'Araç sonuçlarını daima LLM doğal dille sentezler (+1 tur token)') },
@@ -1663,29 +1703,19 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
               ].map(opt => (
                 <label
                   key={opt.value}
-                  style={{
-                    flex: '1 1 240px',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    border: `1px solid ${formData.yanitSenteziModu === opt.value ? 'var(--accent-primary)' : 'var(--glass-border)'}`,
-                    background: formData.yanitSenteziModu === opt.value ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg-secondary)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '10px'
-                  }}
+                  className={`ai-synthesis-option-card ${formData.yanitSenteziModu === opt.value ? 'active' : ''}`}
                 >
                   <input
                     type="radio"
                     name="yanitSenteziModu"
                     value={opt.value}
                     checked={formData.yanitSenteziModu === opt.value}
-                    onChange={() => setFormData(prev => ({ ...prev, yanitSenteziModu: opt.value }))}
-                    style={{ marginTop: '2px', accentColor: 'var(--accent-primary)' }}
+                    onChange={() => setFormData((prev: any) => ({ ...prev, yanitSenteziModu: opt.value }))}
+                    className="ai-synthesis-radio"
                   />
                   <div>
-                    <div style={{ fontSize: '12.5px', fontWeight: '700', color: 'var(--text-primary)' }}>{opt.label}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{opt.desc}</div>
+                    <div className="ai-synthesis-opt-title">{opt.label}</div>
+                    <div className="ai-synthesis-opt-desc">{opt.desc}</div>
                   </div>
                 </label>
               ))}
@@ -1705,7 +1735,6 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
             />
           </div>
 
-          {/* Dairesel Yüzen Ekle Butonu (Circular Float Add Button) */}
           <EkleFloatCircleButton
             onClick={handleOpenAddModel}
             position="absolute-bottom-right"
@@ -1716,775 +1745,450 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     },
     {
       id: 'istem',
-      label: `Sistem Kuralları (${formData.kurallar.length})`,
+      label: t('sabit_sistem_istemi_ve_sinirlar_sekme', 'Sistem İstemi & Sınırlar'),
       icon: <SlidersHorizontal size={16} />,
       content: (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', height: '520px', position: 'relative' }}>
-          {/* Üst İstatistik ve Görünüm Çubuğu */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            background: 'var(--bg-primary)',
-            padding: '8px 14px',
-            borderRadius: '10px',
-            border: '1px solid var(--glass-border)',
-            flexWrap: 'wrap',
-            gap: '8px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-primary)' }}>Maddeler:</span>
-              <span style={{ fontSize: '11px', padding: '1px 7px', borderRadius: '6px', background: 'rgba(99, 102, 241, 0.12)', color: 'var(--accent-primary)', fontWeight: '700' }}>
-                {formData.kurallar.length} Toplam
-              </span>
-              {inheritedCount > 0 && (
-                <span style={{ fontSize: '10.5px', padding: '1px 7px', borderRadius: '6px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', fontWeight: '600' }}>
-                  {inheritedCount} Miras
-                </span>
-              )}
-              {overriddenCount > 0 && (
-                <span style={{ fontSize: '10.5px', padding: '1px 7px', borderRadius: '6px', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)', fontWeight: '600' }}>
-                  {overriddenCount} Ezildi
-                </span>
-              )}
-              {customCount > 0 && (
-                <span style={{ fontSize: '10.5px', padding: '1px 7px', borderRadius: '6px', background: 'rgba(236, 72, 153, 0.1)', color: '#ec4899', fontWeight: '600' }}>
-                  {customCount} Özel
-                </span>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div className="ai-system-prompt-tab">
+          {/* Üst Mod Seçici: Sabit Sistem İstemi (Anayasa) vs Madde Bazlı Kurallar */}
+          <div className="ai-system-prompt-topbar">
+            <div className="ai-system-mode-switcher">
               <button
                 type="button"
-                onClick={() => setShowPresetsModal(!showPresetsModal)}
-                className="btn btn-secondary"
-                style={{ fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px' }}
-                title="Sık kullanılan ERP kural şablonlarını listeler"
+                className={`ai-system-mode-btn ${systemPromptViewMode === 'sabitPrompt' ? 'active' : ''}`}
+                onClick={() => setSystemPromptViewMode('sabitPrompt')}
               >
-                <BookOpen size={13} color="var(--accent-primary)" /> Hazır Şablonlar
+                <Shield size={14} />
+                <span>{t('sabit_sistem_istemi_anayasa', 'Sabit Sistem İstemi & Yetki Sınırları (Anayasa)')}</span>
               </button>
               <button
                 type="button"
-                onClick={() => setShowPromptPreview(!showPromptPreview)}
-                className="btn btn-secondary"
-                style={{ fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px' }}
+                className={`ai-system-mode-btn ${systemPromptViewMode === 'kurallar' ? 'active' : ''}`}
+                onClick={() => setSystemPromptViewMode('kurallar')}
               >
-                <Eye size={13} /> {showPromptPreview ? 'Madde Editörüne Dön' : 'Derlenmiş Promptu Gör'}
-              </button>
-              <button
-                type="button"
-                onClick={handleAddCustomRule}
-                className="btn btn-primary"
-                style={{ fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 12px' }}
-              >
-                <Plus size={13} /> Yeni Madde
+                <Layers size={14} />
+                <span>{t('madde_bazli_kurallar', 'Madde Bazlı Kurallar')} ({formData.kurallar.length})</span>
               </button>
             </div>
-          </div>
 
-          {/* Hazır ERP Şablon Seçici Popover / Panel */}
-          {showPresetsModal && (
-            <div style={{
-              position: 'absolute',
-              top: '50px',
-              right: '12px',
-              left: '12px',
-              zIndex: 30,
-              background: 'var(--bg-secondary)',
-              border: '2px solid var(--accent-primary)',
-              borderRadius: '12px',
-              padding: '14px',
-              boxShadow: '0 12px 32px rgba(0,0,0,0.3)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '10px'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', fontSize: '13px', color: 'var(--text-primary)' }}>
-                  <Sparkles size={16} color="var(--accent-primary)" />
-                  Hazır ERP Kural Şablonları (Tek Tıkla Ekle)
+            {systemPromptViewMode === 'sabitPrompt' ? (
+              <div className="ai-guardrail-quick-actions">
+                <button
+                  type="button"
+                  className="ai-guardrail-chip-btn"
+                  onClick={() =>
+                    handleAppendGuardrailToSystemPrompt(
+                      'YETKİ SINIRLARI VE KONU DIŞI REDDİ',
+                      'Görev ve yetki alanın yalnızca Webakus ERP işlemleri, ticari belgeler, cari hesaplar, stok/ürün yönetimi ve şirket içi analizlerle sınırlıdır. Kullanıcı bu kapsamın dışında (genel kültür, yemek tarifi, spor, siyaset, sohbet vb.) bir soru sorduğunda nazik bir dille yalnızca Webakus ERP süreçlerinde yardımcı olabileceğini belirterek geri çevir.'
+                    )
+                  }
+                >
+                  <ShieldAlert size={13} />
+                  <span>{t('konu_disi_reddi_ekle', '+ Yetki Sınırı & Konu Dışı Reddi Ekle')}</span>
+                </button>
+                <button
+                  type="button"
+                  className="ai-guardrail-chip-btn"
+                  onClick={() =>
+                    handleAppendGuardrailToSystemPrompt(
+                      'OTONOM MCP VE FLOWCHART ÇALIŞMA İLKESİ',
+                      'Yetki sınırların içerisindeki genel taleplerde tanımlı MCP araçlarının açıklamalarını okuyarak kendi zekanla doğru aracı çalıştır. Ancak tanımlı bir Görev Akışı (Flowchart) tetiklendiğinde ilgili akış diyagramındaki adım yönergelerini sırasıyla takip et.'
+                    )
+                  }
+                >
+                  <Sparkles size={13} />
+                  <span>{t('otonom_mcp_ilkesi_ekle', '+ Otonom MCP & Flowchart İlkesi Ekle')}</span>
+                </button>
+                <button
+                  type="button"
+                  className="ai-guardrail-chip-btn"
+                  onClick={handleSyncRulesToSystemPrompt}
+                  title={t('maddelerden_aktar_aciklama', 'Madde bazlı kuralları birleştirip bu alana yazar')}
+                >
+                  <RotateCcw size={13} />
+                  <span>{t('maddelerden_aktar', 'Maddelerden Derle')}</span>
+                </button>
+              </div>
+            ) : (
+              <div className="ai-rules-toolbar-actions">
+                <div className="ai-rules-stats-group">
+                  <span className="ai-rules-stat-label">{t('maddeler', 'Maddeler')}:</span>
+                  <span className="ai-rules-stat-pill total">{formData.kurallar.length} {t('toplam', 'Toplam')}</span>
+                  {inheritedCount > 0 && <span className="ai-rules-stat-pill inherited">{inheritedCount} {t('miras', 'Miras')}</span>}
+                  {overriddenCount > 0 && <span className="ai-rules-stat-pill overridden">{overriddenCount} {t('ezildi', 'Ezildi')}</span>}
+                  {customCount > 0 && <span className="ai-rules-stat-pill custom">{customCount} {t('ozel', 'Özel')}</span>}
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowPresetsModal(false)}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '2px' }}
+                  onClick={() => setShowPresetsModal(!showPresetsModal)}
+                  className="btn btn-secondary ai-rules-toolbar-btn"
                 >
-                  <X size={16} />
+                  <BookOpen size={13} />
+                  <span>{t('hazir_sablonlar', 'Hazır Şablonlar')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddCustomRule}
+                  className="btn btn-primary ai-rules-toolbar-btn"
+                >
+                  <Plus size={13} />
+                  <span>{t('yeni_madde', 'Yeni Madde')}</span>
                 </button>
               </div>
+            )}
+          </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px', maxHeight: '220px', overflowY: 'auto' }}>
-                {ERP_RULE_PRESETS.map((preset, pIdx) => (
-                  <div
-                    key={pIdx}
-                    onClick={() => handleApplyPreset(preset)}
-                    style={{
-                      background: 'var(--bg-primary)',
-                      border: '1px solid var(--glass-border)',
-                      borderRadius: '8px',
-                      padding: '10px 12px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '4px',
-                      transition: 'all 0.15s ease'
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent-primary)'}
-                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--glass-border)'}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: '700', fontSize: '12px', color: 'var(--text-primary)' }}>{preset.baslik}</span>
-                      <span style={{ fontSize: '10.5px', color: 'var(--accent-primary)', fontWeight: '700' }}>+ Ekle</span>
-                    </div>
-                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: '1.3' }}>{preset.aciklama}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Derlenmiş Prompt Önizleme Görünümü */}
-          {showPromptPreview ? (
-            <div style={{
-              flex: 1,
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--glass-border)',
-              borderRadius: '12px',
-              padding: '14px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-              overflow: 'hidden'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Sparkles size={14} color="var(--accent-primary)" />
-                  Modele Gönderilecek Derlenmiş Sistem İstemi (Compiled System Prompt):
-                </span>
-                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                  {compilePromptPreview(formData.kurallar).length} Karakter • ~{Math.round(compilePromptPreview(formData.kurallar).length / 4)} Token
-                </span>
-              </div>
-              <pre style={{
-                flex: 1,
-                background: 'var(--bg-primary)',
-                padding: '14px',
-                borderRadius: '8px',
-                border: '1px solid var(--glass-border)',
-                color: 'var(--text-primary)',
-                fontFamily: 'ui-monospace, monospace',
-                fontSize: '12px',
-                lineHeight: '1.6',
-                whiteSpace: 'pre-wrap',
-                overflowY: 'auto',
-                margin: 0
-              }}>
-                {compilePromptPreview(formData.kurallar) || '(Henüz aktif kural tanımlanmadı)'}
-              </pre>
-            </div>
-          ) : (
-            /* Master-Detail (Sol Liste + Sağ Geniş Editör) Mimarisi */
-            <div style={{ display: 'grid', gridTemplateColumns: '290px 1fr', gap: '14px', flex: 1, minHeight: 0 }}>
-              {/* SOL PANEL: Madde Gezgini & Listesi */}
-              <div style={{
-                background: 'var(--bg-primary)',
-                border: '1px solid var(--glass-border)',
-                borderRadius: '12px',
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden'
-              }}>
-                {/* Sol Filtre Çipleri */}
-                <div style={{
-                  display: 'flex',
-                  gap: '4px',
-                  padding: '8px 10px',
-                  borderBottom: '1px solid var(--glass-border)',
-                  background: 'var(--bg-secondary)'
-                }}>
-                  {['Tümü', 'MirasAlindi', 'Ezildi', 'Yeni'].map(fil => (
-                    <button
-                      key={fil}
-                      type="button"
-                      onClick={() => setRuleFilter(fil)}
-                      style={{
-                        flex: 1,
-                        fontSize: '10.5px',
-                        padding: '3px 0',
-                        borderRadius: '6px',
-                        border: 'none',
-                        background: ruleFilter === fil ? 'var(--accent-primary)' : 'transparent',
-                        color: ruleFilter === fil ? '#fff' : 'var(--text-secondary)',
-                        fontWeight: '700',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease'
-                      }}
-                    >
-                      {fil === 'Tümü' ? 'Tümü' : fil === 'MirasAlindi' ? 'Base' : fil === 'Ezildi' ? 'Ezilen' : 'Özel'}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Maddeler Listesi */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {filteredRules.length === 0 ? (
-                    <div style={{ padding: '24px 12px', textAlign: 'center', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                      Kural bulunamadı.
-                    </div>
-                  ) : (
-                    filteredRules.map((rule, index) => {
-                      const isSelected = activeRule?.id === rule.id;
-                      const isInherited = rule.durum === 'MirasAlindi';
-                      const isOverridden = rule.durum === 'Ezildi';
-                      const isCustom = rule.durum === 'Yeni';
-                      const isDisabled = rule.durum === 'DevreDisi';
-
-                      return (
-                        <div
-                          key={rule.id || index}
-                          onClick={() => setSelectedRuleId(rule.id)}
-                          style={{
-                            padding: '8px 10px',
-                            borderRadius: '8px',
-                            border: `1px solid ${isSelected ? 'var(--accent-primary)' : 'transparent'}`,
-                            background: isSelected
-                              ? 'rgba(99, 102, 241, 0.12)'
-                              : isDisabled
-                                ? 'rgba(0,0,0,0.04)'
-                                : 'var(--bg-secondary)',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '4px',
-                            opacity: isDisabled ? 0.5 : 1,
-                            transition: 'all 0.15s ease'
-                          }}
-                        >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
-                              <span style={{
-                                fontSize: '10px',
-                                fontWeight: '800',
-                                padding: '1px 4px',
-                                borderRadius: '4px',
-                                background: isSelected ? 'var(--accent-primary)' : 'var(--bg-primary)',
-                                color: isSelected ? '#fff' : 'var(--text-secondary)'
-                              }}>
-                                #{rule.sira || index + 1}
-                              </span>
-                              <span style={{
-                                fontSize: '12px',
-                                fontWeight: isSelected ? '700' : '600',
-                                color: 'var(--text-primary)',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis'
-                              }}>
-                                {rule.baslik || 'Başlıksız Madde'}
-                              </span>
-                            </div>
-
-                            {/* Sıra Değiştirme Butonları */}
-                            <div style={{ display: 'flex', gap: '2px', opacity: isSelected ? 1 : 0.4 }}>
-                              <button
-                                type="button"
-                                disabled={index === 0}
-                                onClick={(e) => handleMoveRule(index, 'up', e)}
-                                style={{ background: 'none', border: 'none', padding: '1px', cursor: index === 0 ? 'default' : 'pointer', color: 'var(--text-primary)' }}
-                                title="Yukarı Taşı"
-                              >
-                                <ArrowUp size={11} />
-                              </button>
-                              <button
-                                type="button"
-                                disabled={index === formData.kurallar.length - 1}
-                                onClick={(e) => handleMoveRule(index, 'down', e)}
-                                style={{ background: 'none', border: 'none', padding: '1px', cursor: index === formData.kurallar.length - 1 ? 'default' : 'pointer', color: 'var(--text-primary)' }}
-                                title="Aşağı Taşı"
-                              >
-                                <ArrowDown size={11} />
-                              </button>
-                            </div>
-                          </div>
-
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px' }}>
-                            <span style={{ color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '160px' }}>
-                              {rule.icerik ? rule.icerik.substring(0, 35) + '...' : '(İçerik boş)'}
-                            </span>
-
-                            {isInherited && <span style={{ color: '#3b82f6', fontWeight: '700' }}>🔹 Base</span>}
-                            {isOverridden && <span style={{ color: 'var(--success)', fontWeight: '700' }}>⚡ Override</span>}
-                            {isCustom && <span style={{ color: '#ec4899', fontWeight: '700' }}>➕ Özel</span>}
-                            {isDisabled && <span style={{ color: 'var(--text-secondary)', fontWeight: '700' }}>⏸️ Pasif</span>}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-
-              {/* SAĞ PANEL: Seçili Madde Editörü */}
-              {activeRule ? (
-                <div style={{
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--glass-border)',
-                  borderRadius: '12px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  overflow: 'hidden'
-                }}>
-                  {/* Editör Üst Başlığı & Kontroller */}
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    background: 'var(--bg-primary)',
-                    padding: '10px 16px',
-                    borderBottom: '1px solid var(--glass-border)',
-                    flexWrap: 'wrap',
-                    gap: '8px'
-                  }}>
-                    {/* Düzenlenebilir Kural Başlığı & Rozet */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '220px' }}>
-                      <input
-                        type="text"
-                        value={activeRule.baslik || ''}
-                        onChange={e => handleUpdateRuleTitle(activeRule.id, e.target.value)}
-                        placeholder="Kural Başlığı (Örn: İskonto Politikası)..."
-                        style={{
-                          fontSize: '13px',
-                          fontWeight: '700',
-                          color: 'var(--text-primary)',
-                          background: 'var(--bg-secondary)',
-                          border: '1px solid var(--glass-border)',
-                          borderRadius: '6px',
-                          padding: '4px 8px',
-                          outline: 'none',
-                          flex: 1,
-                          maxWidth: '260px'
-                        }}
-                      />
-
-                      <code style={{ fontSize: '10.5px', color: 'var(--accent-primary)', fontWeight: '600' }}>
-                        [{activeRule.id}]
-                      </code>
-
-                      {/* Durum Rozeti */}
-                      {activeRule.durum === 'MirasAlindi' && (
-                        <span style={{ fontSize: '10.5px', fontWeight: '700', padding: '2px 8px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-                          🔹 Base Kural (Miras Alındı)
-                        </span>
-                      )}
-                      {activeRule.durum === 'Ezildi' && (
-                        <span style={{ fontSize: '10.5px', fontWeight: '700', padding: '2px 8px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.12)', color: 'var(--success)', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                          ⚡ Özelleştirildi (Override)
-                        </span>
-                      )}
-                      {activeRule.durum === 'Yeni' && (
-                        <span style={{ fontSize: '10.5px', fontWeight: '700', padding: '2px 8px', borderRadius: '10px', background: 'rgba(236, 72, 153, 0.12)', color: '#ec4899', border: '1px solid rgba(236, 72, 153, 0.2)' }}>
-                          ➕ Yerel / Özel Kural
-                        </span>
-                      )}
-                      {activeRule.durum === 'DevreDisi' && (
-                        <span style={{ fontSize: '10.5px', fontWeight: '700', padding: '2px 8px', borderRadius: '10px', background: 'rgba(107, 114, 128, 0.12)', color: 'var(--text-secondary)', border: '1px solid var(--glass-border)' }}>
-                          ⏸️ Devre Dışı (Modele Gönderilmez)
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Aksiyon Butonları */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {activeRule.durum === 'MirasAlindi' && (
-                        <button
-                          type="button"
-                          onClick={() => handleOverrideRule(activeRule.id)}
-                          className="btn btn-primary"
-                          style={{ fontSize: '11px', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                          title="Bu kuralı düzenleme moduna alır"
-                        >
-                          <Zap size={12} /> Kuralı Ez (Override)
-                        </button>
-                      )}
-
-                      {activeRule.durum === 'Ezildi' && (
-                        <button
-                          type="button"
-                          onClick={() => handleResetRule(activeRule.id)}
-                          className="btn btn-secondary"
-                          style={{ fontSize: '11px', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--warning)' }}
-                          title="Kuralı Base ajandaki orijinal metnine döndürür"
-                        >
-                          <RotateCcw size={12} /> Base'e Sıfırla
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => handleDuplicateRule(activeRule.id)}
-                        className="btn btn-secondary"
-                        style={{ fontSize: '11px', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                        title="Bu kural maddesinin bir kopyasını oluşturur"
-                      >
-                        <Copy size={12} /> Çoğalt
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteRule(activeRule.id)}
-                        className="btn btn-secondary"
-                        style={{ fontSize: '11px', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--danger)' }}
-                        title="Bu kural maddesini siler"
-                      >
-                        <Trash2 size={12} /> Sil
-                      </button>
-
-                      {/* Etkin / Devre Dışı Toggle */}
-                      <button
-                        type="button"
-                        onClick={() => handleToggleRuleStatus(activeRule.id)}
-                        style={{
-                          fontSize: '11px',
-                          padding: '4px 8px',
-                          borderRadius: '6px',
-                          background: activeRule.durum === 'DevreDisi' ? 'var(--bg-secondary)' : 'rgba(16, 185, 129, 0.12)',
-                          border: '1px solid var(--glass-border)',
-                          color: activeRule.durum === 'DevreDisi' ? 'var(--text-secondary)' : 'var(--success)',
-                          cursor: 'pointer',
-                          fontWeight: '600'
-                        }}
-                      >
-                        {activeRule.durum === 'DevreDisi' ? 'Etkinleştir' : 'Devre Dışı'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Editör Metin Alanı */}
-                  <div style={{ flex: 1, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto' }}>
-                    {/* Miras Alınmış Kural Bilgi Çubuğu */}
-                    {activeRule.durum === 'MirasAlindi' && (
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '6px 10px',
-                        borderRadius: '6px',
-                        background: 'rgba(59, 130, 246, 0.08)',
-                        border: '1px solid rgba(59, 130, 246, 0.2)',
-                        fontSize: '11px',
-                        color: 'var(--text-secondary)'
-                      }}>
-                        <Info size={13} color="#3b82f6" />
-                        <span>Bu kural Base ajandan miras alınmıştır. Aşağıdaki metni düzenlemeye başladığınızda kural otomatik olarak bu ajana özel (Override) kaydedilecektir.</span>
-                      </div>
+          {systemPromptViewMode === 'sabitPrompt' ? (
+            <>
+              <div className="ai-guardrail-banner">
+                <div className="ai-guardrail-banner-info">
+                  <Shield size={18} />
+                  <div className="ai-guardrail-banner-text">
+                    <strong>{t('katman_1_sabit_sistem_istemi_baslik', 'Katman 1 — Sabit Sistem İstemi (Ajan Anayasası & Yetki Sınırları):')}</strong>{' '}
+                    {t(
+                      'katman_1_sabit_sistem_istemi_aciklama',
+                      'Burada ajanın kimliğini, yetki sınırlarını ve konu dışı soruları nazikçe reddetme kuralını belirleyin. Ajan, standart ERP sorularını MCP araçlarını okuyarak kendi zekasıyla bu sınırlar içinde çözer; çok adımlı tanımlı görevlerde ise "Görev Akışları & Hızlı İstekler (Flowchart)" sekmesindeki diyagramı takip eder.'
                     )}
+                  </div>
+                </div>
+              </div>
 
-                    {/* Doğrudan Düzenlenebilir Monospace Editör */}
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px', minHeight: '160px' }}>
-                      <textarea
-                        value={activeRule.icerik || ''}
-                        onChange={e => handleUpdateRuleContent(activeRule.id, e.target.value)}
-                        placeholder="Bu madde için yapay zekaya gidecek talimat metnini yazın..."
-                        disabled={activeRule.durum === 'DevreDisi'}
-                        style={{
-                          flex: 1,
-                          width: '100%',
-                          minHeight: '160px',
-                          padding: '12px 14px',
-                          borderRadius: '8px',
-                          border: '1px solid var(--glass-border)',
-                          background: activeRule.durum === 'DevreDisi' ? 'transparent' : 'var(--bg-primary)',
-                          color: 'var(--text-primary)',
-                          fontFamily: 'ui-monospace, monospace',
-                          fontSize: '12.5px',
-                          lineHeight: '1.6',
-                          resize: 'none',
-                          boxSizing: 'border-box',
-                          outline: 'none'
-                        }}
-                      />
+              <div className="ai-system-prompt-editor-box">
+                <textarea
+                  className="ai-system-prompt-textarea"
+                  value={formData.sistemIstemi || ''}
+                  onChange={e => setFormData((prev: any) => ({ ...prev, sistemIstemi: e.target.value }))}
+                  placeholder={t(
+                    'sabit_sistem_istemi_placeholder',
+                    'Örn: Sen Webakus ERP sisteminde görev yapan uzman Satış ve Fatura Asistanısın. Yalnızca ERP kapsamındaki cari, stok, sipariş ve fatura işlemlerinde yardımcı olabilirsin. Kullanıcı konu dışı bir şey sorduğunda nazikçe yalnızca Webakus ERP işlemleri konusunda yardımcı olabileceğini belirt...'
+                  )}
+                />
+                <div className="ai-system-prompt-footer">
+                  <span>
+                    {t('sabit_prompt_notu', 'Kaydettiğinizde bu metin doğrudan ajanın Sabit Sistem İstemi (System Prompt) olarak veritabanına yazılır.')}
+                  </span>
+                  <span>
+                    {(formData.sistemIstemi || '').length} {t('karakter', 'Karakter')} • ~{Math.round(((formData.sistemIstemi || '').length) / 4)} Token
+                  </span>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {showPresetsModal && (
+                <div className="ai-rules-presets-popover">
+                  <div className="ai-ajan-section-header">
+                    <div className="ai-ajan-section-title">
+                      <Sparkles size={16} />
+                      <span>{t('hazir_erp_kural_sablonlari', 'Hazır ERP Kural Şablonları (Tek Tıkla Ekle)')}</span>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowPresetsModal(false)}
+                      className="ai-flowchart-icon-btn"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
 
-                    {/* Eğer Ezilmiş ise Orijinal Base Kuralı Referans Olarak Göster */}
-                    {activeRule.durum === 'Ezildi' && activeRule.orijinalBaseIcerik && (
-                      <div style={{
-                        background: 'var(--bg-primary)',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        border: '1px dashed rgba(59, 130, 246, 0.35)',
-                        fontSize: '11px'
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', color: '#3b82f6' }}>
-                            <GitBranch size={13} /> Orijinal Base Kural Metni (Referans):
-                          </span>
+                  <div className="ai-rules-presets-grid">
+                    {ERP_RULE_PRESETS.map((preset, pIdx) => (
+                      <div
+                        key={pIdx}
+                        onClick={() => handleApplyPreset(preset)}
+                        className="ai-rules-preset-item"
+                      >
+                        <div className="ai-ajan-section-header">
+                          <span className="font-bold text-xs text-primary">{preset.baslik}</span>
+                          <span className="text-xs font-bold text-accent">+ {t('ekle', 'Ekle')}</span>
+                        </div>
+                        <span className="ai-ajan-hint-text">{preset.aciklama}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="ai-rules-master-detail">
+                <div className="ai-rules-sidebar">
+                  <div className="ai-rules-filter-bar">
+                    {['Tümü', 'MirasAlindi', 'Ezildi', 'Yeni'].map(fil => (
+                      <button
+                        key={fil}
+                        type="button"
+                        onClick={() => setRuleFilter(fil)}
+                        className={`ai-rules-filter-btn ${ruleFilter === fil ? 'active' : ''}`}
+                      >
+                        {fil === 'Tümü' ? t('tumu', 'Tümü') : fil === 'MirasAlindi' ? 'Base' : fil === 'Ezildi' ? t('ezilen', 'Ezilen') : t('ozel', 'Özel')}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="ai-rules-list-scroll">
+                    {filteredRules.length === 0 ? (
+                      <div className="ai-flowchart-empty-state">
+                        {t('kural_bulunamadi', 'Kural bulunamadı.')}
+                      </div>
+                    ) : (
+                      filteredRules.map((rule: any, index: number) => {
+                        const isSelected = activeRule?.id === rule.id;
+                        const isDisabled = rule.durum === 'DevreDisi';
+
+                        return (
+                          <div
+                            key={rule.id || index}
+                            onClick={() => setSelectedRuleId(rule.id)}
+                            className={`ai-rule-list-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
+                          >
+                            <div className="ai-ajan-section-header">
+                              <div className="flex-row items-center gap-6">
+                                <span className="ai-flowchart-step-num">
+                                  #{rule.sira || index + 1}
+                                </span>
+                                <span className="ai-flowchart-node-title">
+                                  {rule.baslik || t('basliksiz_madde', 'Başlıksız Madde')}
+                                </span>
+                              </div>
+
+                              <div className="ai-flowchart-node-controls">
+                                <button
+                                  type="button"
+                                  disabled={index === 0}
+                                  onClick={(e) => handleMoveRule(index, 'up', e)}
+                                  className="ai-flowchart-icon-btn"
+                                  title={t('yukari_tasi', 'Yukarı Taşı')}
+                                >
+                                  <ArrowUp size={11} />
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={index === formData.kurallar.length - 1}
+                                  onClick={(e) => handleMoveRule(index, 'down', e)}
+                                  className="ai-flowchart-icon-btn"
+                                  title={t('asagi_tasi', 'Aşağı Taşı')}
+                                >
+                                  <ArrowDown size={11} />
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="ai-ajan-section-header">
+                              <span className="ai-ajan-hint-text">
+                                {rule.icerik ? `${rule.icerik.substring(0, 35)}...` : t('icerik_bos', '(İçerik boş)')}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {activeRule ? (
+                  <div className="ai-rule-detail-panel">
+                    <div className="ai-rule-detail-header">
+                      <div className="flex-row items-center gap-8">
+                        <input
+                          type="text"
+                          value={activeRule.baslik || ''}
+                          onChange={e => handleUpdateRuleTitle(activeRule.id, e.target.value)}
+                          placeholder={t('kural_basligi_placeholder', 'Kural Başlığı...')}
+                          className="ai-rule-title-input"
+                        />
+                        <code className="ai-flowchart-tool-tag">[{activeRule.id}]</code>
+                      </div>
+
+                      <div className="flex-row items-center gap-6">
+                        {activeRule.durum === 'MirasAlindi' && (
+                          <button
+                            type="button"
+                            onClick={() => handleOverrideRule(activeRule.id)}
+                            className="btn btn-primary btn-sm"
+                          >
+                            <Zap size={12} /> {t('kurali_ez', 'Kuralı Ez (Override)')}
+                          </button>
+                        )}
+                        {activeRule.durum === 'Ezildi' && (
                           <button
                             type="button"
                             onClick={() => handleResetRule(activeRule.id)}
-                            style={{ background: 'none', border: 'none', color: 'var(--warning)', cursor: 'pointer', fontSize: '10.5px', fontWeight: '700' }}
+                            className="btn btn-secondary btn-sm"
                           >
-                            Base Metnine Geri Dön
+                            <RotateCcw size={12} /> {t('base_sifirla', "Base'e Sıfırla")}
                           </button>
-                        </div>
-                        <div style={{ fontFamily: 'ui-monospace, monospace', color: 'var(--text-secondary)', lineHeight: '1.4', whiteSpace: 'pre-wrap', maxHeight: '80px', overflowY: 'auto' }}>
-                          {activeRule.orijinalBaseIcerik}
-                        </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDuplicateRule(activeRule.id)}
+                          className="btn btn-secondary btn-sm"
+                        >
+                          <Copy size={12} /> {t('cogalt', 'Çoğalt')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteRule(activeRule.id)}
+                          className="btn btn-secondary btn-sm text-danger"
+                        >
+                          <Trash2 size={12} /> {t('sil', 'Sil')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleRuleStatus(activeRule.id)}
+                          className="btn btn-secondary btn-sm"
+                        >
+                          {activeRule.durum === 'DevreDisi' ? t('etkinlestir', 'Etkinleştir') : t('devre_disi', 'Devre Dışı')}
+                        </button>
                       </div>
-                    )}
+                    </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                      <span>Yapay zeka modeli bu maddeyi diğer aktif kurallarla birleştirerek değerlendirir.</span>
-                      <span>{activeRule.icerik?.length || 0} Karakter • {activeRule.icerik?.trim() ? activeRule.icerik.trim().split(/\s+/).length : 0} Kelime • ~{Math.round((activeRule.icerik?.length || 0) / 4)} Token</span>
+                    <div className="ai-rule-detail-body">
+                      <textarea
+                        value={activeRule.icerik || ''}
+                        onChange={e => handleUpdateRuleContent(activeRule.id, e.target.value)}
+                        placeholder={t('kural_icerik_placeholder', 'Bu madde için yapay zekaya gidecek talimat metnini yazın...')}
+                        disabled={activeRule.durum === 'DevreDisi'}
+                        className="ai-system-prompt-textarea"
+                      />
                     </div>
                   </div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', background: 'var(--bg-secondary)', borderRadius: '12px' }}>
-                  Düzenlemek için sol taraftan bir kural maddesi seçin.
-                </div>
-              )}
-            </div>
+                ) : (
+                  <div className="ai-flowchart-empty-state">
+                    {t('duzenlemek_icin_kural_secin', 'Düzenlemek için sol taraftan bir kural maddesi seçin.')}
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
       )
     },
     {
       id: 'hizliIstekler',
-      label: `Hızlı İstekler & UI (${(formData.hizliIstekler || []).length})`,
+      label: `${t('gorev_akislari_ve_hizli_istekler_sekme', 'Görev Akışları & Hızlı İstekler')} (${(formData.hizliIstekler || []).length})`,
       icon: <Zap size={16} />,
       content: (
-        <div style={{ display: 'flex', flexDirection: 'column', width: '100%', minHeight: '520px', flex: 1 }}>
-          <BaseListPage
-            title={t('hizli_istekler_baslik', 'Hızlı ERP İstekleri & UI Eylemleri')}
-            subtitle={t('hizli_istekler_alt_baslik', 'Webakus formlarında asistan açıldığında sunulacak dinamik öneri çipleri ve UI araçları.')}
-            icon={<Zap size={22} color="#eab308" />}
-            addNewText={t('yeni_istek_ekle', 'Yeni İstek Ekle')}
-            onAddNew={() => handleOpenHizliIstekModal(null)}
-            extraDropdownActions={[
-              {
-                custom: (
-                  <div className="action-menu-header text-xs font-bold text-secondary px-8 py-4">
-                    {t('sablonlar_menu_header', 'HAZIR ERP ŞABLONLARI')}
-                  </div>
-                )
-              },
-              ...HIZLI_ISTEK_PRESETS.map((preset) => ({
-                label: preset.baslik,
-                icon: <Sparkles size={14} color="#eab308" />,
-                onClick: () => handleAddHizliIstek(preset)
-              }))
-            ]}
+        <div className="table-responsive rounded border border-glass">
+          <DataTable
+            data={formData.hizliIstekler || []}
             columns={hizliIstekColumns}
-            customFetchData={async () => ({
-              data: formData.hizliIstekler || [],
-              totalCount: (formData.hizliIstekler || []).length
-            })}
-            refreshKey={hizliIsteklerRefreshKey}
-            onEdit={(item) => handleOpenHizliIstekModal(item)}
-            customDeleteData={async (id) => handleRemoveHizliIstek(String(id))}
-            customRowActions={getHizliIstekRowActions}
-            emptyMessage={t('hizli_istek_bulunamadi', 'Henüz tanımlanmış hızlı ERP isteği bulunmuyor.')}
-            enableColumnManagement={false}
-            enableViewModeToggle={false}
-            enableArchive={false}
-            pageSize={50}
-            containerClassName="w-full flex-1"
+            keyExtractor={(item) => item.id || ''}
+            enableRowReorder={true}
+            showRowIndex={true}
+            showRowOrderButtons={false}
+            onRowReorder={(newData) => {
+              setFormData((prev: any) => ({ ...prev, hizliIstekler: newData }));
+              setHizliIsteklerRefreshKey(k => k + 1);
+            }}
+            emptyMessage={t('hizli_istek_bulunamadi', 'Henüz tanımlanmış görev akışı veya hızlı ERP isteği bulunmuyor.')}
+            onRowDoubleClick={(item) => handleOpenHizliIstekPage(item)}
+          />
+
+          <EkleFloatCircleButton
+            onClick={() => handleOpenHizliIstekPage(null)}
+            position="absolute-bottom-right"
+            title={t('yeni_gorev_akisi_ekle', 'Yeni Görev Akışı Ekle')}
           />
         </div>
       )
     },
     {
       id: 'mcp',
-      label: `MCP Yetkileri (${selectedCount})`,
+      label: `${t('mcp_yetkileri_sekme', 'MCP Yetkileri')} (${selectedCount})`,
       icon: <Code2 size={16} />,
       content: (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '6px 2px' }}>
-          {/* Kapsam Bilgi ve Uyarı Kutusu */}
+        <div className="ai-mcp-tab-container">
           {formData.kapsam === 2 ? (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '10px 14px',
-              borderRadius: '10px',
-              background: 'rgba(168, 85, 247, 0.08)',
-              border: '1px solid rgba(168, 85, 247, 0.25)',
-              color: '#c084fc',
-              fontSize: '12.5px'
-            }}>
-              <Shield size={16} color="#a855f7" />
+            <div className="ai-mcp-scope-alert admin">
+              <Shield size={16} />
               <span>
-                <strong>Admin Ajanı Yetki Alanı:</strong> Bu ajan Sistem Yönetimi (Admin) kapsamındadır. Sistem metrikleri, admin navigasyonu ve depolama denetimi gibi Admin MCP araçlarını tam yetkiyle çalıştırabilir.
+                <strong>{t('admin_ajani_yetki_alani', 'Admin Ajanı Yetki Alanı:')}</strong>{' '}
+                {t('admin_ajani_yetki_aciklama', 'Bu ajan Sistem Yönetimi (Admin) kapsamındadır. Sistem metrikleri, admin navigasyonu ve depolama denetimi gibi Admin MCP araçlarını çalıştırabilir.')}
               </span>
             </div>
           ) : (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '10px 14px',
-              borderRadius: '10px',
-              background: 'rgba(59, 130, 246, 0.08)',
-              border: '1px solid rgba(59, 130, 246, 0.22)',
-              color: 'var(--text-secondary)',
-              fontSize: '12.5px'
-            }}>
-              <Bot size={16} color="#3b82f6" />
+            <div className="ai-mcp-scope-alert erp">
+              <Bot size={16} />
               <span>
-                <strong>ERP Ajanı Yetki Alanı:</strong> Bu ajan ERP Şirket Kullanıcıları için tasarlanmıştır. Şirket veritabanı sorguları, belge oluşturma ve ERP modül navigasyon araçlarını kullanabilir.
+                <strong>{t('erp_ajani_yetki_alani', 'ERP Ajanı Yetki Alanı:')}</strong>{' '}
+                {t('erp_ajani_yetki_aciklama', 'Ajan, standart taleplerde bu MCP araçlarının açıklamalarını okuyarak kendi zekasıyla işlem yapar; tanımlı görevlerde ise Flowchart adımlarında belirtilen araçları çağırır.')}
               </span>
             </div>
           )}
 
-          {/* Üst Filtre & Toplu İşlem Çubuğu */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            background: 'var(--bg-primary)',
-            padding: '12px 16px',
-            borderRadius: '12px',
-            border: '1px solid var(--glass-border)',
-            flexWrap: 'wrap',
-            gap: '12px'
-          }}>
-            {/* Kapsam Filtreleme Butonları */}
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="ai-mcp-filter-bar">
+            <div className="ai-mcp-scope-buttons">
               <button
                 type="button"
                 onClick={() => setToolScopeFilter('ALL')}
-                style={{
-                  padding: '5px 12px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: toolScopeFilter === 'ALL' ? 'var(--accent-primary)' : 'var(--bg-secondary)',
-                  color: toolScopeFilter === 'ALL' ? '#fff' : 'var(--text-secondary)',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
+                className={`ai-mcp-scope-filter-btn ${toolScopeFilter === 'ALL' ? 'active-all' : ''}`}
               >
-                Tümü ({tools.length})
+                <span>{t('tumu', 'Tümü')} ({internalTools.length})</span>
               </button>
               <button
                 type="button"
                 onClick={() => setToolScopeFilter('ERP')}
-                style={{
-                  padding: '5px 12px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: toolScopeFilter === 'ERP' ? 'rgba(59, 130, 246, 0.2)' : 'var(--bg-secondary)',
-                  color: toolScopeFilter === 'ERP' ? '#3b82f6' : 'var(--text-secondary)',
-                  boxShadow: toolScopeFilter === 'ERP' ? 'inset 0 0 0 1.5px #3b82f6' : 'none',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
+                className={`ai-mcp-scope-filter-btn ${toolScopeFilter === 'ERP' ? 'active-erp' : ''}`}
               >
-                🏢 ERP Araçları ({erpToolsCount})
+                <span>🏢 {t('erp_araclari', 'ERP Araçları')} ({erpToolsCount})</span>
               </button>
               <button
                 type="button"
                 onClick={() => setToolScopeFilter('ADMIN')}
-                style={{
-                  padding: '5px 12px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: toolScopeFilter === 'ADMIN' ? 'rgba(168, 85, 247, 0.2)' : 'var(--bg-secondary)',
-                  color: toolScopeFilter === 'ADMIN' ? '#a855f7' : 'var(--text-secondary)',
-                  boxShadow: toolScopeFilter === 'ADMIN' ? 'inset 0 0 0 1.5px #a855f7' : 'none',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
+                className={`ai-mcp-scope-filter-btn ${toolScopeFilter === 'ADMIN' ? 'active-admin' : ''}`}
               >
-                <Shield size={13} style={{ marginRight: '4px', verticalAlign: '-1px' }} />
-                Admin Araçları ({adminToolsCount})
+                <Shield size={13} />
+                <span>{t('admin_araclari', 'Admin Araçları')} ({adminToolsCount})</span>
               </button>
             </div>
 
-            {/* Arama & Kategori */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '240px', justifyContent: 'flex-end' }}>
-              <div style={{ position: 'relative', flex: 1, maxWidth: '240px' }}>
-                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+            <div className="ai-mcp-search-group">
+              <div className="ai-mcp-search-box">
+                <Search size={14} className="ai-mcp-search-icon" />
                 <input
                   type="text"
                   value={toolSearch}
                   onChange={e => setToolSearch(e.target.value)}
-                  placeholder="Araç ara..."
-                  style={{
-                    width: '100%',
-                    padding: '5px 10px 5px 30px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--glass-border)',
-                    background: 'var(--bg-secondary)',
-                    color: 'var(--text-primary)',
-                    fontSize: '12px'
-                  }}
+                  placeholder={t('arac_ara_placeholder', 'Araç ara...')}
+                  className="ai-mcp-search-input"
                 />
               </div>
 
               <select
                 value={selectedCategory}
                 onChange={e => setSelectedCategory(e.target.value)}
-                style={{
-                  padding: '5px 10px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--glass-border)',
-                  background: 'var(--bg-secondary)',
-                  color: 'var(--text-primary)',
-                  fontSize: '12px',
-                  cursor: 'pointer'
-                }}
+                className="ai-mcp-category-select"
               >
                 {categories.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
 
-              {/* Toplu Seçim Butonları */}
-              <div style={{ display: 'flex', gap: '6px' }}>
+              <div className="flex-row gap-6">
                 <button
                   type="button"
                   onClick={handleSelectAllTools}
-                  className="btn btn-secondary"
-                  style={{ fontSize: '11.5px', padding: '5px 10px' }}
-                  title="Şu anda filtrelenmiş listedeki tüm araçları seçer"
+                  className="btn btn-secondary btn-sm"
                 >
-                  Listelenenleri Seç
+                  {t('listelenenleri_sec', 'Listelenenleri Seç')}
                 </button>
                 <button
                   type="button"
                   onClick={handleClearAllTools}
-                  className="btn btn-secondary"
-                  style={{ fontSize: '11.5px', padding: '5px 10px' }}
+                  className="btn btn-secondary btn-sm"
                 >
-                  Temizle
+                  {t('temizle', 'Temizle')}
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Araç Kartları Listesi */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-            gap: '12px',
-            maxHeight: '440px',
-            overflowY: 'auto',
-            paddingRight: '4px'
-          }}>
+          <div className="ai-mcp-tools-grid">
             {filteredTools.length === 0 ? (
-              <div style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                Seçili filtreye uygun MCP aracı bulunamadı.
+              <div className="ai-flowchart-empty-state">
+                {t('mcp_araci_bulunamadi', 'Seçili filtreye uygun MCP aracı bulunamadı.')}
               </div>
             ) : (
               filteredTools.map(tool => {
-                const isSelected = formData.seciliAracKodlari.some(k => k.toLowerCase() === tool.aracKodu.toLowerCase());
+                const isSelected = formData.seciliAracKodlari.some((k: string) => k.toLowerCase() === tool.aracKodu.toLowerCase());
                 const isExpanded = expandedSchemaTool === tool.aracKodu;
                 const isToolAdmin = tool.kapsam === 2 || tool.aracKodu?.toLowerCase().startsWith('admin_');
 
@@ -2492,45 +2196,23 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                   <div
                     key={tool.id || tool.aracKodu}
                     onClick={() => handleToggleTool(tool.aracKodu)}
-                    style={{
-                      border: `1px solid ${isSelected ? (isToolAdmin ? '#a855f7' : 'var(--accent-primary)') : 'var(--glass-border)'}`,
-                      background: isSelected
-                        ? (isToolAdmin ? 'rgba(168, 85, 247, 0.09)' : 'rgba(99, 102, 241, 0.08)')
-                        : 'var(--bg-secondary)',
-                      borderRadius: '12px',
-                      padding: '12px 14px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                      transition: 'all 0.15s ease'
-                    }}
+                    className={`ai-mcp-tool-card ${isSelected ? (isToolAdmin ? 'selected-admin' : 'selected-erp') : ''}`}
                   >
-                    {/* Üst Kısım: İkon, Ad, Kapsam Rozeti & Checkbox */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{
-                          width: '32px', height: '32px', borderRadius: '8px',
-                          background: isSelected ? (isToolAdmin ? '#a855f7' : 'var(--accent-primary)') : 'var(--bg-primary)',
-                          color: isSelected ? '#fff' : (isToolAdmin ? '#a855f7' : 'var(--text-primary)'),
-                          display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}>
+                    <div className="ai-ajan-section-header">
+                      <div className="flex-row items-center gap-10">
+                        <div className={`ai-mcp-tool-icon-box ${isSelected ? (isToolAdmin ? 'selected-admin' : 'selected-erp') : (isToolAdmin ? 'admin' : '')}`}>
                           {isToolAdmin ? <Shield size={16} /> : getToolIcon(tool.ikon, tool.kategoriAdi)}
                         </div>
                         <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>
+                          <div className="flex-row items-center gap-6">
+                            <span className="ai-flowchart-node-title">
                               {tool.aracAdi || tool.aracKodu}
                             </span>
-                            <span style={{
-                              fontSize: '9.5px', fontWeight: '700', padding: '1px 5px', borderRadius: '4px',
-                              background: isToolAdmin ? 'rgba(168, 85, 247, 0.2)' : 'rgba(59, 130, 246, 0.18)',
-                              color: isToolAdmin ? '#a855f7' : '#3b82f6'
-                            }}>
+                            <span className={`ai-ajan-scope-badge ${isToolAdmin ? 'scope-admin' : 'scope-erp'}`}>
                               {isToolAdmin ? '🛡️ Admin' : '🏢 ERP'}
                             </span>
                           </div>
-                          <code style={{ fontSize: '11px', color: isToolAdmin ? '#a855f7' : 'var(--accent-primary)', fontWeight: '600' }}>
+                          <code className="ai-flowchart-tool-tag">
                             {tool.aracKodu}
                           </code>
                         </div>
@@ -2539,26 +2221,20 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={() => { }} // onClick ile yönetiliyor
-                        style={{
-                          width: '16px', height: '16px',
-                          accentColor: isToolAdmin ? '#a855f7' : 'var(--accent-primary)',
-                          cursor: 'pointer'
-                        }}
+                        onChange={() => { }}
+                        className="ai-synthesis-radio"
                       />
                     </div>
 
-                    {/* Açıklama */}
                     {tool.aciklama && (
-                      <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                      <div className="ai-ajan-hint-text">
                         {tool.aciklama}
                       </div>
                     )}
 
-                    {/* Kategori Etiketi & Schema Butonu */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', borderTop: '1px solid var(--glass-border)', paddingTop: '6px' }}>
-                      <span style={{ fontSize: '10.5px', fontWeight: '600', padding: '2px 6px', borderRadius: '4px', background: 'var(--bg-primary)', color: 'var(--text-secondary)' }}>
-                        {tool.kategoriAdi || 'Genel'}
+                    <div className="ai-ajan-section-header">
+                      <span className="ai-flowchart-step-num">
+                        {tool.kategoriAdi || t('genel', 'Genel')}
                       </span>
 
                       {tool.parametreSemasi && (
@@ -2568,51 +2244,34 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                             e.stopPropagation();
                             setExpandedSchemaTool(isExpanded ? null : tool.aracKodu);
                           }}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: isToolAdmin ? '#a855f7' : 'var(--accent-primary)',
-                            fontSize: '11px',
-                            fontWeight: '600',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}
+                          className="ai-guardrail-chip-btn"
                         >
-                          <Terminal size={12} /> {isExpanded ? 'Semayı Gizle' : 'JSON Şeması'}
+                          <Terminal size={12} />
+                          <span>{isExpanded ? t('semayi_gizle', 'Şemayı Gizle') : t('json_semasi', 'JSON Şeması')}</span>
                         </button>
                       )}
                     </div>
 
-                    {/* Genişletilmiş JSON Şeması */}
                     {isExpanded && tool.parametreSemasi && (
                       <div
                         onClick={e => e.stopPropagation()}
-                        style={{
-                          marginTop: '6px',
-                          background: 'var(--bg-primary)',
-                          padding: '10px',
-                          borderRadius: '8px',
-                          border: '1px solid var(--glass-border)',
-                          fontSize: '11px'
-                        }}
+                        className="ai-mcp-schema-box"
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                          <span style={{ fontWeight: '700', color: 'var(--text-secondary)' }}>Parametre JSON Şeması:</span>
+                        <div className="ai-ajan-section-header">
+                          <span className="font-bold text-secondary">{t('parametre_json_semasi', 'Parametre JSON Şeması:')}</span>
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               navigator.clipboard.writeText(tool.parametreSemasi);
-                              toast.success('JSON Schema kopyalandı');
+                              toast.success(t('json_schema_kopyalandi', 'JSON Schema kopyalandı'));
                             }}
-                            style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', cursor: 'pointer', fontSize: '10.5px' }}
+                            className="ai-flowchart-icon-btn"
                           >
-                            Kopyala
+                            {t('kopyala', 'Kopyala')}
                           </button>
                         </div>
-                        <pre style={{ margin: 0, overflowX: 'auto', maxHeight: '140px', color: 'var(--text-primary)', fontFamily: 'monospace' }}>
+                        <pre className="ai-mcp-schema-pre">
                           {JSON.stringify(JSON.parse(tool.parametreSemasi), null, 2)}
                         </pre>
                       </div>
@@ -2641,8 +2300,6 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     }
   };
 
-  const isNew = !effectiveId && !localInitialData?.id;
-
   const agentDisplayName = useMemo(() => {
     if (formData.ad?.trim()) return formData.ad.trim();
     if (localInitialData?.ad?.trim()) return localInitialData.ad.trim();
@@ -2670,12 +2327,12 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
           <BaseSwitch
             id="actionMenuAjanAktifSwitch"
             checked={formData.aktifMi ?? true}
-            onChange={(e: any) => setFormData(prev => ({ ...prev, aktifMi: e.target.checked }))}
+            onChange={(e: any) => setFormData((prev: any) => ({ ...prev, aktifMi: e.target.checked }))}
             label={
               <span className="flex items-center gap-8">
-                <Power size={15} className={formData.aktifMi ? "text-success" : "text-secondary"} />
+                <Power size={15} className={formData.aktifMi ? 'text-success' : 'text-secondary'} />
                 <span className="font-medium">{t('durum', 'Durum')}:</span>
-                <span className={formData.aktifMi ? "text-success font-semibold" : "text-secondary font-semibold"}>
+                <span className={formData.aktifMi ? 'text-success font-semibold' : 'text-secondary font-semibold'}>
                   {formData.aktifMi ? t('aktif', 'Aktif') : t('pasif', 'Pasif')}
                 </span>
               </span>
@@ -2686,32 +2343,16 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         dividerBelow: true
       },
       {
-        label: t('auto_canli_sistem_istemi', 'Canlı Prompt / Sistem İstemi'),
-        icon: <Eye size={15} />,
+        label: t('sabit_sistem_istemi_duzenle', 'Sabit Sistem İstemi & Yetki Sınırları'),
+        icon: <Shield size={15} />,
         onClick: () => {
           setActiveTabId('istem');
-          setShowPromptPreview(true);
+          setSystemPromptViewMode('sabitPrompt');
         }
       },
       {
-        label: t('auto_yeni_kural_ekle', 'Özel Kural Maddesi Ekle'),
-        icon: <Plus size={15} />,
-        onClick: () => {
-          setActiveTabId('istem');
-          handleAddCustomRule();
-        }
-      },
-      {
-        label: t('auto_standart_kural_sablonlari', 'Standart Kural Şablonları'),
-        icon: <BookOpen size={15} />,
-        onClick: () => {
-          setActiveTabId('istem');
-          setShowPresetsModal(true);
-        }
-      },
-      {
-        label: t('auto_hizli_istek_yonetimi', 'Hızlı İstekler & UI Eylemleri'),
-        icon: <Zap size={15} />,
+        label: t('auto_hizli_istek_yonetimi', 'Görev Akışları (Flowchart) & Hızlı İstekler'),
+        icon: <GitBranch size={15} />,
         onClick: () => {
           setActiveTabId('hizliIstekler');
         }
@@ -2736,7 +2377,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                 toast.success(t('auto_ajan_silindi', 'Ajan başarıyla silindi.'));
                 if (onSuccess) onSuccess();
                 else handleClose();
-              } catch (err) {
+              } catch {
                 showAlert('error', t('Hata', 'Hata'), t('auto_ajan_silme_hata', 'Silme işlemi başarısız'));
               }
             }
@@ -2750,6 +2391,34 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
 
   if (isOpen === false) {
     return null;
+  }
+
+  // ─── ALT SAYFA: GÖREV AKIŞI (FLOWCHART) & HIZLI İSTEK DÜZENLEME ──────────────
+  const isHizliIstekRoute = location.pathname.includes('/hizli-istek');
+  if (isHizliIstekRoute) {
+    const targetParentRoute = effectiveId
+      ? (isUnderAyarlar ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveId}` : `/ai-ajanlar/${effectiveId}`)
+      : (isUnderAyarlar ? '/ayarlar/YapayZekaAyarlari/AiAjanlar' : '/ai-ajanlar');
+
+    return (
+      <AiAjanHizliIstekForm
+        agentId={effectiveId}
+        initialAgentData={formData}
+        backRoute={targetParentRoute}
+        onClose={() => navigate(targetParentRoute, { state: { activeTabId: 'hizliIstekler' } })}
+        onBack={() => navigate(targetParentRoute, { state: { activeTabId: 'hizliIstekler' } })}
+        onSuccess={() => {
+          if (effectiveId) {
+            axios.get(`/api/AiAjanlar/${effectiveId}`)
+              .then(res => {
+                if (res.data) setFormData(res.data);
+              })
+              .catch(() => { });
+          }
+          navigate(targetParentRoute, { state: { activeTabId: 'hizliIstekler' } });
+        }}
+      />
+    );
   }
 
   if (dataLoading) {
@@ -2775,139 +2444,6 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         onTabChange={(tabId) => setActiveTabId(tabId as string)}
         className="fade-in"
       />
-
-      {/* ─── HIZLI İSTEK EKLE / DÜZENLE MODALI (BasePopup) ──────────────── */}
-      {hizliIstekModal.isOpen && (
-        <BasePopup
-          isOpen={hizliIstekModal.isOpen}
-          onClose={() => setHizliIstekModal({ isOpen: false, item: null })}
-          title={hizliIstekModal.item ? t('hizli_istek_duzenle', 'Hızlı ERP İsteğini Düzenle') : t('yeni_hizli_istek', 'Yeni Hızlı ERP İsteği Ekle')}
-          modalSize="md"
-          hideFooter={true}
-        >
-          <div className="flex-col gap-16">
-            <div className="card-message-banner flex-row items-center gap-12">
-              <Zap size={20} className="text-warning" />
-              <div className="text-xs text-secondary">
-                {t(
-                  'hizli_istek_modal_aciklama',
-                  'Kullanıcı form üzerindeki Yapay Zeka Asistanı çipine tıkladığında doğrudan asistan sohbetine yönlendirilecek hazır istek cümlesi ve opsiyonel ERP ekranı yönlendirmesi.'
-                )}
-              </div>
-            </div>
-
-            <div className="form-grid">
-              {/* İstek Başlığı */}
-              <div className="form-field full-width">
-                <label className="form-label flex-row items-center gap-8">
-                  <span>{t('hizli_istek_baslik', 'İstek Başlığı')} *</span>
-                </label>
-                <BasitInput
-                  value={modalFormState.baslik}
-                  onChange={(e: any) => {
-                    const val = e && e.target ? e.target.value : e;
-                    setModalFormState(prev => ({ ...prev, baslik: val }));
-                  }}
-                  placeholder={t('hizli_istek_baslik_placeholder', 'Örn: Cari Bakiye & Ekstre Analizi')}
-                />
-              </div>
-
-              {/* İkon Seçici */}
-              <div className="form-field">
-                <label className="form-label flex-row items-center gap-8">
-                  <span>{t('hizli_istek_ikon', 'İkon')}</span>
-                </label>
-                <select
-                  className="form-input"
-                  value={modalFormState.ikon}
-                  onChange={(e) => setModalFormState(prev => ({ ...prev, ikon: e.target.value }))}
-                >
-                  <option value="Sparkles">✨ Sparkles</option>
-                  <option value="Search">🔍 Search</option>
-                  <option value="FileText">📄 FileText</option>
-                  <option value="Database">🗄️ Database</option>
-                  <option value="TrendingUp">📈 TrendingUp</option>
-                  <option value="Users">👥 Users</option>
-                  <option value="Package">📦 Package</option>
-                  <option value="Zap">⚡ Zap</option>
-                  <option value="Bot">🤖 Bot</option>
-                  <option value="Layers">📑 Layers</option>
-                </select>
-              </div>
-
-              {/* Aktiflik Durumu */}
-              <div className="form-field">
-                <label className="form-label flex-row items-center gap-8">
-                  <span>{t('durum', 'Durum')}</span>
-                </label>
-                <div className="mt-8">
-                  <BaseSwitch
-                    id="modalHizliIstekAktif"
-                    checked={modalFormState.aktifMi}
-                    onChange={(val: any) => {
-                      const checked = typeof val === 'boolean' ? val : val?.target?.checked;
-                      setModalFormState(prev => ({ ...prev, aktifMi: checked }));
-                    }}
-                    label={modalFormState.aktifMi ? t('aktif', 'Aktif') : t('pasif', 'Pasif')}
-                  />
-                </div>
-              </div>
-
-              {/* Prompt / Yapay Zeka İstemi */}
-              <div className="form-field full-width">
-                <label className="form-label flex-row items-center gap-8">
-                  <span>{t('hizli_istek_prompt', 'Yapay Zeka İstemi (Prompt)')} *</span>
-                </label>
-                <textarea
-                  className="form-input"
-                  rows={3}
-                  value={modalFormState.prompt}
-                  onChange={(e) => setModalFormState(prev => ({ ...prev, prompt: e.target.value }))}
-                  placeholder={t('hizli_istek_prompt_placeholder', 'Örn: Açık olan cari kartın son hareketlerini özetle ve risk durumunu bildir.')}
-                />
-              </div>
-
-              {/* UI Aksiyonu */}
-              <div className="form-field full-width">
-                <label className="form-label flex-row items-center gap-8">
-                  <span>{t('hizli_istek_ui_aksiyonu', 'Açılacak ERP Arayüzü / UI Aksiyonu')}</span>
-                </label>
-                <select
-                  className="form-input"
-                  value={modalFormState.uiAksiyonu}
-                  onChange={(e) => setModalFormState(prev => ({ ...prev, uiAksiyonu: e.target.value }))}
-                >
-                  {[
-                    { id: 'YOK', tanim: t('💬 Salt Metin İstemi (Ekran Açma)') },
-                    { id: 'BULUT_DOSYA_SEC', tanim: t('📁 Bulut Dosyası Seçici (FilesOnClouds)') },
-                    { id: 'METIN_YAPISTIR_MODAL', tanim: t('Metin / Kampanya Giriş Penceresi Aç (Önce Metin Al)') },
-                    { id: 'EXCEL_IMPORT', tanim: t('📊 Excel İçe Aktarım Ekranı (/excel-import)') },
-                    { id: 'CARI_SEC', tanim: t('👤 Cari Kart Seçici (CariSeciciModal)') },
-                    { id: 'URUN_SEC', tanim: t('📦 Ürün & Hizmet Seçici (UrunSeciciModal)') },
-                    { id: 'OZEL_ROTA', tanim: t('🔗 Özel ERP Rota Yönlendirmesi') }
-                  ].map(opt => (
-                    <option key={opt.id} value={opt.id}>
-                      {opt.tanim}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Modal Aksiyon Butonları */}
-            <div className="flex-row items-center justify-between gap-12 modal-footer-actions">
-              <CancelButton
-                onClick={() => setHizliIstekModal({ isOpen: false, item: null })}
-                text={t('vazgec', 'Vazgeç')}
-              />
-              <SaveButton
-                onClick={handleSaveHizliIstekModal}
-                text={t('kaydet', 'Kaydet')}
-              />
-            </div>
-          </div>
-        </BasePopup>
-      )}
 
       {/* ─── AI MODEL SEÇİM & PARAMETRE MODALI (BasePopup) ──────────────── */}
       <AiModelSelection

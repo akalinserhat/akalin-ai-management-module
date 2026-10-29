@@ -17,6 +17,7 @@ const AiProtokolFormPage = lazy(() => import('./pages/AiProtokolForm'));
 const AiTokenYonetimiPage = lazy(() => import('./pages/AiTokenYonetimi'));
 const AiAjanlarPage = lazy(() => import('./pages/AiAjanlar'));
 const AiAjanFormPage = lazy(() => import('./pages/AiAjanForm'));
+const AiAjanHizliIstekFormPage = lazy(() => import('./pages/AiAjanHizliIstekForm'));
 const AiMcpYonetimiPage = lazy(() => import('./pages/AiMcpYonetimi'));
 
 export interface CreateAiManagementModuleOptions {
@@ -52,6 +53,7 @@ export function createAiManagementModule(options: CreateAiManagementModuleOption
   const AiTokenYonetimiComponent = options.customComponents?.AiTokenYonetimi || AiTokenYonetimiPage;
   const AiAjanlarComponent = options.customComponents?.AiAjanlar || AiAjanlarPage;
   const AiAjanFormComponent = options.customComponents?.AiAjanForm || AiAjanFormPage;
+  const AiAjanHizliIstekFormComponent = options.customComponents?.AiAjanHizliIstekForm || AiAjanHizliIstekFormPage;
   const AiMcpYonetimiComponent = options.customComponents?.AiMcpYonetimi || AiMcpYonetimiPage;
 
   return {
@@ -132,6 +134,26 @@ export function createAiManagementModule(options: CreateAiManagementModuleOption
         title: 'Ajanı Yapılandır'
       },
       {
+        path: '/ai-ajanlar/:id/hizli-istek/:istekId',
+        element: withProvider(AiAjanHizliIstekFormComponent),
+        title: 'Görev Akışı (Flowchart)'
+      },
+      {
+        path: '/ai-ajanlar/:id/hizli-istek/yeni',
+        element: withProvider(AiAjanHizliIstekFormComponent),
+        title: 'Yeni Görev Akışı'
+      },
+      {
+        path: '/ayarlar/YapayZekaAyarlari/AiAjanlar/:id/hizli-istek/:istekId',
+        element: withProvider(AiAjanHizliIstekFormComponent),
+        title: 'Görev Akışı (Flowchart)'
+      },
+      {
+        path: '/ayarlar/YapayZekaAyarlari/AiAjanlar/:id/hizli-istek/yeni',
+        element: withProvider(AiAjanHizliIstekFormComponent),
+        title: 'Yeni Görev Akışı'
+      },
+      {
         path: '/ai-mcp',
         element: withProvider(AiMcpYonetimiComponent),
         title: 'Model Context Protocol (MCP)'
@@ -168,6 +190,7 @@ export function createAiManagementModule(options: CreateAiManagementModuleOption
       AiTokenYonetimi: AiTokenYonetimiComponent,
       AiAjanlar: AiAjanlarComponent,
       AiAjanForm: AiAjanFormComponent,
+      AiAjanHizliIstekForm: AiAjanHizliIstekFormComponent,
       AiMcpYonetimi: AiMcpYonetimiComponent
     }
   };
