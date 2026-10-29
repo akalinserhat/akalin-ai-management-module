@@ -226,6 +226,11 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
     }));
   }, []);
 
+  const ajanlarListRoute = isUnderAyarlar
+    ? '/ayarlar/YapayZekaAyarlari/AiAjanlar'
+    : '/ai-ajanlar';
+  const ajanlarListLabel = t('ai_ajanlar_baslik', 'Ajanlar & MCP');
+
   const agentTitle = agentData?.ad || incomingAgentData?.ad || (effectiveAgentId ? `#${effectiveAgentId}` : t('ai_ajani', 'AI Ajanı'));
   const istekTitle = istekData?.baslik || incomingIstekData?.baslik || t('gorev_akisi', 'Görev Akışı');
   const nodeTitle = t('basla', 'Başla');
@@ -239,6 +244,10 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
     : `/ai-ajanlar/${effectiveAgentId}/hizli-istek/${effectiveIstekId}`;
 
   const subTrail = useMemo(() => [
+    {
+      label: ajanlarListLabel,
+      onClick: () => navigate(ajanlarListRoute)
+    },
     {
       label: agentTitle,
       onClick: () => navigate(agentRoute, { state: { activeTabId: 'hizliIstekler' } })
@@ -256,7 +265,7 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
       label: nodeTitle,
       active: true
     }
-  ], [agentTitle, agentRoute, istekTitle, istekRoute, nodeTitle, agentData, incomingAgentData, istekData, incomingIstekData, navigate]);
+  ], [ajanlarListLabel, ajanlarListRoute, agentTitle, agentRoute, istekTitle, istekRoute, nodeTitle, agentData, incomingAgentData, istekData, incomingIstekData, navigate]);
 
   return (
     <BaseAiAjanFlowchartOgeAyarPage

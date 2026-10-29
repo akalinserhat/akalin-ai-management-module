@@ -467,12 +467,21 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     return t('yeni_gorev_akisi', 'Yeni Görev Akışı (Flowchart)');
   }, [formState.baslik, t]);
 
+  const ajanlarListRoute = isUnderAyarlar
+    ? '/ayarlar/YapayZekaAyarlari/AiAjanlar'
+    : '/ai-ajanlar';
+  const ajanlarListLabel = t('ai_ajanlar_baslik', 'Ajanlar & MCP');
+
   const agentTitle = agentData?.ad || (effectiveAgentId ? `#${effectiveAgentId}` : t('ai_ajani', 'AI Ajanı'));
   const agentRoute = isUnderAyarlar
     ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveAgentId}`
     : `/ai-ajanlar/${effectiveAgentId}`;
 
   const subTrail = useMemo(() => [
+    {
+      label: ajanlarListLabel,
+      onClick: () => navigate(ajanlarListRoute)
+    },
     {
       label: agentTitle,
       onClick: () => navigate(agentRoute, { state: { activeTabId: 'hizliIstekler' } })
@@ -481,7 +490,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       label: pageDisplayName,
       active: true
     }
-  ], [agentTitle, agentRoute, pageDisplayName, navigate]);
+  ], [ajanlarListLabel, ajanlarListRoute, agentTitle, agentRoute, pageDisplayName, navigate]);
 
   useEffect(() => {
     if (setHeaderBreadcrumbOptions) {
