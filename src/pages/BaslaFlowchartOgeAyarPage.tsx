@@ -307,9 +307,6 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
             onChange={(e) => setFormData((prev: any) => ({ ...prev, tetiklemeAnahtarlari: e.target.value }))}
             placeholder={t('tetikleme_anahtarlari_placeholder', 'Örn: kampanya hazırla, teklif oluştur, cari bakiye sor')}
           />
-          <small className="text-secondary text-xs mt-4 block">
-            {t('tetikleme_anahtarlari_ipucu', 'Kullanıcı mesajında bu kelimeler geçtiğinde akış otomatik tetiklenir (virgülle ayırın).')}
-          </small>
         </div>
 
         <div className="form-group">
@@ -317,44 +314,35 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
             <Sparkles size={14} className="text-primary" />
             <span>{t('hizli_erisim_dugmesi', 'Hızlı Erişim Düğmesi')}</span>
           </label>
-          <div className="flex items-center gap-12 mt-6">
-            <BaseSwitch
-              id="hizliErisimDugmesiSwitch"
-              checked={formData.hizliErisimDugmesi !== false}
-              onChange={(e: any) => {
-                const checked = typeof e === 'boolean' ? e : e?.target?.checked;
-                setFormData((prev: any) => ({ ...prev, hizliErisimDugmesi: checked }));
-              }}
-              label={
-                <span className="text-sm font-medium">
-                  {formData.hizliErisimDugmesi !== false
-                    ? t('hizli_erisim_acik', 'AI Sohbet Panelinde Hızlı Erişim Butonu Olarak Göster')
-                    : t('hizli_erisim_kapali', 'Sadece Doğal Dil Tetikleyicisiyle Çalıştır (Butonu Gizle)')}
-                </span>
-              }
-            />
-          </div>
-          <small className="text-secondary text-xs mt-6 block">
-            {t('hizli_erisim_dugmesi_ipucu', 'Bu akışın AI sohbet panelinde öneri çipi / hızlı erişim düğmesi olarak sunulmasını kontrol eder.')}
-          </small>
-
-          {formData.hizliErisimDugmesi !== false && (
-            <div className="mt-14 pt-12 border-t border-border-light flex flex-col gap-6">
-              <label className="form-label font-semibold text-sm flex items-center gap-6">
-                <Tag size={14} className="text-primary" />
-                <span>{t('dugme_ismi', 'Düğme İsmi / Çip Başlığı')}</span>
-              </label>
-              <BaseInput
-                icon={<Tag size={14} />}
-                value={formData.dugmeBasligi || ''}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, dugmeBasligi: e.target.value }))}
-                placeholder={t('dugme_ismi_placeholder', 'Örn: Kampanya Oluştur (Boş bırakılırsa akış başlığı kullanılır)')}
+          <div className="flex items-center gap-16 mt-4">
+            <div className="flex-shrink-0">
+              <BaseSwitch
+                id="hizliErisimDugmesiSwitch"
+                checked={formData.hizliErisimDugmesi !== false}
+                onChange={(e: any) => {
+                  const checked = typeof e === 'boolean' ? e : e?.target?.checked;
+                  setFormData((prev: any) => ({ ...prev, hizliErisimDugmesi: checked }));
+                }}
+                label={
+                  <span className="text-sm font-medium">
+                    {formData.hizliErisimDugmesi !== false
+                      ? t('aktif', 'Aktif')
+                      : t('pasif', 'Pasif')}
+                  </span>
+                }
               />
-              <small className="text-secondary text-xs block">
-                {t('dugme_ismi_ipucu', 'Sohbet panelindeki buton üzerinde görünecek kısa isimdir. Belirtilmezse görev akışı başlığı geçerli olur.')}
-              </small>
             </div>
-          )}
+            {formData.hizliErisimDugmesi !== false && (
+              <div className="flex-1">
+                <BaseInput
+                  icon={<Tag size={14} />}
+                  value={formData.dugmeBasligi || ''}
+                  onChange={(e) => setFormData((prev: any) => ({ ...prev, dugmeBasligi: e.target.value }))}
+                  placeholder={t('dugme_ismi_placeholder', 'Düğme İsmi (Boş bırakılırsa akış başlığı kullanılır)')}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="form-group">
