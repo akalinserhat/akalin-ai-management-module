@@ -137,20 +137,9 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     akisDugumleri: AiAkisDugumu[];
   }>(() => {
     if (targetItem) {
-      const nodes: AiAkisDugumu[] = Array.isArray(targetItem.akisDugumleri) && targetItem.akisDugumleri.length > 0
+      const nodes: AiAkisDugumu[] = Array.isArray(targetItem.akisDugumleri)
         ? JSON.parse(JSON.stringify(targetItem.akisDugumleri))
-        : [
-          {
-            id: 'ADIM_1',
-            tip: targetItem.uiAksiyonu && targetItem.uiAksiyonu !== 'YOK' ? 'BASLANGIC_GIRDI' : 'MCP_SORGULA',
-            baslik: targetItem.baslik || t('varsayilan_ilk_adim_baslik', 'Girdi Al & Verileri Kontrol Et'),
-            prompt: targetItem.prompt || '',
-            aracKodu: '',
-            uiAksiyonu: targetItem.uiAksiyonu || 'YOK',
-            hedefRota: '',
-            sonrakiDugumId: ''
-          }
-        ];
+        : [];
 
       return {
         id: targetItem.id || `req_${Date.now()}`,
@@ -165,17 +154,6 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       };
     }
 
-    const defaultNode: AiAkisDugumu = {
-      id: 'ADIM_1',
-      tip: 'BASLANGIC_GIRDI',
-      baslik: t('varsayilan_ilk_adim_baslik', 'Girdi Al & Verileri Kontrol Et'),
-      prompt: '',
-      aracKodu: '',
-      uiAksiyonu: 'YOK',
-      hedefRota: '',
-      sonrakiDugumId: ''
-    };
-
     return {
       id: `req_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
       baslik: '',
@@ -184,7 +162,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       uiAksiyonu: 'YOK',
       aktifMi: true,
       tetiklemeAnahtarlari: '',
-      akisDugumleri: [defaultNode]
+      akisDugumleri: []
     };
   });
 
@@ -424,15 +402,6 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     };
   }, [pageDisplayName, setHeaderBreadcrumbOptions]);
 
-  const startNodeSubtitle = useMemo(() => {
-    const uiOpt = UI_ACTION_OPTIONS.find(o => o.id === formState.uiAksiyonu || o.value === formState.uiAksiyonu);
-    const badgeText = uiOpt ? t(uiOpt.badge) : t('dogrudan_baslat', 'Doğrudan Akış');
-    if (formState.tetiklemeAnahtarlari?.trim()) {
-      return `${badgeText} • ${formState.tetiklemeAnahtarlari}`;
-    }
-    return badgeText;
-  }, [formState.uiAksiyonu, formState.tetiklemeAnahtarlari, t]);
-
   const tabs: BaseTabItem[] = useMemo(() => [
     {
       id: 'flowchart',
@@ -442,14 +411,9 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         <div className="ai-flowchart-full-page">
           <BaseFlowchart
             fit={true}
-            startNodeId={START_NODE_ID}
-            startTitle={formState.baslik || t('gorev_basligi_giriniz', 'Görev Başlığı')}
-            startSubtitle={startNodeSubtitle}
-            endTitle={t('gorev_tamamlandi_sonuc', 'Görev Tamamlandı & Yanıt Özeti')}
             steps={flowchartSteps}
             selectedStepId={selectedFlowNodeId}
             onSelectStep={(stepId) => setSelectedFlowNodeId(stepId)}
-            onAddStep={(stepType, insertAtIndex) => handleAddFlowNode(stepType, insertAtIndex)}
             onMoveStep={handleMoveFlowNode}
             onDeleteStep={handleDeleteFlowNode}
             className="ai-flowchart-fit"
@@ -457,7 +421,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         </div>
       )
     }
-  ], [formState.baslik, startNodeSubtitle, flowchartSteps, selectedFlowNodeId, t]);
+  ], [flowchartSteps, selectedFlowNodeId, t]);
 
   const extraDropdownActions = useMemo(() => [
     {
