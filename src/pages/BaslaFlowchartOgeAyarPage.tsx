@@ -75,25 +75,61 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
     return -1 as any;
   }, [backRoute, effectiveAgentId, effectiveIstekId, isUnderAyarlar]);
 
+  const handleBackOrClose = () => {
+    if (typeof effectiveBackRoute === 'string') {
+      const existingNodes = Array.isArray(incomingIstekData?.akisDugumleri) ? [...incomingIstekData.akisDugumleri] : [];
+      const nodeIdx = existingNodes.findIndex((x: any) => x.id === 'BASLA' || x.tip === 'BASLA');
+      const activeBaslaNode = {
+        ...formData,
+        id: 'BASLA',
+        tip: 'BASLA'
+      };
+
+      if (nodeIdx !== -1) {
+        existingNodes[nodeIdx] = { ...existingNodes[nodeIdx], ...activeBaslaNode };
+      } else {
+        existingNodes.unshift(activeBaslaNode);
+      }
+
+      navigate(effectiveBackRoute, {
+        state: {
+          agentData: incomingAgentData,
+          hizliIstekItem: incomingIstekData ? {
+            ...incomingIstekData,
+            akisDugumleri: existingNodes
+          } : undefined
+        }
+      });
+    } else {
+      navigate(-1);
+    }
+  };
+
   const handleSave = async (dataToSave: any) => {
     try {
       setIsSaving(true);
       const payloadNode = {
         ...formData,
-        ...dataToSave
+        ...dataToSave,
+        id: 'BASLA',
+        tip: 'BASLA',
+        baslik: (dataToSave?.baslik || formData.baslik || t('basla', 'Başla')).trim()
       };
 
-      if (effectiveAgentId && effectiveIstekId) {
-        let agentToUpdate = incomingAgentData;
-        if (!agentToUpdate) {
-          const res = await axios.get(`/api/AiAjanlar/${effectiveAgentId}`);
-          agentToUpdate = res.data;
-        }
+      let agentToUpdate = incomingAgentData;
+      if (!agentToUpdate && effectiveAgentId) {
+        const res = await axios.get(`/api/AiAjanlar/${effectiveAgentId}`);
+        agentToUpdate = res.data;
+      }
 
-        const currentRequests = Array.isArray(agentToUpdate?.hizliIstekler) ? [...agentToUpdate.hizliIstekler] : [];
-        const currentReq = currentRequests.find((x: any) => x.id === effectiveIstekId);
+      let updatedReq: any = null;
 
-        if (currentReq) {
+      if (effectiveAgentId && agentToUpdate && effectiveIstekId) {
+        const currentRequests = Array.isArray(agentToUpdate.hizliIstekler) ? [...agentToUpdate.hizliIstekler] : [];
+        const reqIdx = currentRequests.findIndex((x: any) => x.id === effectiveIstekId);
+
+        if (reqIdx !== -1) {
+          const currentReq = { ...currentRequests[reqIdx] };
           const currentNodes = Array.isArray(currentReq.akisDugumleri) ? [...currentReq.akisDugumleri] : [];
           const nodeIdx = currentNodes.findIndex((x: any) => x.id === 'BASLA' || x.tip === 'BASLA');
 
@@ -104,9 +140,15 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
           }
 
           currentReq.akisDugumleri = currentNodes;
-          currentReq.baslik = payloadNode.baslik || currentReq.baslik;
-          currentReq.tetiklemeAnahtarlari = payloadNode.tetiklemeAnahtarlari;
-          currentReq.uiAksiyonu = payloadNode.uiAksiyonu;
+          // DİKKAT: İstek başlığı (currentReq.baslik) korunur, ezilmez!
+          currentReq.tetiklemeAnahtarlari = payloadNode.tetiklemeAnahtarlari || currentReq.tetiklemeAnahtarlari;
+          currentReq.uiAksiyonu = payloadNode.uiAksiyonu || currentReq.uiAksiyonu;
+          if (payloadNode.prompt) {
+            currentReq.prompt = payloadNode.prompt;
+          }
+
+          currentRequests[reqIdx] = currentReq;
+          updatedReq = currentReq;
 
           await axios.put(`/api/AiAjanlar/${effectiveAgentId}`, {
             ...agentToUpdate,
@@ -121,7 +163,12 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
         onSuccess();
       } else {
         if (typeof effectiveBackRoute === 'string') {
-          navigate(effectiveBackRoute);
+          navigate(effectiveBackRoute, {
+            state: {
+              agentData: agentToUpdate,
+              hizliIstekItem: updatedReq || incomingIstekData
+            }
+          });
         } else {
           navigate(-1);
         }
@@ -145,8 +192,8 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
       onFormDataChange={setFormData}
       onSave={handleSave}
       isSaving={isSaving}
-      onClose={() => (typeof effectiveBackRoute === 'string' ? navigate(effectiveBackRoute) : navigate(-1))}
-      onBack={() => (typeof effectiveBackRoute === 'string' ? navigate(effectiveBackRoute) : navigate(-1))}
+      onClose={handleBackOrClose}
+      onBack={handleBackOrClose}
     >
       <div className="form-grid max-w-4xl mx-auto flex flex-col gap-20">
         <div className="form-group">

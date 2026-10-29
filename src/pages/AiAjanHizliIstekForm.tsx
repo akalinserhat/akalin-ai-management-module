@@ -96,6 +96,13 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(!agentData && Boolean(effectiveAgentId));
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
+  // Navigasyon durumundan güncel ajan verisi gelirse güncelle
+  useEffect(() => {
+    if (location.state?.agentData) {
+      setAgentData(location.state.agentData);
+    }
+  }, [location.state?.agentData]);
+
   // Ajan verisi yoksa çek
   useEffect(() => {
     if (!agentData && effectiveAgentId) {
@@ -188,9 +195,9 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         ? JSON.parse(JSON.stringify(targetItem.akisDugumleri))
         : [
           {
-            id: 'ADIM_1',
-            tip: targetItem.uiAksiyonu && targetItem.uiAksiyonu !== 'YOK' ? 'BASLANGIC_GIRDI' : 'MCP_SORGULA',
-            baslik: targetItem.baslik || t('varsayilan_ilk_adim_baslik', 'Girdi Al & Verileri Kontrol Et'),
+            id: 'BASLA',
+            tip: 'BASLA',
+            baslik: t('basla', 'Başla'),
             prompt: targetItem.prompt || '',
             aracKodu: '',
             uiAksiyonu: targetItem.uiAksiyonu || 'YOK',
@@ -213,6 +220,40 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       setSelectedFlowNodeId(nodes[0]?.id || START_NODE_ID);
     }
   }, [targetItem, t]);
+
+  // location.state'ten doğrudan güncel istek öğesi geldiyse (alt ayar sayfasından dönüş)
+  useEffect(() => {
+    if (location.state?.hizliIstekItem) {
+      const item = location.state.hizliIstekItem;
+      const nodes: AiAkisDugumu[] = Array.isArray(item.akisDugumleri) && item.akisDugumleri.length > 0
+        ? JSON.parse(JSON.stringify(item.akisDugumleri))
+        : [
+          {
+            id: 'BASLA',
+            tip: 'BASLA',
+            baslik: t('basla', 'Başla'),
+            prompt: item.prompt || '',
+            aracKodu: '',
+            uiAksiyonu: item.uiAksiyonu || 'YOK',
+            hedefRota: '',
+            sonrakiDugumId: ''
+          }
+        ];
+
+      setFormState({
+        id: item.id || `req_${Date.now()}`,
+        baslik: item.baslik || '',
+        prompt: item.prompt || '',
+        ikon: item.ikon || 'Sparkles',
+        uiAksiyonu: item.uiAksiyonu || 'YOK',
+        aktifMi: item.aktifMi !== false,
+        sira: item.sira,
+        tetiklemeAnahtarlari: item.tetiklemeAnahtarlari || '',
+        akisDugumleri: nodes
+      });
+      setSelectedFlowNodeId(nodes[0]?.id || START_NODE_ID);
+    }
+  }, [location.state?.hizliIstekItem, t]);
 
   // @akalin/ui BaseFlowchart için düğüm listesini dönüştür
   const flowchartSteps = useMemo<FlowchartStepItem[]>(() => {
