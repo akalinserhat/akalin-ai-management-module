@@ -467,10 +467,26 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     return t('yeni_gorev_akisi', 'Yeni Görev Akışı (Flowchart)');
   }, [formState.baslik, t]);
 
+  const agentTitle = agentData?.ad || (effectiveAgentId ? `#${effectiveAgentId}` : t('ai_ajani', 'AI Ajanı'));
+  const agentRoute = isUnderAyarlar
+    ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveAgentId}`
+    : `/ai-ajanlar/${effectiveAgentId}`;
+
+  const subTrail = useMemo(() => [
+    {
+      label: agentTitle,
+      onClick: () => navigate(agentRoute, { state: { activeTabId: 'hizliIstekler' } })
+    },
+    {
+      label: pageDisplayName,
+      active: true
+    }
+  ], [agentTitle, agentRoute, pageDisplayName, navigate]);
+
   useEffect(() => {
     if (setHeaderBreadcrumbOptions) {
       setHeaderBreadcrumbOptions({
-        recordTitle: pageDisplayName
+        subTrail
       });
     }
     return () => {
@@ -478,7 +494,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         setHeaderBreadcrumbOptions(null);
       }
     };
-  }, [pageDisplayName, setHeaderBreadcrumbOptions]);
+  }, [subTrail, setHeaderBreadcrumbOptions]);
 
   const tabs: BaseTabItem[] = useMemo(() => [
     {
@@ -549,6 +565,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       extraDropdownActions={extraDropdownActions}
       tabs={tabs}
       activeTabId="flowchart"
+      subTrail={subTrail}
       className="fade-in"
     />
   );

@@ -42,6 +42,7 @@ export interface BaseAiAjanFlowchartOgeAyarPageProps {
   tabs?: BaseTabItem[];
   activeTabId?: string | number;
   onTabChange?: (tabId: string | number) => void;
+  subTrail?: any[];
   className?: string;
   children?: React.ReactNode;
 }
@@ -70,6 +71,7 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
   tabs,
   activeTabId,
   onTabChange,
+  subTrail,
   className = '',
   children
 }) => {
@@ -107,16 +109,22 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
 
   useEffect(() => {
     if (setHeaderBreadcrumbOptions) {
-      setHeaderBreadcrumbOptions({
-        recordTitle: pageDisplayName
-      });
+      if (subTrail && subTrail.length > 0) {
+        setHeaderBreadcrumbOptions({
+          subTrail
+        });
+      } else {
+        setHeaderBreadcrumbOptions({
+          recordTitle: pageDisplayName
+        });
+      }
     }
     return () => {
       if (setHeaderBreadcrumbOptions) {
         setHeaderBreadcrumbOptions(null);
       }
     };
-  }, [pageDisplayName, setHeaderBreadcrumbOptions]);
+  }, [subTrail, pageDisplayName, setHeaderBreadcrumbOptions]);
 
   const handleClose = () => {
     if (onClose) {
@@ -161,6 +169,7 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
       tabs={tabs}
       activeTabId={activeTabId}
       onTabChange={onTabChange}
+      subTrail={subTrail}
       className={`fade-in ${className}`}
     >
       <div className="flowchart-oge-ayar-content p-24">

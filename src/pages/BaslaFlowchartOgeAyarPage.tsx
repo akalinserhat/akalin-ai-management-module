@@ -7,7 +7,7 @@
  * - Zero Bottom Button, ActionMenu ve %100 i18n kurallarına uygun çalışmak
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Play, Key, Terminal, Monitor } from 'lucide-react';
@@ -59,6 +59,25 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
   const incomingAgentData = location.state?.agentData;
   const incomingIstekData = location.state?.istekData;
 
+  const [agentData, setAgentData] = useState<any>(incomingAgentData || null);
+  const [istekData, setIstekData] = useState<any>(incomingIstekData || null);
+
+  useEffect(() => {
+    if (!agentData && effectiveAgentId) {
+      axios.get(`/api/AiAjanlar/${effectiveAgentId}`)
+        .then(res => {
+          if (res.data) {
+            setAgentData(res.data);
+            if (!istekData && effectiveIstekId && Array.isArray(res.data.hizliIstekler)) {
+              const found = res.data.hizliIstekler.find((x: any) => x.id === effectiveIstekId);
+              if (found) setIstekData(found);
+            }
+          }
+        })
+        .catch(() => { });
+    }
+  }, [agentData, effectiveAgentId, istekData, effectiveIstekId]);
+
   const [formData, setFormData] = useState<any>(() => ({
     id: incomingNode.id || 'BASLA',
     tip: 'BASLA',
@@ -67,6 +86,18 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
     prompt: incomingNode.prompt || incomingIstekData?.prompt || '',
     uiAksiyonu: incomingNode.uiAksiyonu || incomingIstekData?.uiAksiyonu || 'YOK'
   }));
+
+  // istekData yüklendiğinde formData prompt veya anahtarlar boşsa senkronize et
+  useEffect(() => {
+    if (istekData) {
+      setFormData((prev: any) => ({
+        ...prev,
+        tetiklemeAnahtarlari: prev.tetiklemeAnahtarlari || istekData.tetiklemeAnahtarlari || '',
+        prompt: prev.prompt || istekData.prompt || '',
+        uiAksiyonu: prev.uiAksiyonu && prev.uiAksiyonu !== 'YOK' ? prev.uiAksiyonu : (istekData.uiAksiyonu || 'YOK')
+      }));
+    }
+  }, [istekData]);
 
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
@@ -195,12 +226,45 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
     }));
   }, []);
 
+  const agentTitle = agentData?.ad || incomingAgentData?.ad || (effectiveAgentId ? `#${effectiveAgentId}` : t('ai_ajani', 'AI Ajanı'));
+  const istekTitle = istekData?.baslik || incomingIstekData?.baslik || t('gorev_akisi', 'Görev Akışı');
+  const nodeTitle = t('basla', 'Başla');
+
+  const agentRoute = isUnderAyarlar
+    ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveAgentId}`
+    : `/ai-ajanlar/${effectiveAgentId}`;
+
+  const istekRoute = isUnderAyarlar
+    ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveAgentId}/hizli-istek/${effectiveIstekId}`
+    : `/ai-ajanlar/${effectiveAgentId}/hizli-istek/${effectiveIstekId}`;
+
+  const subTrail = useMemo(() => [
+    {
+      label: agentTitle,
+      onClick: () => navigate(agentRoute, { state: { activeTabId: 'hizliIstekler' } })
+    },
+    {
+      label: istekTitle,
+      onClick: () => navigate(istekRoute, {
+        state: {
+          agentData: agentData || incomingAgentData,
+          hizliIstekItem: istekData || incomingIstekData
+        }
+      })
+    },
+    {
+      label: nodeTitle,
+      active: true
+    }
+  ], [agentTitle, agentRoute, istekTitle, istekRoute, nodeTitle, agentData, incomingAgentData, istekData, incomingIstekData, navigate]);
+
   return (
     <BaseAiAjanFlowchartOgeAyarPage
       id="baslaFlowchartOgeAyarPage"
       title={t('basla_oge_ayarlari', 'Başla Düğümü Ayarları')}
       pageTitle={t('basla_oge_ayarlari', 'Başla Düğümü Ayarları')}
       recordTitle={t('basla', 'Başla')}
+      subTrail={subTrail}
       icon={<Play size={24} color="#10b981" />}
       subtitleLeft={t('basla_oge_aciklama', 'Akışın başlangıç parametreleri ve tetikleyici yapılandırması')}
       formData={formData}
