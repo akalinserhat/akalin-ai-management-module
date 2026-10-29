@@ -2064,7 +2064,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     },
     {
       id: 'hizliIstekler',
-      label: `${t('gorev_akislari_ve_hizli_istekler_sekme', 'Görev Akışları & Hızlı İstekler')} (${(formData.hizliIstekler || []).length})`,
+      label: `${t('gorev_akislari_sekme', 'Görev Akışları')} (${(formData.hizliIstekler || []).length})`,
       icon: <Zap size={16} />,
       content: (
         <div className="table-responsive rounded border border-glass">
@@ -2352,7 +2352,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         }
       },
       {
-        label: t('auto_hizli_istek_yonetimi', 'Görev Akışları (Flowchart) & Hızlı İstekler'),
+        label: t('gorev_akislari_menu_adimi', 'Görev Akışları (Flowchart)'),
         icon: <GitBranch size={15} />,
         onClick: () => {
           setActiveTabId('hizliIstekler');
