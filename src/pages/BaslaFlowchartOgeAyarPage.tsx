@@ -14,6 +14,12 @@ import { Play, Key, Terminal, Monitor } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
+  BaseInput,
+  BaseDropdownSecici,
+  NotInput,
+  type DropdownOption
+} from '@akalin/ui';
+import {
   BaseAiAjanFlowchartOgeAyarPage,
   type BaseAiAjanFlowchartOgeAyarPageProps
 } from './BaseAiAjanFlowchartOgeAyarPage';
@@ -180,6 +186,14 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
     }
   };
 
+  const uiActionOptions: DropdownOption[] = useMemo(() => {
+    return UI_ACTION_OPTIONS.map((opt) => ({
+      id: opt.value,
+      label: opt.label,
+      rawValue: opt
+    }));
+  }, []);
+
   return (
     <BaseAiAjanFlowchartOgeAyarPage
       id="baslaFlowchartOgeAyarPage"
@@ -200,10 +214,8 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
           <label className="form-label font-semibold text-sm">
             {t('dugum_basligi', 'Düğüm Başlığı / Adı')}
           </label>
-          <input
-            type="text"
+          <BaseInput
             autoFocus
-            className="form-control"
             value={formData.baslik}
             onChange={(e) => setFormData((prev: any) => ({ ...prev, baslik: e.target.value }))}
             placeholder={t('basla_ornegi', 'Örn: Başla, Görevi Başlat')}
@@ -218,9 +230,8 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
             <Key size={14} className="text-primary" />
             <span>{t('tetikleyici_anahtarlar', 'Tetikleyici Anahtar Kelimeler')}</span>
           </label>
-          <input
-            type="text"
-            className="form-control"
+          <BaseInput
+            icon={<Key size={14} />}
             value={formData.tetiklemeAnahtarlari}
             onChange={(e) => setFormData((prev: any) => ({ ...prev, tetiklemeAnahtarlari: e.target.value }))}
             placeholder={t('tetikleme_anahtarlari_placeholder', 'Örn: kampanya hazırla, teklif oluştur, cari bakiye sor')}
@@ -235,17 +246,12 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
             <Monitor size={14} className="text-info" />
             <span>{t('baslangic_ui_aksiyonu', 'Başlangıç Girdisi / Arayüz Aksiyonu')}</span>
           </label>
-          <select
-            className="form-control"
+          <BaseDropdownSecici
+            options={uiActionOptions}
             value={formData.uiAksiyonu}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, uiAksiyonu: e.target.value }))}
-          >
-            {UI_ACTION_OPTIONS.map((opt) => (
-              <option key={opt.id} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => setFormData((prev: any) => ({ ...prev, uiAksiyonu: val }))}
+            placeholder={t('ui_aksiyonu_secin', 'Arayüz aksiyonu seçin...')}
+          />
           <small className="text-secondary text-xs mt-4 block">
             {t('baslangic_ui_aksiyonu_ipucu', 'Akış başlamadan önce kullanıcıdan dosya, metin veya veri seçimi istenmesini sağlar.')}
           </small>
@@ -256,8 +262,7 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
             <Terminal size={14} className="text-warning" />
             <span>{t('baslangic_prompt_talimati', 'Başlangıç Prompt Talimatı (İsteğe Bağlı)')}</span>
           </label>
-          <textarea
-            className="form-control"
+          <NotInput
             rows={4}
             value={formData.prompt}
             onChange={(e) => setFormData((prev: any) => ({ ...prev, prompt: e.target.value }))}
