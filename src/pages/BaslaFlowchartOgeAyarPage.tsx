@@ -3,27 +3,25 @@
  *
  * Başlıca Sorumlulukları:
  * - BaseAiAjanFlowchartOgeAyarPage temel sınıfından türeyerek "Başla" (Terminator) düğümünün ayarlarını yönetmek
- * - Akışın başlangıç başlığını, tetikleme anahtarlarını, başlangıç girdisi / UI aksiyonunu ve promptunu yapılandırmak
+ * - Akışın başlangıç başlığını, tetikleme anahtarlarını, hızlı erişim düğmesi görünürlüğünü ve promptunu yapılandırmak
  * - Zero Bottom Button, ActionMenu ve %100 i18n kurallarına uygun çalışmak
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Play, Key, Terminal, Monitor } from 'lucide-react';
+import { Play, Key, Terminal, Sparkles } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
   BaseInput,
-  BaseDropdownSecici,
-  NotInput,
-  type DropdownOption
+  BaseSwitch,
+  NotInput
 } from '@akalin/ui';
 import {
   BaseAiAjanFlowchartOgeAyarPage,
   type BaseAiAjanFlowchartOgeAyarPageProps
 } from './BaseAiAjanFlowchartOgeAyarPage';
-import { UI_ACTION_OPTIONS } from './AiAjanForm';
 
 export interface BaslaFlowchartOgeAyarPageProps extends Partial<BaseAiAjanFlowchartOgeAyarPageProps> {
   onSuccess?: () => void;
@@ -53,7 +51,7 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
     baslik: t('basla', 'Başla'),
     tetiklemeAnahtarlari: '',
     prompt: '',
-    uiAksiyonu: 'YOK'
+    hizliErisimDugmesi: true
   };
 
   const incomingAgentData = location.state?.agentData;
@@ -84,7 +82,7 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
     baslik: t('basla', 'Başla'),
     tetiklemeAnahtarlari: incomingNode.tetiklemeAnahtarlari || incomingIstekData?.tetiklemeAnahtarlari || '',
     prompt: incomingNode.prompt || incomingIstekData?.prompt || '',
-    uiAksiyonu: incomingNode.uiAksiyonu || incomingIstekData?.uiAksiyonu || 'YOK'
+    hizliErisimDugmesi: incomingNode.hizliErisimDugmesi !== false && incomingIstekData?.hizliErisimDugmesi !== false
   }));
 
   // istekData yüklendiğinde formData prompt veya anahtarlar boşsa senkronize et
@@ -94,7 +92,9 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
         ...prev,
         tetiklemeAnahtarlari: prev.tetiklemeAnahtarlari || istekData.tetiklemeAnahtarlari || '',
         prompt: prev.prompt || istekData.prompt || '',
-        uiAksiyonu: prev.uiAksiyonu && prev.uiAksiyonu !== 'YOK' ? prev.uiAksiyonu : (istekData.uiAksiyonu || 'YOK')
+        hizliErisimDugmesi: prev.hizliErisimDugmesi !== undefined
+          ? prev.hizliErisimDugmesi
+          : (istekData.hizliErisimDugmesi !== false)
       }));
     }
   }, [istekData]);
@@ -120,7 +120,8 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
         ...formData,
         id: 'BASLA',
         tip: 'BASLA',
-        baslik: t('basla', 'Başla')
+        baslik: t('basla', 'Başla'),
+        hizliErisimDugmesi: formData.hizliErisimDugmesi !== false
       };
 
       if (nodeIdx !== -1) {
@@ -134,6 +135,9 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
           agentData: incomingAgentData,
           hizliIstekItem: incomingIstekData ? {
             ...incomingIstekData,
+            hizliErisimDugmesi: formData.hizliErisimDugmesi !== false,
+            tetiklemeAnahtarlari: formData.tetiklemeAnahtarlari,
+            prompt: formData.prompt,
             akisDugumleri: existingNodes
           } : undefined
         }
@@ -151,7 +155,8 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
         ...dataToSave,
         id: 'BASLA',
         tip: 'BASLA',
-        baslik: t('basla', 'Başla')
+        baslik: t('basla', 'Başla'),
+        hizliErisimDugmesi: (dataToSave?.hizliErisimDugmesi !== undefined ? dataToSave.hizliErisimDugmesi : formData.hizliErisimDugmesi) !== false
       };
 
       let agentToUpdate = incomingAgentData;
@@ -180,7 +185,7 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
           currentReq.akisDugumleri = currentNodes;
           // DİKKAT: İstek başlığı (currentReq.baslik) korunur, ezilmez!
           currentReq.tetiklemeAnahtarlari = payloadNode.tetiklemeAnahtarlari || currentReq.tetiklemeAnahtarlari;
-          currentReq.uiAksiyonu = payloadNode.uiAksiyonu || currentReq.uiAksiyonu;
+          currentReq.hizliErisimDugmesi = payloadNode.hizliErisimDugmesi !== false;
           if (payloadNode.prompt) {
             currentReq.prompt = payloadNode.prompt;
           }
@@ -188,10 +193,17 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
           currentRequests[reqIdx] = currentReq;
           updatedReq = currentReq;
 
-          await axios.put(`/api/AiAjanlar/${effectiveAgentId}`, {
+          const payload = {
             ...agentToUpdate,
+            kapsam: parseInt(agentToUpdate.kapsam, 10) || 1,
+            aiSaglayiciId: agentToUpdate.aiSaglayiciId ? parseInt(agentToUpdate.aiSaglayiciId, 10) : null,
+            sicaklik: parseFloat(agentToUpdate.sicaklik) || 0.7,
+            maxTokens: parseInt(agentToUpdate.maxTokens, 10) || 2048,
+            yanitSenteziModu: parseInt(agentToUpdate.yanitSenteziModu as any, 10) || 0,
             hizliIstekler: currentRequests
-          });
+          };
+
+          await axios.put(`/api/AiAjanlar/${effectiveAgentId}`, payload);
         }
       }
 
@@ -217,14 +229,6 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
       setIsSaving(false);
     }
   };
-
-  const uiActionOptions: DropdownOption[] = useMemo(() => {
-    return UI_ACTION_OPTIONS.map((opt) => ({
-      id: opt.value,
-      label: opt.label,
-      rawValue: opt
-    }));
-  }, []);
 
   const ajanlarListRoute = isUnderAyarlar
     ? '/ayarlar/YapayZekaAyarlari/AiAjanlar'
@@ -303,17 +307,28 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
 
         <div className="form-group">
           <label className="form-label font-semibold text-sm flex items-center gap-6">
-            <Monitor size={14} className="text-info" />
-            <span>{t('baslangic_ui_aksiyonu', 'Başlangıç Girdisi / Arayüz Aksiyonu')}</span>
+            <Sparkles size={14} className="text-primary" />
+            <span>{t('hizli_erisim_dugmesi', 'Hızlı Erişim Düğmesi')}</span>
           </label>
-          <BaseDropdownSecici
-            options={uiActionOptions}
-            value={formData.uiAksiyonu}
-            onChange={(val) => setFormData((prev: any) => ({ ...prev, uiAksiyonu: val }))}
-            placeholder={t('ui_aksiyonu_secin', 'Arayüz aksiyonu seçin...')}
-          />
-          <small className="text-secondary text-xs mt-4 block">
-            {t('baslangic_ui_aksiyonu_ipucu', 'Akış başlamadan önce kullanıcıdan dosya, metin veya veri seçimi istenmesini sağlar.')}
+          <div className="flex items-center gap-12 mt-6">
+            <BaseSwitch
+              id="hizliErisimDugmesiSwitch"
+              checked={formData.hizliErisimDugmesi !== false}
+              onChange={(e: any) => {
+                const checked = typeof e === 'boolean' ? e : e?.target?.checked;
+                setFormData((prev: any) => ({ ...prev, hizliErisimDugmesi: checked }));
+              }}
+              label={
+                <span className="text-sm font-medium">
+                  {formData.hizliErisimDugmesi !== false
+                    ? t('hizli_erisim_acik', 'AI Sohbet Panelinde Hızlı Erişim Butonu Olarak Göster')
+                    : t('hizli_erisim_kapali', 'Sadece Doğal Dil Tetikleyicisiyle Çalıştır (Butonu Gizle)')}
+                </span>
+              }
+            />
+          </div>
+          <small className="text-secondary text-xs mt-6 block">
+            {t('hizli_erisim_dugmesi_ipucu', 'Bu akışın AI sohbet panelinde öneri çipi / hızlı erişim düğmesi olarak sunulmasını kontrol eder.')}
           </small>
         </div>
 

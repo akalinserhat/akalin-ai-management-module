@@ -139,6 +139,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     ikon: string;
     uiAksiyonu: string;
     aktifMi: boolean;
+    hizliErisimDugmesi: boolean;
     sira?: number;
     tetiklemeAnahtarlari: string;
     akisDugumleri: AiAkisDugumu[];
@@ -155,6 +156,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         ikon: targetItem.ikon || 'Sparkles',
         uiAksiyonu: targetItem.uiAksiyonu || 'YOK',
         aktifMi: targetItem.aktifMi !== false,
+        hizliErisimDugmesi: targetItem.hizliErisimDugmesi !== false,
         sira: targetItem.sira,
         tetiklemeAnahtarlari: targetItem.tetiklemeAnahtarlari || '',
         akisDugumleri: nodes
@@ -168,6 +170,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       ikon: 'Sparkles',
       uiAksiyonu: 'YOK',
       aktifMi: true,
+      hizliErisimDugmesi: true,
       tetiklemeAnahtarlari: '',
       akisDugumleri: [
         {
@@ -178,7 +181,8 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
           aracKodu: '',
           uiAksiyonu: 'YOK',
           hedefRota: '',
-          sonrakiDugumId: ''
+          sonrakiDugumId: '',
+          hizliErisimDugmesi: true
         }
       ]
     };
@@ -213,6 +217,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         ikon: targetItem.ikon || 'Sparkles',
         uiAksiyonu: targetItem.uiAksiyonu || 'YOK',
         aktifMi: targetItem.aktifMi !== false,
+        hizliErisimDugmesi: targetItem.hizliErisimDugmesi !== false,
         sira: targetItem.sira,
         tetiklemeAnahtarlari: targetItem.tetiklemeAnahtarlari || '',
         akisDugumleri: nodes
@@ -236,7 +241,8 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
             aracKodu: '',
             uiAksiyonu: item.uiAksiyonu || 'YOK',
             hedefRota: '',
-            sonrakiDugumId: ''
+            sonrakiDugumId: '',
+            hizliErisimDugmesi: true
           }
         ];
 
@@ -247,6 +253,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         ikon: item.ikon || 'Sparkles',
         uiAksiyonu: item.uiAksiyonu || 'YOK',
         aktifMi: item.aktifMi !== false,
+        hizliErisimDugmesi: item.hizliErisimDugmesi !== false,
         sira: item.sira,
         tetiklemeAnahtarlari: item.tetiklemeAnahtarlari || '',
         akisDugumleri: nodes
@@ -420,10 +427,12 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         ? formState.uiAksiyonu
         : (cleanedNodes[0]?.uiAksiyonu || 'YOK');
 
+      const baslaNode = cleanedNodes.find(n => n.id === 'BASLA' || n.tip === 'BASLA');
       const savedItem = {
         ...formState,
         prompt: effectiveMainPrompt,
         uiAksiyonu: effectiveMainUiAction,
+        hizliErisimDugmesi: (baslaNode?.hizliErisimDugmesi !== undefined ? baslaNode.hizliErisimDugmesi : formState.hizliErisimDugmesi) !== false,
         akisDugumleri: cleanedNodes
       };
 

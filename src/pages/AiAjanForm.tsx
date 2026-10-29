@@ -682,7 +682,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       tetiklemeAnahtarlari: preset.tetiklemeAnahtarlari || '',
       akisDugumleri: preset.akisDugumleri ? JSON.parse(JSON.stringify(preset.akisDugumleri)) : [],
       sira: (formData.hizliIstekler?.length || 0) + 1,
-      aktifMi: true
+      aktifMi: true,
+      hizliErisimDugmesi: true
     } : {
       id: `req_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
       baslik: 'Yeni Hızlı ERP İsteği',
@@ -693,7 +694,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       tetiklemeAnahtarlari: '',
       akisDugumleri: [],
       sira: (formData.hizliIstekler?.length || 0) + 1,
-      aktifMi: true
+      aktifMi: true,
+      hizliErisimDugmesi: true
     };
 
     setFormData((prev: any) => ({
