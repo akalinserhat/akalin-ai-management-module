@@ -315,7 +315,17 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
             <span>{t('hizli_erisim_dugmesi', 'Hızlı Erişim Düğmesi')}</span>
           </label>
           <div className="flex items-center gap-16 mt-4">
-            <div className="flex-shrink-0">
+            {formData.hizliErisimDugmesi !== false && (
+              <div className="flex-1">
+                <BaseInput
+                  icon={<Tag size={14} />}
+                  value={formData.dugmeBasligi || ''}
+                  onChange={(e) => setFormData((prev: any) => ({ ...prev, dugmeBasligi: e.target.value }))}
+                  placeholder={t('dugme_ismi_placeholder', 'Düğme İsmi (Boş bırakılırsa akış başlığı kullanılır)')}
+                />
+              </div>
+            )}
+            <div className="flex-shrink-0 ml-auto">
               <BaseSwitch
                 id="hizliErisimDugmesiSwitch"
                 checked={formData.hizliErisimDugmesi !== false}
@@ -332,16 +342,6 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
                 }
               />
             </div>
-            {formData.hizliErisimDugmesi !== false && (
-              <div className="flex-1">
-                <BaseInput
-                  icon={<Tag size={14} />}
-                  value={formData.dugmeBasligi || ''}
-                  onChange={(e) => setFormData((prev: any) => ({ ...prev, dugmeBasligi: e.target.value }))}
-                  placeholder={t('dugme_ismi_placeholder', 'Düğme İsmi (Boş bırakılırsa akış başlığı kullanılır)')}
-                />
-              </div>
-            )}
           </div>
         </div>
 
