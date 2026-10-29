@@ -18,7 +18,7 @@ const AiTokenYonetimiPage = lazy(() => import('./pages/AiTokenYonetimi'));
 const AiAjanlarPage = lazy(() => import('./pages/AiAjanlar'));
 const AiAjanFormPage = lazy(() => import('./pages/AiAjanForm'));
 const AiAjanHizliIstekFormPage = lazy(() => import('./pages/AiAjanHizliIstekForm'));
-const AiAjanFlowchartOgeAyarPage = lazy(() => import('./pages/AiAjanFlowchartOgeAyarPage'));
+const AiAjanFlowchartOgeAyarPage = lazy(() => import('./pages/BaseAiAjanFlowchartOgeAyarPage'));
 const AiMcpYonetimiPage = lazy(() => import('./pages/AiMcpYonetimi'));
 
 export interface CreateAiManagementModuleOptions {

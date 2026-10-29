@@ -32,7 +32,7 @@ export { default as AiTokenYonetimi, AiTokenYonetimi as NamedAiTokenYonetimi } f
 export { default as AiAjanlar, AiAjanlar as NamedAiAjanlar } from './pages/AiAjanlar';
 export { default as AiAjanForm, AiAjanForm as NamedAiAjanForm } from './pages/AiAjanForm';
 export { default as AiAjanHizliIstekForm, AiAjanHizliIstekForm as NamedAiAjanHizliIstekForm, type AiAjanHizliIstekFormProps } from './pages/AiAjanHizliIstekForm';
-export { default as AiAjanFlowchartOgeAyarPage, AiAjanFlowchartOgeAyarPage as FlowchartOgeAyarPage, type AiAjanFlowchartOgeAyarPageProps } from './pages/AiAjanFlowchartOgeAyarPage';
+export { default as BaseAiAjanFlowchartOgeAyarPage, BaseAiAjanFlowchartOgeAyarPage as NamedBaseAiAjanFlowchartOgeAyarPage, type BaseAiAjanFlowchartOgeAyarPageProps } from './pages/BaseAiAjanFlowchartOgeAyarPage';
 export { default as AiMcpYonetimi, AiMcpYonetimi as NamedAiMcpYonetimi } from './pages/AiMcpYonetimi';
 
 // Modül Fabrikası
