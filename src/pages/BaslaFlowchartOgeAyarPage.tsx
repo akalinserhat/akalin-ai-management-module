@@ -62,7 +62,7 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
   const [formData, setFormData] = useState<any>(() => ({
     id: incomingNode.id || 'BASLA',
     tip: 'BASLA',
-    baslik: incomingNode.baslik || t('basla', 'Başla'),
+    baslik: t('basla', 'Başla'),
     tetiklemeAnahtarlari: incomingNode.tetiklemeAnahtarlari || incomingIstekData?.tetiklemeAnahtarlari || '',
     prompt: incomingNode.prompt || incomingIstekData?.prompt || '',
     uiAksiyonu: incomingNode.uiAksiyonu || incomingIstekData?.uiAksiyonu || 'YOK'
@@ -88,7 +88,8 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
       const activeBaslaNode = {
         ...formData,
         id: 'BASLA',
-        tip: 'BASLA'
+        tip: 'BASLA',
+        baslik: t('basla', 'Başla')
       };
 
       if (nodeIdx !== -1) {
@@ -119,7 +120,7 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
         ...dataToSave,
         id: 'BASLA',
         tip: 'BASLA',
-        baslik: (dataToSave?.baslik || formData.baslik || t('basla', 'Başla')).trim()
+        baslik: t('basla', 'Başla')
       };
 
       let agentToUpdate = incomingAgentData;
@@ -199,7 +200,7 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
       id="baslaFlowchartOgeAyarPage"
       title={t('basla_oge_ayarlari', 'Başla Düğümü Ayarları')}
       pageTitle={t('basla_oge_ayarlari', 'Başla Düğümü Ayarları')}
-      recordTitle={formData.baslik || t('basla', 'Başla')}
+      recordTitle={t('basla', 'Başla')}
       icon={<Play size={24} color="#10b981" />}
       subtitleLeft={t('basla_oge_aciklama', 'Akışın başlangıç parametreleri ve tetikleyici yapılandırması')}
       formData={formData}
@@ -211,26 +212,12 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
     >
       <div className="form-grid max-w-4xl mx-auto flex flex-col gap-20">
         <div className="form-group">
-          <label className="form-label font-semibold text-sm">
-            {t('dugum_basligi', 'Düğüm Başlığı / Adı')}
-          </label>
-          <BaseInput
-            autoFocus
-            value={formData.baslik}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, baslik: e.target.value }))}
-            placeholder={t('basla_ornegi', 'Örn: Başla, Görevi Başlat')}
-          />
-          <small className="text-secondary text-xs mt-4 block">
-            {t('dugum_basligi_ipucu', 'Flowchart tuvalinde düğüm üzerinde görünecek başlık.')}
-          </small>
-        </div>
-
-        <div className="form-group">
           <label className="form-label font-semibold text-sm flex items-center gap-6">
             <Key size={14} className="text-primary" />
             <span>{t('tetikleyici_anahtarlar', 'Tetikleyici Anahtar Kelimeler')}</span>
           </label>
           <BaseInput
+            autoFocus
             icon={<Key size={14} />}
             value={formData.tetiklemeAnahtarlari}
             onChange={(e) => setFormData((prev: any) => ({ ...prev, tetiklemeAnahtarlari: e.target.value }))}
