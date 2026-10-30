@@ -463,20 +463,35 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     try {
       setIsSaving(true);
       const cleanedNodes = (formState.akisDugumleri || []).filter(
-        n => n.baslik?.trim() || n.prompt?.trim()
+        n => n.baslik?.trim() || n.prompt?.trim() || n.tip === 'FORM_AC' || n.tip === 'BASLA' || n.id === 'BASLA'
       );
+      const baslaNode = cleanedNodes.find(n => n.id === 'BASLA' || n.tip === 'BASLA');
+      const firstActionNode =
+        (baslaNode?.sonrakiDugumId
+          ? cleanedNodes.find(n => n.id === baslaNode.sonrakiDugumId)
+          : undefined) ||
+        cleanedNodes.find(n => n.id !== 'BASLA' && n.tip !== 'BASLA') ||
+        cleanedNodes[0];
+
       const effectiveMainPrompt = formState.prompt?.trim()
         ? formState.prompt.trim()
-        : (cleanedNodes[0]?.prompt || formState.baslik);
-      const effectiveMainUiAction = (formState.uiAksiyonu && formState.uiAksiyonu !== 'YOK')
-        ? formState.uiAksiyonu
-        : (cleanedNodes[0]?.uiAksiyonu || 'YOK');
+        : (baslaNode?.prompt?.trim() || cleanedNodes[0]?.prompt || formState.baslik);
+      const effectiveMainUiAction =
+        firstActionNode?.tip === 'FORM_AC'
+          ? (firstActionNode.uiAksiyonu || 'OZEL_ROTA')
+          : (formState.uiAksiyonu && formState.uiAksiyonu !== 'YOK')
+            ? formState.uiAksiyonu
+            : (firstActionNode?.uiAksiyonu || cleanedNodes[0]?.uiAksiyonu || 'YOK');
+      const effectiveMainUiParams =
+        firstActionNode?.tip === 'FORM_AC' && firstActionNode?.hedefRota
+          ? firstActionNode.hedefRota
+          : (formState as any).uiParametreleriJson;
 
-      const baslaNode = cleanedNodes.find(n => n.id === 'BASLA' || n.tip === 'BASLA');
       const savedItem = {
         ...formState,
         prompt: effectiveMainPrompt,
         uiAksiyonu: effectiveMainUiAction,
+        uiParametreleriJson: effectiveMainUiParams,
         hizliErisimDugmesi: (baslaNode?.hizliErisimDugmesi !== undefined ? baslaNode.hizliErisimDugmesi : formState.hizliErisimDugmesi) !== false,
         dugmeBasligi: (baslaNode?.dugmeBasligi !== undefined ? baslaNode.dugmeBasligi : formState.dugmeBasligi) || '',
         akisDugumleri: cleanedNodes
