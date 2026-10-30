@@ -1890,7 +1890,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     },
     {
       id: 'model',
-      label: t('model_ve_parametreler_sekme', 'Model & Parametreler'),
+      label: t('model', 'Model'),
       icon: <Cpu size={16} />,
       content: (
         <div className="ai-model-tab-layer">

@@ -16,8 +16,8 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { 
-  Bot, Sparkles, Plus, Trash2, 
+import {
+  Bot, Sparkles, Plus, Trash2,
   Edit2, Cpu, RefreshCw, AlertCircle,
   GitBranch, SlidersHorizontal, Zap
 } from 'lucide-react';
@@ -31,10 +31,10 @@ export interface AiAjanlarProps {
   onBack?: () => void;
 }
 
-export function AiAjanlar({ 
+export function AiAjanlar({
   embedded = false,
   backRoute: propBackRoute = '/ayarlar/YapayZekaAyarlari',
-  onBack 
+  onBack
 }: AiAjanlarProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -345,18 +345,18 @@ export function AiAjanlar({
             ))}
           </div>
           <div className="flex items-center gap-10">
-            <button 
-              type="button" 
-              onClick={fetchInitialData} 
+            <button
+              type="button"
+              onClick={fetchInitialData}
               className="btn btn-secondary flex items-center gap-8"
               disabled={loading}
             >
               <RefreshCw size={16} className={loading ? 'spinning' : ''} />
               <span>{t('Yenile', 'Yenile')}</span>
             </button>
-            <button 
-              type="button" 
-              onClick={handleOpenCreate} 
+            <button
+              type="button"
+              onClick={handleOpenCreate}
               className="btn btn-primary flex items-center gap-8"
             >
               <Plus size={16} />
