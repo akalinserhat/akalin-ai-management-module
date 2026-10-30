@@ -31,7 +31,8 @@ import toast from 'react-hot-toast';
 import {
   BaseInput,
   BaseSwitch,
-  NotInput
+  NotInput,
+  McpVarlikSeciciInput
 } from '@akalin/ui';
 import {
   BaseAiAjanFlowchartOgeAyarPage,
@@ -42,7 +43,7 @@ import {
   getAllMcpEntities,
   type AgentActiveMcpEntity
 } from './AiMcpYonetimi';
-import { McpVarlikSeciciInput } from './McpVarlikSeciciInput';
+import { MCPSelectionList } from './MCPSelectionList';
 
 export interface FormAcFlowchartOgeAyarPageProps extends Partial<BaseAiAjanFlowchartOgeAyarPageProps> {
   onSuccess?: () => void;
@@ -177,7 +178,7 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
   }, [activeMcpEntities, allMcpEntities, formData.mcpVarlikId, formData.varlikKodu]);
 
   // Bir MCP varlığı (Belge / Kart / Liste) seçildiğinde form alanlarını senkronize et
-  const handleSelectMcpEntity = (entity: AgentActiveMcpEntity) => {
+  const handleSelectMcpEntity = (entity: AgentActiveMcpEntity | any) => {
     const isDefaultTitle =
       !formData.baslik ||
       formData.baslik.trim() === '' ||
@@ -599,6 +600,7 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
                     selectedEntity={selectedEntity}
                     seciliAracKodlari={agentData?.seciliAracKodlari || incomingAgentData?.seciliAracKodlari}
                     categoryFilter={categoryFilter}
+                    selectionList={MCPSelectionList}
                     placeholder={t(
                       'mcp_belge_kart_liste_secin',
                       'Açılacak Belge, Kart veya Listeyi seçin...'

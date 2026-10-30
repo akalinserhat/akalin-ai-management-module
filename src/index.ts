@@ -35,7 +35,7 @@ export { default as AiAjanHizliIstekForm, AiAjanHizliIstekForm as NamedAiAjanHiz
 export { default as BaseAiAjanFlowchartOgeAyarPage, BaseAiAjanFlowchartOgeAyarPage as NamedBaseAiAjanFlowchartOgeAyarPage, type BaseAiAjanFlowchartOgeAyarPageProps } from './pages/BaseAiAjanFlowchartOgeAyarPage';
 export { default as BaslaFlowchartOgeAyarPage, BaslaFlowchartOgeAyarPage as NamedBaslaFlowchartOgeAyarPage, type BaslaFlowchartOgeAyarPageProps } from './pages/BaslaFlowchartOgeAyarPage';
 export { default as FormAcFlowchartOgeAyarPage, FormAcFlowchartOgeAyarPage as NamedFormAcFlowchartOgeAyarPage, type FormAcFlowchartOgeAyarPageProps } from './pages/FormAcFlowchartOgeAyarPage';
-export { default as McpVarlikSeciciInput, McpVarlikSeciciInput as NamedMcpVarlikSeciciInput, type McpVarlikSeciciInputProps } from './pages/McpVarlikSeciciInput';
+export { McpVarlikSeciciInput, McpVarlikSeciciInput as NamedMcpVarlikSeciciInput, type McpVarlikSeciciInputProps, type McpVarlikEntity } from '@akalin/ui';
 export { default as AiMcpYonetimi, AiMcpYonetimi as NamedAiMcpYonetimi, buildMcpTreeData, countMcpNodeStats, getAgentActiveMcpEntities, getAllMcpEntities, type McpTreeNode, type AgentActiveMcpEntity, type AiMcpYonetimiProps } from './pages/AiMcpYonetimi';
 export { default as MCPSelectionList, MCPSelectionList as NamedMCPSelectionList, type MCPSelectionListProps, type McpStageOneItem, type McpSelectionMode } from './pages/MCPSelectionList';
 

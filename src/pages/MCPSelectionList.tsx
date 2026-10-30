@@ -269,13 +269,12 @@ export const MCPSelectionList: React.FC<MCPSelectionListProps> = ({
         sortable: true,
         render: (entity: AgentActiveMcpEntity) => (
           <div className="flex items-center gap-10 py-4">
-            <div className={`flex items-center justify-center p-8 rounded-xl border ${
-              entity.kategori === 'kart'
+            <div className={`flex items-center justify-center p-8 rounded-xl border ${entity.kategori === 'kart'
                 ? 'bg-info-subtle border-info-border text-info'
                 : entity.kategori === 'belge'
                   ? 'bg-primary-subtle border-primary-border text-primary'
                   : 'bg-surface-subtle border-border text-secondary'
-            }`}>
+              }`}>
               {entity.kategori === 'kart' && <CreditCard size={18} />}
               {entity.kategori === 'belge' && <FileText size={18} />}
               {entity.kategori === 'liste' && <Table size={18} />}
@@ -283,13 +282,12 @@ export const MCPSelectionList: React.FC<MCPSelectionListProps> = ({
             <div className="flex flex-col">
               <div className="flex items-center gap-8">
                 <span className="font-bold text-primary text-14">{entity.ad}</span>
-                <span className={`badge text-xs font-semibold px-6 py-1 rounded ${
-                  entity.kategori === 'kart'
+                <span className={`badge text-xs font-semibold px-6 py-1 rounded ${entity.kategori === 'kart'
                     ? 'badge-info'
                     : entity.kategori === 'belge'
                       ? 'badge-primary'
                       : 'badge-neutral'
-                }`}>
+                  }`}>
                   {entity.varlikTuruLabel}
                 </span>
                 <span className="text-12 text-secondary font-medium">
@@ -460,13 +458,13 @@ export const MCPSelectionList: React.FC<MCPSelectionListProps> = ({
   const defaultSubtitle =
     mode === 'varlik'
       ? t(
-          'mcp_varlik_secimi_alt_baslik',
-          'Açılacak veya işlem yapılacak Belge, Kart veya Listeyi seçin.'
-        )
+        'mcp_varlik_secimi_alt_baslik',
+        'Açılacak veya işlem yapılacak Belge, Kart veya Listeyi seçin.'
+      )
       : t(
-          'mcp_modul_secimi_alt_baslik',
-          'Yetkilendirmek veya işlem yapmak istediğiniz MCP modülünü seçin.'
-        );
+        'mcp_modul_secimi_alt_baslik',
+        'Yetkilendirmek veya işlem yapmak istediğiniz MCP modülünü seçin.'
+      );
 
   const activeColumns = mode === 'varlik' ? (varlikColumns as any) : (modulColumns as any);
   const activeSearchableFields =
@@ -493,9 +491,9 @@ export const MCPSelectionList: React.FC<MCPSelectionListProps> = ({
       emptyMessage={
         mode === 'varlik'
           ? t(
-              'mcp_varlik_bulunamadi',
-              'Arama kriterlerine uygun Belge, Kart veya Liste bulunamadı.'
-            )
+            'mcp_varlik_bulunamadi',
+            'Arama kriterlerine uygun Belge, Kart veya Liste bulunamadı.'
+          )
           : t('mcp_kayit_bulunamadi', 'Arama kriterlerine uygun modül bulunamadı.')
       }
       {...restProps}
