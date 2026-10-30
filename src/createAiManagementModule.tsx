@@ -111,7 +111,7 @@ export function createAiManagementModule(options: CreateAiManagementModuleOption
       {
         path: '/ai-protokoller',
         element: withProvider(AiProtokollerComponent),
-        title: 'API Protokolleri & Scriptler'
+        title: 'API Protokolleri'
       },
       {
         path: '/ai-protokoller/yeni',

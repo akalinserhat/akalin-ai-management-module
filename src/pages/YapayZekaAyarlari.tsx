@@ -78,7 +78,7 @@ export const YapayZekaAyarlari: React.FC<YapayZekaAyarlariProps> = ({ onBack }) 
     },
     {
       id: 'AiProtokoller',
-      name: t('menu_ai_protokoller', 'API Protokolleri & Scriptler'),
+      name: t('menu_ai_protokoller', 'API Protokolleri'),
       desc: t('ai_protokoller_desc', 'Dinamik Jint JavaScript scriptleri ile yeni LLM protokolleri ve istek dönüştürücüler'),
       icon: <Code2 size={28} />,
       keywords: 'ai protokol api script javascript jint llm endpoint yapay zeka',
