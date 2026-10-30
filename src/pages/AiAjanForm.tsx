@@ -1772,13 +1772,12 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
           return (
             <div className="flex items-center gap-10 py-2">
               <span
-                className={`badge text-xs font-semibold px-8 py-2 rounded-full flex items-center gap-4 ${
-                  isBelge
+                className={`badge text-xs font-semibold px-8 py-2 rounded-full flex items-center gap-4 ${isBelge
                     ? 'badge-success'
                     : isKart
                       ? 'badge-secondary'
                       : 'badge-primary'
-                }`}
+                  }`}
               >
                 {isBelge ? (
                   <>
@@ -2504,10 +2503,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
             label={
               <span className="flex items-center gap-8">
                 <Shield size={15} className={isSistemYonetimi ? 'text-primary' : 'text-secondary'} />
-                <span className="font-medium">{t('sistem_yonetimi', 'Sistem Yönetimi')}:</span>
-                <span className={isSistemYonetimi ? 'text-primary font-semibold' : 'text-secondary font-semibold'}>
-                  {isSistemYonetimi ? t('kapsam_admin_badge', '🛡️ Admin') : t('kapsam_erp_badge', '🏢 ERP')}
-                </span>
+                <span className="font-medium">{t('sistem_yonetimi', 'Sistem Yönetimi')}</span>
               </span>
             }
             className="action-menu-switch-item"
@@ -2535,23 +2531,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
               <option value={2}>{t('yanit_sentezi_kapali_kisa', '⚡ Zorunlu Kapalı (Hızlı)')}</option>
             </select>
           </div>
-        ),
-        dividerBelow: true
-      },
-      {
-        label: t('sabit_sistem_istemi_duzenle', 'Sabit Sistem İstemi & Yetki Sınırları'),
-        icon: <Shield size={15} />,
-        onClick: () => {
-          setActiveTabId('istem');
-          setSystemPromptViewMode('sabitPrompt');
-        }
-      },
-      {
-        label: t('gorev_akislari_menu_adimi', 'Görev Akışları (Flowchart)'),
-        icon: <GitBranch size={15} />,
-        onClick: () => {
-          setActiveTabId('hizliIstekler');
-        }
+        )
       }
     ];
 
@@ -2583,7 +2563,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     }
 
     return actions;
-  }, [t, effectiveId, localInitialData?.id, showAlert, formData.aktifMi]);
+  }, [t, effectiveId, localInitialData?.id, showAlert, formData.aktifMi, formData.kapsam, formData.yanitSenteziModu]);
 
   if (isOpen === false) {
     return null;
