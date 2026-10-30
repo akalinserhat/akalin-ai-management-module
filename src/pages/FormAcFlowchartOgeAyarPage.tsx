@@ -16,19 +16,12 @@ import {
   Terminal,
   Sparkles,
   Info,
-  CreditCard,
-  FileText,
-  Table,
-  Compass,
   CheckCircle2,
-  ShieldCheck,
-  AlertCircle,
-  ExternalLink
+  ShieldCheck
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
-  BaseInput,
   BaseSwitch,
   NotInput,
   McpVarlikSeciciInput
@@ -73,7 +66,6 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
 
   const [agentData, setAgentData] = useState<any>(incomingAgentData || null);
   const [istekData, setIstekData] = useState<any>(incomingIstekData || null);
-  const [categoryFilter, setCategoryFilter] = useState<'all' | 'kart' | 'belge' | 'liste'>('all');
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
   const defaultFormTitle = t('form_ac', 'Form Aç');
@@ -145,12 +137,6 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
     const codes = agentData?.seciliAracKodlari || incomingAgentData?.seciliAracKodlari || [];
     return getAgentActiveMcpEntities(codes, t);
   }, [agentData?.seciliAracKodlari, incomingAgentData?.seciliAracKodlari, t]);
-
-  // Kategori filtreli MCP varlık listesi
-  const filteredMcpEntities = useMemo<AgentActiveMcpEntity[]>(() => {
-    if (categoryFilter === 'all') return activeMcpEntities;
-    return activeMcpEntities.filter((item) => item.kategori === categoryFilter);
-  }, [activeMcpEntities, categoryFilter]);
 
   // Sistemdeki tüm MCP varlıkları (fallback amaçlı)
   const allMcpEntities = useMemo<AgentActiveMcpEntity[]>(() => {
@@ -414,16 +400,6 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
     ]
   );
 
-  // Kategori sayıları
-  const counts = useMemo(() => {
-    return {
-      all: activeMcpEntities.length,
-      kart: activeMcpEntities.filter((x) => x.kategori === 'kart').length,
-      belge: activeMcpEntities.filter((x) => x.kategori === 'belge').length,
-      liste: activeMcpEntities.filter((x) => x.kategori === 'liste').length
-    };
-  }, [activeMcpEntities]);
-
   const handleAppendPromptSnippet = (snippetText: string) => {
     setFormData((prev: any) => {
       const current = (prev.prompt || '').trim();
@@ -478,156 +454,25 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
           <div className="basla-ayar-card-body">
             <div className="basla-ayar-field-col">
               <label className="basla-ayar-field-label">
-                {t('hedef_sayfa_rotasi', 'Açılacak Sayfa Rotası (Otomatik veya Özel)')}
+                {t(
+                  'acilacak_form_ve_mcp_varligi',
+                  'Açılacak Form ve Aktif MCP Varlığı'
+                )}
               </label>
-              <BaseInput
-                icon={<Compass size={14} />}
-                value={formData.hedefRota || ''}
-                onChange={(e) =>
-                  setFormData((prev: any) => ({ ...prev, hedefRota: e.target.value }))
-                }
-                placeholder={t('hedef_rota_placeholder', 'Örn: /cari-kartlar/yeni')}
+              <McpVarlikSeciciInput
+                id="formAcMcpEntitySecici"
+                selectedEntity={selectedEntity}
+                seciliAracKodlari={agentData?.seciliAracKodlari || incomingAgentData?.seciliAracKodlari}
+                selectionList={MCPSelectionList}
+                autoFocus
+                placeholder={t(
+                  'mcp_belge_kart_liste_secin',
+                  'Açılacak Belge, Kart veya Listeyi seçin...'
+                )}
+                onSelect={(entity) => handleSelectMcpEntity(entity)}
+                onClear={handleClearMcpEntity}
               />
             </div>
-
-            {/* Kategori Filtre Sekmeleri */}
-            <div className="form-ac-filter-bar">
-              <div className="form-ac-filter-chips">
-                <button
-                  type="button"
-                  onClick={() => setCategoryFilter('all')}
-                  className={`form-ac-filter-chip ${categoryFilter === 'all' ? 'is-active' : ''}`}
-                >
-                  <span>{t('tumu', 'Tümü')}</span>
-                  <span className="form-ac-filter-count">{counts.all}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCategoryFilter('kart')}
-                  className={`form-ac-filter-chip ${categoryFilter === 'kart' ? 'is-active' : ''}`}
-                >
-                  <CreditCard size={13} />
-                  <span>{t('kartlar', 'Kartlar')}</span>
-                  <span className="form-ac-filter-count">{counts.kart}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCategoryFilter('belge')}
-                  className={`form-ac-filter-chip ${categoryFilter === 'belge' ? 'is-active' : ''}`}
-                >
-                  <FileText size={13} />
-                  <span>{t('belgeler', 'Belgeler')}</span>
-                  <span className="form-ac-filter-count">{counts.belge}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCategoryFilter('liste')}
-                  className={`form-ac-filter-chip ${categoryFilter === 'liste' ? 'is-active' : ''}`}
-                >
-                  <Table size={13} />
-                  <span>{t('listeler', 'Listeler')}</span>
-                  <span className="form-ac-filter-count">{counts.liste}</span>
-                </button>
-              </div>
-            </div>
-
-            {activeMcpEntities.length === 0 ? (
-              <div className="form-ac-empty-mcp-box">
-                <AlertCircle size={20} className="form-ac-empty-icon" />
-                <div className="form-ac-empty-texts">
-                  <span className="form-ac-empty-title">
-                    {t(
-                      'ajana_tanimli_aktif_mcp_varligi_yok',
-                      'Bu ajanın kartında henüz aktif edilmiş bir MCP Listesi, Belgesi veya Kartı bulunmuyor.'
-                    )}
-                  </span>
-                  <span className="form-ac-empty-desc">
-                    {t(
-                      'ajana_tanimli_aktif_mcp_varligi_aciklama',
-                      'Ajan kartındaki "MCP Araçları & Yetkiler" sekmesinden ilgili modül, belge veya kartları yetkilendirdiğinizde burada otomatik listelenir.'
-                    )}
-                  </span>
-                </div>
-                {effectiveAgentId && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      navigate(agentRoute, { state: { activeTabId: 'araclar' } })
-                    }
-                    className="form-ac-goto-mcp-btn"
-                  >
-                    <ExternalLink size={14} />
-                    <span>{t('mcp_yetkilerini_duzenle', 'MCP Yetkilerini Düzenle')}</span>
-                  </button>
-                )}
-              </div>
-            ) : (
-              <>
-                <div className="basla-ayar-field-col">
-                  <label className="basla-ayar-field-label">
-                    {t(
-                      'acılacak_form_ve_mcp_varligi',
-                      'Açılacak Form ve Aktif MCP Varlığı'
-                    )}
-                  </label>
-                  <McpVarlikSeciciInput
-                    id="formAcMcpEntitySecici"
-                    selectedEntity={selectedEntity}
-                    seciliAracKodlari={agentData?.seciliAracKodlari || incomingAgentData?.seciliAracKodlari}
-                    categoryFilter={categoryFilter}
-                    selectionList={MCPSelectionList}
-                    placeholder={t(
-                      'mcp_belge_kart_liste_secin',
-                      'Açılacak Belge, Kart veya Listeyi seçin...'
-                    )}
-                    onSelect={(entity) => handleSelectMcpEntity(entity)}
-                    onClear={handleClearMcpEntity}
-                  />
-                </div>
-
-                {/* Seçili Varlık Detay Kartı */}
-                {selectedEntity && (
-                  <div className="form-ac-selected-preview">
-                    <div className="form-ac-selected-preview-header">
-                      <div className={`form-ac-selected-preview-icon is-${selectedEntity.kategori}`}>
-                        {selectedEntity.kategori === 'kart' && <CreditCard size={20} />}
-                        {selectedEntity.kategori === 'belge' && <FileText size={20} />}
-                        {selectedEntity.kategori === 'liste' && <Table size={20} />}
-                      </div>
-                      <div className="form-ac-selected-preview-text">
-                        <div className="form-ac-selected-preview-top">
-                          <span className={`form-ac-entity-badge is-${selectedEntity.kategori}`}>
-                            {selectedEntity.varlikTuruLabel}
-                          </span>
-                          <span className="form-ac-entity-module">{selectedEntity.modulAdi}</span>
-                        </div>
-                        <h4 className="form-ac-selected-preview-title">{selectedEntity.ad}</h4>
-                        {selectedEntity.aciklama && (
-                          <p className="form-ac-selected-preview-desc">{selectedEntity.aciklama}</p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="form-ac-selected-preview-meta">
-                      <div className="form-ac-selected-preview-meta-item">
-                        <span className="meta-label">{t('varlik_kodu', 'Varlık Kodu')}:</span>
-                        <span className="meta-val font-mono">{selectedEntity.kod}</span>
-                      </div>
-                      {selectedEntity.rota && (
-                        <div className="form-ac-selected-preview-meta-item">
-                          <span className="meta-label">{t('rota', 'Ekran Rotası')}:</span>
-                          <span className="meta-val font-mono">{selectedEntity.rota}</span>
-                        </div>
-                      )}
-                      <div className="form-ac-selected-preview-meta-item">
-                        <span className="meta-label">{t('bagli_modul', 'Bağlı Modül')}:</span>
-                        <span className="meta-val">{selectedEntity.modulAdi}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
           </div>
         </section>
 
