@@ -2347,16 +2347,19 @@
 
 .flowchart-oge-ayar-content {
   width: 100%;
+  padding: 4px 0;
   box-sizing: border-box;
 }
 
 .basla-ayar-page-container {
-  max-width: 920px;
   width: 100%;
-  margin: 0 auto;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 20px;
+  box-sizing: border-box;
 }
 
 .basla-ayar-card {

@@ -172,7 +172,7 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
       subTrail={subTrail}
       className={`fade-in ${className}`}
     >
-      <div className="flowchart-oge-ayar-content p-24">
+      <div className="flowchart-oge-ayar-content">
         {children}
       </div>
     </BaseCardPage>
