@@ -1760,10 +1760,18 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       };
     };
 
+    const normalizeCode = (s: string) => (s || '').toLowerCase().replace(/[-_]/g, '');
+    const normalizedCodes = new Set(positiveCodes.map(normalizeCode));
+
     const isNodeSelected = (node: McpTreeNode): boolean => {
       const k = (node.kod || '').toLowerCase();
       const id = (node.id || '').toLowerCase();
-      return lowerCodes.has(k) || lowerCodes.has(id);
+      return (
+        lowerCodes.has(k) ||
+        lowerCodes.has(id) ||
+        normalizedCodes.has(normalizeCode(k)) ||
+        normalizedCodes.has(normalizeCode(id))
+      );
     };
 
     const result: McpTreeNode[] = [];

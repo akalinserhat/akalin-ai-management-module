@@ -114,10 +114,18 @@ export const MCPSelectionList: React.FC<MCPSelectionListProps> = ({
         .map((c) => c.slice(1).toLowerCase())
     );
 
+    const normalizeCode = (s: string) => (s || '').toLowerCase().replace(/[-_]/g, '');
+    const normalizedCodes = new Set(positiveCodes.map(normalizeCode));
+
     const isNodeSelected = (node: McpTreeNode): boolean => {
       const k = (node.kod || '').toLowerCase();
       const id = (node.id || '').toLowerCase();
-      return lowerCodes.has(k) || lowerCodes.has(id);
+      return (
+        lowerCodes.has(k) ||
+        lowerCodes.has(id) ||
+        normalizedCodes.has(normalizeCode(k)) ||
+        normalizedCodes.has(normalizeCode(id))
+      );
     };
 
     const resolveVarlikLabel = (kat: string): string => {
@@ -454,9 +462,8 @@ export const MCPSelectionList: React.FC<MCPSelectionListProps> = ({
           return (
             <div className="flex items-center gap-10 py-2">
               <span
-                className={`badge text-xs font-semibold px-8 py-2 rounded-full flex items-center gap-4 ${
-                  isBelge ? 'badge-success' : 'badge-secondary'
-                }`}
+                className={`badge text-xs font-semibold px-8 py-2 rounded-full flex items-center gap-4 ${isBelge ? 'badge-success' : 'badge-secondary'
+                  }`}
               >
                 {isBelge ? (
                   <>
@@ -552,9 +559,8 @@ export const MCPSelectionList: React.FC<MCPSelectionListProps> = ({
           const isActive = node.aktifMi !== false;
           return (
             <span
-              className={`badge text-xs font-semibold px-8 py-2 rounded-full inline-flex items-center gap-4 ${
-                isActive ? 'badge-success' : 'badge-neutral'
-              }`}
+              className={`badge text-xs font-semibold px-8 py-2 rounded-full inline-flex items-center gap-4 ${isActive ? 'badge-success' : 'badge-neutral'
+                }`}
             >
               <Power size={11} />
               {isActive ? t('aktif', 'Aktif') : t('pasif', 'Pasif')}
@@ -695,13 +701,13 @@ export const MCPSelectionList: React.FC<MCPSelectionListProps> = ({
   const defaultSubtitle =
     mode === 'varlik'
       ? t(
-          'mcp_varlik_secimi_alt_baslik',
-          'Açılacak veya işlem yapılacak Belge, Kart veya Listeyi seçin.'
-        )
+        'mcp_varlik_secimi_alt_baslik',
+        'Açılacak veya işlem yapılacak Belge, Kart veya Listeyi seçin.'
+      )
       : t(
-          'mcp_modul_secimi_alt_baslik',
-          'Yetkilendirmek veya işlem yapmak istediğiniz MCP modülünü seçin.'
-        );
+        'mcp_modul_secimi_alt_baslik',
+        'Yetkilendirmek veya işlem yapmak istediğiniz MCP modülünü seçin.'
+      );
 
   const activeColumns = mode === 'varlik' ? (varlikColumns as any) : (modulColumns as any);
   const activeSearchableFields =
@@ -728,20 +734,20 @@ export const MCPSelectionList: React.FC<MCPSelectionListProps> = ({
       dataTableProps={
         mode === 'varlik'
           ? {
-              enableTreeView: true,
-              childrenField: 'children',
-              defaultExpandAll: true,
-              treeColumnId: 'ad',
-              showRowIndex: false
-            }
+            enableTreeView: true,
+            childrenField: 'children',
+            defaultExpandAll: true,
+            treeColumnId: 'ad',
+            showRowIndex: false
+          }
           : undefined
       }
       emptyMessage={
         mode === 'varlik'
           ? t(
-              'mcp_varlik_bulunamadi',
-              'Arama kriterlerine uygun Belge, Kart veya Liste bulunamadı.'
-            )
+            'mcp_varlik_bulunamadi',
+            'Arama kriterlerine uygun Belge, Kart veya Liste bulunamadı.'
+          )
           : t('mcp_kayit_bulunamadi', 'Arama kriterlerine uygun modül bulunamadı.')
       }
       {...restProps}

@@ -489,6 +489,73 @@ export function buildMcpTreeData(t: any): McpTreeNode[] {
       });
     }
 
+    // Yerel & Bulut Dosya Yönetimi modülünde FileImportPage ve FileExportPage ekranlarının her zaman yer almasını garanti et
+    if (
+      modKod === 'bulut-depolama' ||
+      modKod === 'bulut_depolama' ||
+      modKod === 'dosya_yonetimi' ||
+      modKod === 'file_manager_module'
+    ) {
+      const hasFileImportOrExport = normalizedListEntities.some((l) =>
+        (l.children || []).some(
+          (c) => c.id === 'dosya-ice-aktar-karti' || c.id === 'dosya-disa-aktar-karti'
+        )
+      );
+
+      if (!hasFileImportOrExport) {
+        normalizedListEntities.unshift({
+          id: 'bulut-dosyalari-liste',
+          category: 'liste',
+          titleKey: 'bulut_dosyalari_listesi',
+          title: t('bulut_dosyalari_listesi', 'Bulut Dosyaları Listesi'),
+          description: t(
+            'bulut_dosyalari_listesi_aciklama',
+            'Yerel cihaz ve Google Drive, Microsoft OneDrive, Dropbox bulut sürücülerindeki dosya ve evrakların listesi.'
+          ),
+          route: '/araclar/bulut-dosyalari',
+          listRoute: '/araclar/bulut-dosyalari',
+          children: [
+            {
+              id: 'dosya-ice-aktar-karti',
+              category: 'kart',
+              titleKey: 'dosya_ice_aktar_karti',
+              title: t('dosya_ice_aktar_karti', 'Dosya İçeri Aktar (FileImportPage)'),
+              description: t(
+                'dosya_ice_aktar_karti_aciklama',
+                'Yerel cihazdan veya bulut depolamadan filtreli dosya ve Excel verisi içeri aktarma ekranı (FileImportPage).'
+              ),
+              route: '/araclar/dosya-al',
+              formRoute: '/araclar/dosya-al'
+            },
+            {
+              id: 'dosya-disa-aktar-karti',
+              category: 'kart',
+              titleKey: 'dosya_disa_aktar_karti',
+              title: t('dosya_disa_aktar_karti', 'Dosya Kaydet / Dışa Aktar (FileExportPage)'),
+              description: t(
+                'dosya_disa_aktar_karti_aciklama',
+                'Tablo, rapor ve belgeleri yerel diske veya bulut klasörüne kaydetme ekranı (FileExportPage).'
+              ),
+              route: '/araclar/dosya-kaydet',
+              formRoute: '/araclar/dosya-kaydet'
+            },
+            {
+              id: 'bulut-dosyalari-karti',
+              category: 'kart',
+              titleKey: 'bulut_dosyalari_karti',
+              title: t('bulut_dosyalari_karti', 'Bulut Dosyaları Yönetimi (BulutDosyalariPage)'),
+              description: t(
+                'bulut_dosyalari_karti_aciklama',
+                'Bulut klasör gezgini, dosya yükleme ve belge evrak ilişkilendirme ekranı (BulutDosyalariPage).'
+              ),
+              route: '/araclar/bulut-dosyalari',
+              formRoute: '/araclar/bulut-dosyalari'
+            }
+          ]
+        });
+      }
+    }
+
     if (normalizedListEntities.length === 0) {
       if (modKod === 'ai_yonetimi' || modKod === 'ai-management-module') {
         normalizedListEntities.push(
@@ -722,10 +789,18 @@ export function getAgentActiveMcpEntities(
       .map((c) => c.slice(1).toLowerCase())
   );
 
+  const normalizeCode = (s: string) => (s || '').toLowerCase().replace(/[-_]/g, '');
+  const normalizedCodes = new Set(positiveCodes.map(normalizeCode));
+
   const isNodeSelected = (node: McpTreeNode): boolean => {
     const k = (node.kod || '').toLowerCase();
     const id = (node.id || '').toLowerCase();
-    return lowerCodes.has(k) || lowerCodes.has(id);
+    return (
+      lowerCodes.has(k) ||
+      lowerCodes.has(id) ||
+      normalizedCodes.has(normalizeCode(k)) ||
+      normalizedCodes.has(normalizeCode(id))
+    );
   };
 
   const isNodeDisabled = (node: McpTreeNode): boolean => {
