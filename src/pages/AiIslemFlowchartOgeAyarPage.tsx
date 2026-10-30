@@ -84,6 +84,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
       varlikKodu: baseNode.varlikKodu || '',
       varlikAdi: baseNode.varlikAdi || '',
       varlikTuru: baseNode.varlikTuru || '',
+      hariciSayfaAyarlari: baseNode.hariciSayfaAyarlari || {},
       kayitBekle: baseNode.kayitBekle !== false,
       kayitSonrasiTeyitEt: baseNode.kayitSonrasiTeyitEt !== false
     };
@@ -117,6 +118,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
                       varlikKodu: foundNode.varlikKodu || '',
                       varlikAdi: foundNode.varlikAdi || '',
                       varlikTuru: foundNode.varlikTuru || '',
+                      hariciSayfaAyarlari: foundNode.hariciSayfaAyarlari || {},
                       kayitBekle: foundNode.kayitBekle !== false,
                       kayitSonrasiTeyitEt: foundNode.kayitSonrasiTeyitEt !== false
                     });
@@ -194,7 +196,8 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
       varlikAdi: '',
       varlikTuru: '',
       hedefRota: '',
-      aracKodu: ''
+      aracKodu: '',
+      hariciSayfaAyarlari: {}
     }));
   };
 
@@ -464,6 +467,10 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
                 selectedEntity={selectedEntity}
                 seciliAracKodlari={agentData?.seciliAracKodlari || incomingAgentData?.seciliAracKodlari}
                 selectionList={MCPSelectionList}
+                externalSettingsValue={formData.hariciSayfaAyarlari}
+                onExternalSettingsChange={(val) =>
+                  setFormData((prev: any) => ({ ...prev, hariciSayfaAyarlari: val }))
+                }
                 autoFocus
                 placeholder={t(
                   'ai_islem_mcp_varlik_secin',

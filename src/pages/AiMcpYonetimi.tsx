@@ -60,6 +60,8 @@ export interface McpTreeNode {
   varlikKodu?: string;
   varlikTuru?: string;
   isSistem?: boolean;
+  hasExternalSettings?: boolean;
+  externalSettingsComponent?: React.ComponentType<any>;
   rawModule?: IModuleDefinition;
   rawEntity?: IModuleEntityDefinition;
   children?: McpTreeNode[];
@@ -525,7 +527,11 @@ export function buildMcpTreeData(t: any): McpTreeNode[] {
                 'Yerel cihazdan veya bulut depolamadan filtreli dosya ve Excel verisi içeri aktarma ekranı (FileImportPage).'
               ),
               route: '/araclar/dosya-al',
-              formRoute: '/araclar/dosya-al'
+              formRoute: '/araclar/dosya-al',
+              hasExternalSettings: true,
+              externalSettingsComponent:
+                (mod.components as any)?.FileImportPagesettingsForExternal ||
+                (mod.components as any)?.FileImportPage?.externalSettingsComponent
             },
             {
               id: 'dosya-disa-aktar-karti',
@@ -667,6 +673,15 @@ export function buildMcpTreeData(t: any): McpTreeNode[] {
         const childAd = childEnt.title || (childEnt.titleKey ? t(childEnt.titleKey, childKod) : childKod);
         const childCat = (childEnt.category === 'belge' ? 'belge' : 'kart') as 'kart' | 'belge';
         const childRoute = childEnt.formRoute || childEnt.route || listRoute;
+        const resolvedExtSettingsComp =
+          childEnt.externalSettingsComponent ||
+          (childKod === 'dosya-ice-aktar-karti'
+            ? (mod.components as any)?.FileImportPagesettingsForExternal ||
+              (mod.components as any)?.FileImportPage?.externalSettingsComponent
+            : undefined);
+        const resolvedHasExtSettings = Boolean(
+          childEnt.hasExternalSettings || resolvedExtSettingsComp || childKod === 'dosya-ice-aktar-karti'
+        );
 
         return {
           id: `ent_${modKod}_${childCat}_${childKod}`,
@@ -679,6 +694,8 @@ export function buildMcpTreeData(t: any): McpTreeNode[] {
           varlikTuru: childCat === 'belge' ? 'Belge' : 'Kart',
           rota: childRoute,
           aciklama: childEnt.description || '',
+          hasExternalSettings: resolvedHasExtSettings,
+          externalSettingsComponent: resolvedExtSettingsComp,
           rawEntity: childEnt
         };
       });
@@ -736,6 +753,8 @@ export function buildMcpTreeData(t: any): McpTreeNode[] {
         varlikTuru: 'Liste',
         rota: listRoute,
         aciklama: listEnt.description || '',
+        hasExternalSettings: Boolean(listEnt.hasExternalSettings || listEnt.externalSettingsComponent),
+        externalSettingsComponent: listEnt.externalSettingsComponent,
         rawEntity: listEnt,
         children: [...belgeKartNodes, fonksiyonlarFolderNode]
       };
@@ -766,6 +785,8 @@ export interface AgentActiveMcpEntity {
   ustListeAdi?: string;
   rota: string;
   aciklama?: string;
+  hasExternalSettings?: boolean;
+  externalSettingsComponent?: React.ComponentType<any>;
 }
 
 /**
@@ -852,7 +873,9 @@ export function getAgentActiveMcpEntities(
           modulKodu: modKodu,
           modulAdi: modAdi,
           rota: listNode.rota || '',
-          aciklama: listNode.aciklama || ''
+          aciklama: listNode.aciklama || '',
+          hasExternalSettings: Boolean(listNode.hasExternalSettings || listNode.externalSettingsComponent),
+          externalSettingsComponent: listNode.externalSettingsComponent
         });
       }
 
@@ -873,7 +896,9 @@ export function getAgentActiveMcpEntities(
           modulAdi: modAdi,
           ustListeAdi: listNode.ad,
           rota: bkNode.rota || listNode.rota || '',
-          aciklama: bkNode.aciklama || ''
+          aciklama: bkNode.aciklama || '',
+          hasExternalSettings: Boolean(bkNode.hasExternalSettings || bkNode.externalSettingsComponent),
+          externalSettingsComponent: bkNode.externalSettingsComponent
         });
       });
     });
@@ -906,7 +931,9 @@ export function getAllMcpEntities(t: any): AgentActiveMcpEntity[] {
           modulKodu: modKodu,
           modulAdi: modAdi,
           rota: listNode.rota || '',
-          aciklama: listNode.aciklama || ''
+          aciklama: listNode.aciklama || '',
+          hasExternalSettings: Boolean(listNode.hasExternalSettings || listNode.externalSettingsComponent),
+          externalSettingsComponent: listNode.externalSettingsComponent
         });
       }
 
@@ -927,7 +954,9 @@ export function getAllMcpEntities(t: any): AgentActiveMcpEntity[] {
           modulAdi: modAdi,
           ustListeAdi: listNode.ad,
           rota: bkNode.rota || listNode.rota || '',
-          aciklama: bkNode.aciklama || ''
+          aciklama: bkNode.aciklama || '',
+          hasExternalSettings: Boolean(bkNode.hasExternalSettings || bkNode.externalSettingsComponent),
+          externalSettingsComponent: bkNode.externalSettingsComponent
         });
       });
     });

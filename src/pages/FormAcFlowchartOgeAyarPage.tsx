@@ -92,6 +92,7 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
       varlikTuru: baseNode.varlikTuru || '',
       kullaniciMesaji: baseNode.kullaniciMesaji || '',
       dugmeBasligi: baseNode.dugmeBasligi || '',
+      hariciSayfaAyarlari: baseNode.hariciSayfaAyarlari || {},
       kayitBekle: baseNode.kayitBekle !== false,
       kayitSonrasiTeyitEt: baseNode.kayitSonrasiTeyitEt !== false
     };
@@ -127,6 +128,7 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
                       varlikTuru: foundNode.varlikTuru || '',
                       kullaniciMesaji: foundNode.kullaniciMesaji || '',
                       dugmeBasligi: foundNode.dugmeBasligi || '',
+                      hariciSayfaAyarlari: foundNode.hariciSayfaAyarlari || {},
                       kayitBekle: foundNode.kayitBekle !== false,
                       kayitSonrasiTeyitEt: foundNode.kayitSonrasiTeyitEt !== false
                     });
@@ -203,7 +205,8 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
       varlikAdi: '',
       varlikTuru: '',
       hedefRota: '',
-      aracKodu: 'erp_navigate'
+      aracKodu: 'erp_navigate',
+      hariciSayfaAyarlari: {}
     }));
   };
 
@@ -472,6 +475,10 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
                 selectedEntity={selectedEntity}
                 seciliAracKodlari={agentData?.seciliAracKodlari || incomingAgentData?.seciliAracKodlari}
                 selectionList={MCPSelectionList}
+                externalSettingsValue={formData.hariciSayfaAyarlari}
+                onExternalSettingsChange={(val) =>
+                  setFormData((prev: any) => ({ ...prev, hariciSayfaAyarlari: val }))
+                }
                 autoFocus
                 placeholder={t(
                   'mcp_belge_kart_liste_secin',

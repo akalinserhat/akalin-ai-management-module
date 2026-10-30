@@ -138,6 +138,8 @@ export interface AiAkisDugumu {
   hizliErisimDugmesi?: boolean;
   dugmeBasligi?: string;
   kullaniciMesaji?: string;
+  /** Seçilen sayfanın [sayfaİsmi]settingsForExternal.tsx bileşeninden gelen harici düğüm ayarları */
+  hariciSayfaAyarlari?: Record<string, any>;
 }
 
 export interface AiHizliIstek {
