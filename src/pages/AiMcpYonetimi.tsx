@@ -26,17 +26,17 @@ import {
   Code2,
   Copy,
   Check,
-  RefreshCw,
   Sparkles,
-  Database,
-  ArrowRight,
-  ShieldCheck
+  ShieldCheck,
+  ChevronsUpDown,
+  ChevronsDownUp
 } from 'lucide-react';
 import {
   BaseSystemPage,
   DataTable,
   Modal,
-  type Column
+  type Column,
+  type ActionMenuItem
 } from '@akalin/ui';
 import { ModuleRegistry, type IModuleDefinition, type IModuleEntityDefinition } from '@akalin/module_core';
 
@@ -563,6 +563,36 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
     }
   }, [isInitialExpanded, rawTreeData, collectAllParentIds]);
 
+  const handleExpandAll = useCallback(() => {
+    setExpandedRowIds(collectAllParentIds(filteredTreeData));
+  }, [filteredTreeData, collectAllParentIds]);
+
+  const handleExpandModulesOnly = useCallback(() => {
+    setExpandedRowIds(filteredTreeData.map(m => m.id));
+  }, [filteredTreeData]);
+
+  const handleCollapseAll = useCallback(() => {
+    setExpandedRowIds([]);
+  }, []);
+
+  const extraDropdownActions = useMemo<ActionMenuItem[]>(() => [
+    {
+      label: t('tumunu_genislet', 'Tümünü Genişlet (Tüm Dalları Aç)'),
+      icon: <ChevronsUpDown size={15} />,
+      onClick: handleExpandAll
+    },
+    {
+      label: t('sadece_modulleri_genislet', 'Sadece Modülleri Genişlet'),
+      icon: <Layers size={15} />,
+      onClick: handleExpandModulesOnly
+    },
+    {
+      label: t('tumunu_daralt', 'Tümünü Daralt (Tüm Dalları Kapat)'),
+      icon: <ChevronsDownUp size={15} />,
+      onClick: handleCollapseAll
+    }
+  ], [t, handleExpandAll, handleExpandModulesOnly, handleCollapseAll]);
+
   // ─── ŞEMA MODAL İNCELEME & KOPYALAMA ─────────────────────────────────────────
 
   const handleOpenSchemaModal = (node: McpTreeNode) => {
@@ -946,8 +976,7 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
       backRoute={backRoute}
       onBack={onBack}
       headerSync={false}
-      onRefresh={fetchKatalog}
-      refreshLoading={loading}
+      extraDropdownActions={extraDropdownActions}
       searchPlaceholder={t('mcp_arama_placeholder', 'Modül, varlık veya MCP fonksiyonu ara...')}
       searchTerm={searchTerm}
       onSearchChange={(term) => setSearchTerm(term)}
