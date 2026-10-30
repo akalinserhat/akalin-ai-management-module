@@ -1,18 +1,19 @@
 /**
  * @file MCPSelectionList.tsx
  * @description
- * @akalin/ai_management_module - MCP Seçim Listesi Bileşeni (MCPSelectionList)
+ * @akalin/ai_management_module - MCP ve Form Seçim Listesi Bileşeni (MCPSelectionList)
  *
  * Başlıca Sorumlulukları:
  * - @akalin/ui BaseSelectionList temel sınıfından türetilmek
  * - mode === 'modul' (Varsayılan): Modül seviyesi (1. Kademe) seçim listesi sunar
- * - mode === 'varlik': Modül fonksiyonlarını kesinlikle göstermez; yalnızca Liste, Belge ve Kart varlıklarını listeler
+ * - mode === 'varlik' ("Form Seçimi"): AiAjanForm "MCP Yetkileri" sekmesindeki ağaç (TreeView) yapısını sunar;
+ *   yalnızca "Fonksiyonlar" (Function) klasörü ve MCP fonksiyonları gizlenir, Modül -> Liste -> Belge/Kart hiyerarşisi gösterilir
  * - Sıfır inline CSS ve %100 i18n uyumlu çalışmak
  */
 
 import React, { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Layers, Boxes, CreditCard, FileText, Table } from 'lucide-react';
+import { Layers, Boxes, CreditCard, FileText, Table, Power } from 'lucide-react';
 import {
   BaseSelectionList,
   type BaseSelectionListProps,
@@ -22,10 +23,7 @@ import {
 import {
   buildMcpTreeData,
   countMcpNodeStats,
-  getAgentActiveMcpEntities,
-  getAllMcpEntities,
-  type McpTreeNode,
-  type AgentActiveMcpEntity
+  type McpTreeNode
 } from './AiMcpYonetimi';
 
 export interface McpStageOneItem extends Omit<McpTreeNode, 'children'> {
@@ -34,6 +32,12 @@ export interface McpStageOneItem extends Omit<McpTreeNode, 'children'> {
   belgeKartSayisi: number;
   mcpAracSayisi: number;
   altVarliklar?: McpTreeNode[];
+}
+
+export interface McpFormTreeNode extends McpTreeNode {
+  modulAdi?: string;
+  varlikTuruLabel?: string;
+  children?: McpFormTreeNode[];
 }
 
 export type McpSelectionMode = 'modul' | 'varlik';
@@ -96,23 +100,142 @@ export const MCPSelectionList: React.FC<MCPSelectionListProps> = ({
       });
   }, [mode, t]);
 
-  // Varlık Listesi: Liste, Belge, Kart (mode === 'varlik' - Fonksiyonlar KESİNLİKLE HARİÇ TUTULUR)
-  const varlikList = useMemo<AgentActiveMcpEntity[]>(() => {
+  // Ağaç Yapılı Form Seçim Listesi (mode === 'varlik' - AiAjanForm "MCP Yetkileri" ile birebir aynı, yalnızca Function klasörü hariç)
+  const varlikTreeList = useMemo<McpFormTreeNode[]>(() => {
     if (mode !== 'varlik') return [];
 
-    let items: AgentActiveMcpEntity[] = [];
-    if (seciliAracKodlari && seciliAracKodlari.length > 0 && onlyActive !== false) {
-      items = getAgentActiveMcpEntities(seciliAracKodlari, t);
-    }
-    // Ajanın henüz seçili aracı yoksa veya onlyActive false ise tüm varlıkları getir
-    if (items.length === 0) {
-      items = getAllMcpEntities(t);
+    const fullTree = buildMcpTreeData(t);
+    const rawCodes: string[] = Array.isArray(seciliAracKodlari) ? seciliAracKodlari : [];
+    const positiveCodes = rawCodes.filter((c) => typeof c === 'string' && !c.startsWith('!'));
+    const lowerCodes = new Set(positiveCodes.map((c) => (c || '').toLowerCase()));
+    const disabledSet = new Set(
+      rawCodes
+        .filter((c) => typeof c === 'string' && c.startsWith('!'))
+        .map((c) => c.slice(1).toLowerCase())
+    );
+
+    const isNodeSelected = (node: McpTreeNode): boolean => {
+      const k = (node.kod || '').toLowerCase();
+      const id = (node.id || '').toLowerCase();
+      return lowerCodes.has(k) || lowerCodes.has(id);
+    };
+
+    const resolveVarlikLabel = (kat: string): string => {
+      if (kat === 'belge') return t('belge', 'Belge');
+      if (kat === 'kart') return t('kart', 'Kart');
+      if (kat === 'liste') return t('liste', 'Liste');
+      return t('modul', 'Modül');
+    };
+
+    // Düğümü aktiflik durumu, modül bilgisi ile zenginleştir ve "Fonksiyonlar" (klasor / mcp) düğümlerini çıkar
+    const stripFunctionsAndDecorate = (
+      node: McpTreeNode,
+      modKod: string,
+      modAd: string
+    ): McpFormTreeNode | null => {
+      if (node.kategori === 'klasor' || node.kategori === 'mcp') {
+        return null;
+      }
+
+      const nodeIdLower = (node.id || '').toLowerCase();
+      const rawChildren = (node.children || [])
+        .map((child) => stripFunctionsAndDecorate(child, modKod, modAd))
+        .filter((c): c is McpFormTreeNode => c !== null);
+
+      const filteredChildren =
+        categoryFilter && categoryFilter !== 'all' && node.kademe === 2
+          ? rawChildren.filter((c) => c.kategori === categoryFilter)
+          : rawChildren;
+
+      return {
+        ...node,
+        aktifMi: !disabledSet.has(nodeIdLower),
+        modulKodu: modKod,
+        modulAdi: modAd,
+        varlikTuruLabel: resolveVarlikLabel(node.kategori),
+        children: filteredChildren.length > 0 ? filteredChildren : undefined
+      };
+    };
+
+    const result: McpFormTreeNode[] = [];
+
+    if (positiveCodes.length > 0 && onlyActive !== false) {
+      fullTree.forEach((moduleNode) => {
+        const modKod = moduleNode.kod || '';
+        const modAd = moduleNode.ad || modKod;
+
+        // Durum A: Doğrudan 1. Kademe (Modül) yetkilendirilmiş mi?
+        if (isNodeSelected(moduleNode)) {
+          const decorated = stripFunctionsAndDecorate(moduleNode, modKod, modAd);
+          if (decorated) {
+            result.push(decorated);
+          }
+          return;
+        }
+
+        // Durum B: Alt Liste, Belge/Kart veya Fonksiyonlardan tekil seçimler var mı?
+        const matchingLists: McpTreeNode[] = [];
+
+        (moduleNode.children || []).forEach((listNode) => {
+          if (isNodeSelected(listNode)) {
+            matchingLists.push(listNode);
+            return;
+          }
+
+          const belgeKartNodes = (listNode.children || []).filter(
+            (c) => c.kategori === 'belge' || c.kategori === 'kart'
+          );
+          const matchingBelgeKart = belgeKartNodes.filter(isNodeSelected);
+          const selectedBelgeKartCodes = new Set(
+            matchingBelgeKart.map((bk) => (bk.kod || '').toLowerCase())
+          );
+
+          const folderNode = (listNode.children || []).find((c) => c.kategori === 'klasor');
+          const matchingTools = (folderNode?.children || []).filter((toolNode) => {
+            if (isNodeSelected(toolNode)) return true;
+            const vKod = (toolNode.varlikKodu || '').toLowerCase();
+            return Boolean(vKod && selectedBelgeKartCodes.has(vKod));
+          });
+
+          if (matchingBelgeKart.length > 0 || matchingTools.length > 0) {
+            const nextChildren: McpTreeNode[] =
+              matchingBelgeKart.length > 0 ? matchingBelgeKart : belgeKartNodes;
+            matchingLists.push({
+              ...listNode,
+              children: nextChildren
+            });
+          }
+        });
+
+        if (matchingLists.length > 0) {
+          const decorated = stripFunctionsAndDecorate(
+            {
+              ...moduleNode,
+              children: matchingLists
+            },
+            modKod,
+            modAd
+          );
+          if (decorated) {
+            result.push(decorated);
+          }
+        }
+      });
     }
 
-    if (categoryFilter && categoryFilter !== 'all') {
-      items = items.filter((item) => item.kategori === categoryFilter);
+    // Ajanın henüz tanımlı MCP yetkisi yoksa veya onlyActive === false ise tüm modül ağacını (Function klasörü olmadan) göster
+    if (result.length === 0) {
+      fullTree.forEach((moduleNode) => {
+        const modKod = moduleNode.kod || '';
+        const modAd = moduleNode.ad || modKod;
+        const decorated = stripFunctionsAndDecorate(moduleNode, modKod, modAd);
+        if (decorated) {
+          result.push(decorated);
+        }
+      });
     }
-    return items;
+
+    return result;
   }, [mode, seciliAracKodlari, onlyActive, categoryFilter, t]);
 
   // Arama Alanları: Modül Modu
@@ -143,7 +266,7 @@ export const MCPSelectionList: React.FC<MCPSelectionListProps> = ({
     [t]
   );
 
-  // Arama Alanları: Varlık Modu (Liste, Belge, Kart)
+  // Arama Alanları: Form Seçim Modu (Modül / Liste / Belge & Kart)
   const varlikSearchableFields = useMemo(
     () => [
       {
@@ -158,14 +281,14 @@ export const MCPSelectionList: React.FC<MCPSelectionListProps> = ({
       },
       {
         id: 'Ad',
-        label: t('varlik_adi', 'Varlık Adı'),
+        label: t('varlik_adi', 'Form / Varlık Adı'),
         type: 'text',
         iconName: 'FileText',
-        placeholder: t('varlik_adi_girin', 'Varlık adı girin...')
+        placeholder: t('varlik_adi_girin', 'Form veya varlık adı girin...')
       },
       {
         id: 'Kod',
-        label: t('varlik_kodu', 'Varlık Kodu'),
+        label: t('varlik_kodu', 'Kod'),
         type: 'text',
         iconName: 'Code2',
         placeholder: t('varlik_kodu_girin', 'Varlık kodu girin...')
@@ -258,98 +381,186 @@ export const MCPSelectionList: React.FC<MCPSelectionListProps> = ({
     [t]
   );
 
-  // Sütunlar: Varlık Modu (Belgeler, Kartlar, Listeler)
-  const varlikColumns = useMemo<Column<AgentActiveMcpEntity>[]>(
+  // Sütunlar: Form Seçim Modu (AiAjanForm "MCP Yetkileri" listesiyle birebir aynı kolon ve görünüm)
+  const varlikColumns = useMemo<Column<McpFormTreeNode>[]>(
     () => [
       {
         id: 'ad',
+        header: t('modul_varlik_mcp_fonksiyonu', 'Modül / Varlık'),
         accessor: 'ad',
-        header: t('varlik_adi', 'Belge / Kart / Liste'),
-        minWidth: '320px',
-        sortable: true,
-        render: (entity: AgentActiveMcpEntity) => (
-          <div className="flex items-center gap-10 py-4">
-            <div className={`flex items-center justify-center p-8 rounded-xl border ${entity.kategori === 'kart'
-                ? 'bg-info-subtle border-info-border text-info'
-                : entity.kategori === 'belge'
-                  ? 'bg-primary-subtle border-primary-border text-primary'
-                  : 'bg-surface-subtle border-border text-secondary'
-              }`}>
-              {entity.kategori === 'kart' && <CreditCard size={18} />}
-              {entity.kategori === 'belge' && <FileText size={18} />}
-              {entity.kategori === 'liste' && <Table size={18} />}
-            </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-8">
-                <span className="font-bold text-primary text-14">{entity.ad}</span>
-                <span className={`badge text-xs font-semibold px-6 py-1 rounded ${entity.kategori === 'kart'
-                    ? 'badge-info'
-                    : entity.kategori === 'belge'
-                      ? 'badge-primary'
-                      : 'badge-neutral'
-                  }`}>
-                  {entity.varlikTuruLabel}
-                </span>
-                <span className="text-12 text-secondary font-medium">
-                  • {entity.modulAdi}
-                </span>
+        minWidth: '360px',
+        render: (node: McpFormTreeNode) => {
+          // 1. Kademe: Modül Seviyesi
+          if (node.kademe === 1) {
+            const { listCount, belgeKartCount } = countMcpNodeStats(node);
+
+            return (
+              <div className="flex items-center gap-10 py-3">
+                <div className="flex items-center justify-center p-8 rounded-xl bg-surface-subtle border border-border text-primary">
+                  {node.rawModule?.icon && React.isValidElement(node.rawModule.icon) ? (
+                    node.rawModule.icon
+                  ) : (
+                    <Boxes size={20} />
+                  )}
+                </div>
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-8">
+                    <span className="font-bold text-primary text-14">{node.ad}</span>
+                    <span className="badge badge-neutral text-xs font-semibold px-6 py-1 rounded">
+                      {t('modul', 'Modül')}
+                    </span>
+                    <span className="text-11 text-secondary font-medium">
+                      ({listCount} {t('liste', 'Liste')} • {belgeKartCount}{' '}
+                      {t('belge_kart', 'Belge/Kart')})
+                    </span>
+                  </div>
+                  {node.aciklama && (
+                    <span className="text-12 text-secondary line-clamp-1">{node.aciklama}</span>
+                  )}
+                </div>
               </div>
-              {entity.aciklama && (
-                <span className="text-12 text-secondary line-clamp-1">{entity.aciklama}</span>
-              )}
+            );
+          }
+
+          // 2. Kademe: Liste Seviyesi
+          if (node.kademe === 2 || node.kategori === 'liste') {
+            const { belgeKartCount } = countMcpNodeStats(node);
+
+            return (
+              <div className="flex items-center gap-10 py-2">
+                <span className="badge badge-primary text-xs font-semibold px-8 py-2 rounded-full flex items-center gap-4">
+                  <Table size={12} />
+                  {t('liste', 'Liste')}
+                </span>
+
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-6">
+                    <span className="font-semibold text-primary text-13">{node.ad}</span>
+                    <span className="text-11 text-secondary">
+                      ({belgeKartCount} {t('belge_kart', 'Belge/Kart')})
+                    </span>
+                  </div>
+                  {node.aciklama && (
+                    <span className="text-11 text-secondary line-clamp-1">{node.aciklama}</span>
+                  )}
+                </div>
+              </div>
+            );
+          }
+
+          // 3. Kademe: Belge / Kart Seviyesi
+          const isBelge = node.kategori === 'belge';
+
+          return (
+            <div className="flex items-center gap-10 py-2">
+              <span
+                className={`badge text-xs font-semibold px-8 py-2 rounded-full flex items-center gap-4 ${
+                  isBelge ? 'badge-success' : 'badge-secondary'
+                }`}
+              >
+                {isBelge ? (
+                  <>
+                    <FileText size={12} />
+                    {t('belge', 'Belge')}
+                  </>
+                ) : (
+                  <>
+                    <CreditCard size={12} />
+                    {t('kart', 'Kart')}
+                  </>
+                )}
+              </span>
+
+              <div className="flex flex-col">
+                <div className="flex items-center gap-6">
+                  <span className="font-semibold text-primary text-13">{node.ad}</span>
+                </div>
+                {node.aciklama && (
+                  <span className="text-11 text-secondary line-clamp-1">{node.aciklama}</span>
+                )}
+              </div>
             </div>
-          </div>
-        )
+          );
+        }
       },
       {
         id: 'kod',
+        header: t('kod_fonksiyon', 'Kod'),
         accessor: 'kod',
-        header: t('varlik_kodu', 'Varlık Kodu'),
-        width: '200px',
         sortable: true,
-        render: (entity: AgentActiveMcpEntity) => (
+        width: '240px',
+        render: (node: McpFormTreeNode) => (
           <span className="font-mono text-xs text-secondary bg-surface-subtle px-8 py-3 rounded border border-border font-medium">
-            {entity.kod}
+            {node.kod}
           </span>
         )
       },
       {
         id: 'kategori',
+        header: t('kademe_kategori', 'Kademe & Kategori'),
         accessor: 'kategori',
-        header: t('varlik_turu', 'Varlık Türü'),
-        width: '140px',
         sortable: true,
-        render: (entity: AgentActiveMcpEntity) => (
-          <span className="text-xs text-secondary font-medium">
-            {entity.varlikTuruLabel}
-          </span>
-        )
-      },
-      {
-        id: 'modulAdi',
-        accessor: 'modulAdi',
-        header: t('modul', 'Bağlı Modül'),
-        width: '180px',
-        sortable: true,
-        render: (entity: AgentActiveMcpEntity) => (
-          <span className="text-xs text-secondary font-medium">
-            {entity.modulAdi}
-          </span>
-        )
-      },
-      {
-        id: 'rota',
-        accessor: 'rota',
-        header: t('rota', 'Ekran Rotası'),
-        minWidth: '180px',
-        render: (entity: AgentActiveMcpEntity) =>
-          entity.rota ? (
-            <span className="font-mono text-xs text-secondary truncate max-w-240 block" title={entity.rota}>
-              {entity.rota}
+        width: '160px',
+        render: (node: McpFormTreeNode) => {
+          if (node.kademe === 1) {
+            return (
+              <span className="badge badge-neutral text-xs font-semibold px-8 py-2 rounded">
+                1. {t('modul', 'Modül')}
+              </span>
+            );
+          }
+          if (node.kademe === 2 || node.kategori === 'liste') {
+            return (
+              <span className="badge badge-primary text-xs font-semibold px-8 py-2 rounded flex items-center gap-4 w-fit">
+                <Table size={11} />
+                2. {t('liste', 'Liste')}
+              </span>
+            );
+          }
+          if (node.kategori === 'belge') {
+            return (
+              <span className="badge badge-success text-xs font-semibold px-8 py-2 rounded flex items-center gap-4 w-fit">
+                <FileText size={11} />
+                3. {t('belge', 'Belge')}
+              </span>
+            );
+          }
+          return (
+            <span className="badge badge-secondary text-xs font-semibold px-8 py-2 rounded flex items-center gap-4 w-fit">
+              <CreditCard size={11} />
+              3. {t('kart', 'Kart')}
             </span>
-          ) : (
-            <span className="text-secondary text-xs">-</span>
-          )
+          );
+        }
+      },
+      {
+        id: 'aciklama',
+        header: t('aciklama', 'Açıklama'),
+        accessor: 'aciklama',
+        render: (node: McpFormTreeNode) => (
+          <span className="ai-hizli-istek-prompt-preview" title={node.aciklama || ''}>
+            {node.aciklama || '-'}
+          </span>
+        )
+      },
+      {
+        id: 'aktifMi',
+        header: t('durum', 'Durum'),
+        accessor: 'aktifMi',
+        width: '110px',
+        render: (node: McpFormTreeNode) => {
+          const isActive = node.aktifMi !== false;
+          return (
+            <span
+              className={`badge text-xs font-semibold px-8 py-2 rounded-full inline-flex items-center gap-4 ${
+                isActive ? 'badge-success' : 'badge-neutral'
+              }`}
+            >
+              <Power size={11} />
+              {isActive ? t('aktif', 'Aktif') : t('pasif', 'Pasif')}
+            </span>
+          );
+        }
       }
     ],
     [t]
@@ -365,26 +576,52 @@ export const MCPSelectionList: React.FC<MCPSelectionListProps> = ({
       const q = (activeSearch || '').trim().toLocaleLowerCase('tr-TR');
 
       if (mode === 'varlik') {
-        let filtered = [...varlikList];
-        if (q) {
-          filtered = filtered.filter((item) => {
-            const adMatch = (item.ad || '').toLocaleLowerCase('tr-TR').includes(q);
-            const kodMatch = (item.kod || '').toLocaleLowerCase('tr-TR').includes(q);
-            const descMatch = (item.aciklama || '').toLocaleLowerCase('tr-TR').includes(q);
-            const rotaMatch = (item.rota || '').toLocaleLowerCase('tr-TR').includes(q);
-            const modulMatch = (item.modulAdi || '').toLocaleLowerCase('tr-TR').includes(q);
+        const matchesQuery = (item: McpFormTreeNode): boolean => {
+          if (!q) return true;
+          const adMatch = (item.ad || '').toLocaleLowerCase('tr-TR').includes(q);
+          const kodMatch = (item.kod || '').toLocaleLowerCase('tr-TR').includes(q);
+          const descMatch = (item.aciklama || '').toLocaleLowerCase('tr-TR').includes(q);
+          const rotaMatch = (item.rota || '').toLocaleLowerCase('tr-TR').includes(q);
+          const modulMatch = (item.modulAdi || '').toLocaleLowerCase('tr-TR').includes(q);
 
-            if (searchType === 'Ad') return adMatch;
-            if (searchType === 'Kod') return kodMatch;
-            if (searchType === 'Modul') return modulMatch;
-            return adMatch || kodMatch || descMatch || rotaMatch || modulMatch;
+          if (searchType === 'Ad') return adMatch;
+          if (searchType === 'Kod') return kodMatch;
+          if (searchType === 'Modul') return modulMatch;
+          return adMatch || kodMatch || descMatch || rotaMatch || modulMatch;
+        };
+
+        const filterTree = (nodes: McpFormTreeNode[]): McpFormTreeNode[] => {
+          if (!q) return nodes;
+          const matched: McpFormTreeNode[] = [];
+
+          nodes.forEach((node) => {
+            const selfMatches = matchesQuery(node);
+            const filteredChildren = node.children ? filterTree(node.children) : [];
+
+            if (selfMatches) {
+              // Üst düğüm eşleşirse kendi alt ağacıyla birlikte göster
+              matched.push({
+                ...node,
+                children: filteredChildren.length > 0 ? filteredChildren : node.children
+              });
+            } else if (filteredChildren.length > 0) {
+              // Sadece alt düğümler eşleştiyse ebeveyni eşleşen çocuklarıyla göster
+              matched.push({
+                ...node,
+                children: filteredChildren
+              });
+            }
           });
-        }
+
+          return matched;
+        };
+
+        let filtered = filterTree(varlikTreeList);
 
         if (args?.sortField) {
-          const field = args.sortField as keyof AgentActiveMcpEntity;
+          const field = args.sortField as keyof McpFormTreeNode;
           const dir = args.sortOrder === 'desc' ? -1 : 1;
-          filtered.sort((a, b) => {
+          filtered = [...filtered].sort((a, b) => {
             const valA = String(a[field] ?? '');
             const valB = String(b[field] ?? '');
             return valA.localeCompare(valB, 'tr-TR') * dir;
@@ -427,7 +664,7 @@ export const MCPSelectionList: React.FC<MCPSelectionListProps> = ({
         totalCount: filtered.length
       };
     },
-    [mode, varlikList, stageOneList, effectiveSearchText]
+    [mode, varlikTreeList, stageOneList, effectiveSearchText]
   );
 
   const handleSelect = useCallback(
@@ -452,19 +689,19 @@ export const MCPSelectionList: React.FC<MCPSelectionListProps> = ({
 
   const defaultTitle =
     mode === 'varlik'
-      ? t('mcp_varlik_secimi', 'MCP Belge, Kart & Liste Seçimi')
+      ? t('form_secimi', 'Form Seçimi')
       : t('mcp_modul_secimi', 'MCP Modül Seçimi');
 
   const defaultSubtitle =
     mode === 'varlik'
       ? t(
-        'mcp_varlik_secimi_alt_baslik',
-        'Açılacak veya işlem yapılacak Belge, Kart veya Listeyi seçin.'
-      )
+          'mcp_varlik_secimi_alt_baslik',
+          'Açılacak veya işlem yapılacak Belge, Kart veya Listeyi seçin.'
+        )
       : t(
-        'mcp_modul_secimi_alt_baslik',
-        'Yetkilendirmek veya işlem yapmak istediğiniz MCP modülünü seçin.'
-      );
+          'mcp_modul_secimi_alt_baslik',
+          'Yetkilendirmek veya işlem yapmak istediğiniz MCP modülünü seçin.'
+        );
 
   const activeColumns = mode === 'varlik' ? (varlikColumns as any) : (modulColumns as any);
   const activeSearchableFields =
@@ -486,14 +723,25 @@ export const MCPSelectionList: React.FC<MCPSelectionListProps> = ({
       isMultiSelect={isMultiSelect}
       onSelect={handleSelect}
       onMultiSelect={onMultiSelect}
-      defaultSortField="ad"
+      defaultSortField={mode === 'varlik' ? undefined : 'ad'}
       defaultSortOrder="asc"
+      dataTableProps={
+        mode === 'varlik'
+          ? {
+              enableTreeView: true,
+              childrenField: 'children',
+              defaultExpandAll: true,
+              treeColumnId: 'ad',
+              showRowIndex: false
+            }
+          : undefined
+      }
       emptyMessage={
         mode === 'varlik'
           ? t(
-            'mcp_varlik_bulunamadi',
-            'Arama kriterlerine uygun Belge, Kart veya Liste bulunamadı.'
-          )
+              'mcp_varlik_bulunamadi',
+              'Arama kriterlerine uygun Belge, Kart veya Liste bulunamadı.'
+            )
           : t('mcp_kayit_bulunamadi', 'Arama kriterlerine uygun modül bulunamadı.')
       }
       {...restProps}
