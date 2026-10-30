@@ -136,6 +136,7 @@ export interface AiAkisDugumu {
   hayirDugumId?: string;
   hizliErisimDugmesi?: boolean;
   dugmeBasligi?: string;
+  kullaniciMesaji?: string;
 }
 
 export interface AiHizliIstek {

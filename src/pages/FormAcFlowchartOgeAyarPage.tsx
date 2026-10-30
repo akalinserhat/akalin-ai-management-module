@@ -17,11 +17,15 @@ import {
   Sparkles,
   Info,
   CheckCircle2,
-  ShieldCheck
+  ShieldCheck,
+  MessageSquare,
+  Tag,
+  ExternalLink
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
+  BaseInput,
   BaseSwitch,
   NotInput,
   McpVarlikSeciciInput
@@ -86,6 +90,8 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
       varlikKodu: baseNode.varlikKodu || '',
       varlikAdi: baseNode.varlikAdi || '',
       varlikTuru: baseNode.varlikTuru || '',
+      kullaniciMesaji: baseNode.kullaniciMesaji || '',
+      dugmeBasligi: baseNode.dugmeBasligi || '',
       kayitBekle: baseNode.kayitBekle !== false,
       kayitSonrasiTeyitEt: baseNode.kayitSonrasiTeyitEt !== false
     };
@@ -119,6 +125,8 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
                       varlikKodu: foundNode.varlikKodu || '',
                       varlikAdi: foundNode.varlikAdi || '',
                       varlikTuru: foundNode.varlikTuru || '',
+                      kullaniciMesaji: foundNode.kullaniciMesaji || '',
+                      dugmeBasligi: foundNode.dugmeBasligi || '',
                       kayitBekle: foundNode.kayitBekle !== false,
                       kayitSonrasiTeyitEt: foundNode.kayitSonrasiTeyitEt !== false
                     });
@@ -476,7 +484,138 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
           </div>
         </section>
 
-        {/* 2. BÖLÜM: SİHİRBAZ KAYIT TAKİBİ VE KULLANICI TEYİDİ (WIZARD HANDSHAKE) */}
+        {/* 2. BÖLÜM: SOHBET EKRANI YÖNERGESİ VE FORM AÇMA DÜĞMESİ */}
+        <section className="basla-ayar-card">
+          <div className="basla-ayar-card-header">
+            <div className="basla-ayar-card-header-left">
+              <div className="basla-ayar-icon-box cyan">
+                <MessageSquare size={18} />
+              </div>
+              <div className="basla-ayar-header-text">
+                <h3 className="basla-ayar-card-title">
+                  {t(
+                    'sohbet_yonergesi_ve_form_acma_dugmesi',
+                    'Sohbet Ekranı Yönergesi ve Form Açma Düğmesi'
+                  )}
+                </h3>
+                <p className="basla-ayar-card-subtitle">
+                  {t(
+                    'sohbet_yonergesi_ve_form_acma_dugmesi_aciklama',
+                    'Bu adıma gelindiğinde sohbet ekranında kullanıcıya gösterilecek açıklama mesajını ve altında yer alacak form açma düğmesini yapılandırın.'
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="basla-ayar-card-body">
+            <div className="basla-ayar-field-col">
+              <label className="basla-ayar-field-label">
+                {t(
+                  'sohbet_ekraninda_gosterilecek_mesaj',
+                  'Sohbet Ekranında Gösterilecek Yönerge Mesajı'
+                )}
+              </label>
+              <div className="form-ac-snippet-bar">
+                <span className="form-ac-snippet-label">
+                  {t('hazir_mesaj_kalibi_ekle', 'Hazır Mesaj Kalıbı:')}
+                </span>
+                <button
+                  type="button"
+                  className="form-ac-snippet-chip"
+                  onClick={() =>
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      kullaniciMesaji: t(
+                        'snippet_kampanya_yazisi_import_mesaji',
+                        'Kampanya yazısını içeri aktarmak için aşağıdaki düğmeye basın.'
+                      )
+                    }))
+                  }
+                >
+                  + {t('kampanya_yazisi_ice_aktar_mesaji', 'Kampanya Yazısını İçeri Aktar')}
+                </button>
+                <button
+                  type="button"
+                  className="form-ac-snippet-chip"
+                  onClick={() =>
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      kullaniciMesaji: t(
+                        'snippet_ilgili_formu_ac_mesaji',
+                        'İşleme devam etmek için aşağıdaki düğmeye basarak ilgili ekranı açın.'
+                      )
+                    }))
+                  }
+                >
+                  + {t('genel_form_acilis_mesaji', 'Genel Form Açılış Yönergesi')}
+                </button>
+              </div>
+              <NotInput
+                rows={3}
+                value={formData.kullaniciMesaji || ''}
+                onChange={(e) =>
+                  setFormData((prev: any) => ({ ...prev, kullaniciMesaji: e.target.value }))
+                }
+                placeholder={t(
+                  'form_ac_kullanici_mesaji_placeholder',
+                  'Örn: Kampanya yazısını içeri aktarmak için aşağıdaki düğmeye basın.'
+                )}
+              />
+            </div>
+
+            <div className="basla-ayar-input-grid">
+              <div className="basla-ayar-field-col">
+                <label className="basla-ayar-field-label">
+                  {t('form_acma_dugmesi_basligi', 'Form Açma Düğmesi Üzerinde Görünecek İsim')}
+                </label>
+                <BaseInput
+                  icon={<Tag size={14} />}
+                  value={formData.dugmeBasligi || ''}
+                  onChange={(e) =>
+                    setFormData((prev: any) => ({ ...prev, dugmeBasligi: e.target.value }))
+                  }
+                  placeholder={t(
+                    'form_ac_dugme_basligi_placeholder',
+                    'Boş bırakılırsa seçilen form adı kullanılır (Örn: Dosya İçeri Aktar Ekranını Aç)'
+                  )}
+                />
+              </div>
+
+              <div className="basla-ayar-preview-col">
+                <span className="basla-ayar-field-label">
+                  {t('sohbet_karti_onizlemesi', 'Sohbet Ekranı Görünümü (Önizleme)')}
+                </span>
+                <div className="form-ac-chat-preview-box">
+                  <p className="form-ac-chat-preview-text">
+                    {formData.kullaniciMesaji?.trim() ||
+                      (selectedEntity?.ad
+                        ? t(
+                          'form_ac_varsayilan_onizleme_mesaji',
+                          '{{formAdi}} ekranını açmak için aşağıdaki düğmeye basın.',
+                          { formAdi: selectedEntity.ad }
+                        )
+                        : t(
+                          'snippet_kampanya_yazisi_import_mesaji',
+                          'Kampanya yazısını içeri aktarmak için aşağıdaki düğmeye basın.'
+                        ))}
+                  </p>
+                  <span className="form-ac-chat-preview-btn">
+                    <ExternalLink size={13} />
+                    <span>
+                      {formData.dugmeBasligi?.trim() ||
+                        (selectedEntity?.ad
+                          ? `${selectedEntity.ad} ${t('ekranini_ac', 'Ekranını Aç')}`
+                          : t('formu_ac', 'Formu Aç'))}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* 3. BÖLÜM: SİHİRBAZ KAYIT TAKİBİ VE KULLANICI TEYİDİ (WIZARD HANDSHAKE) */}
         <section className="basla-ayar-card">
           <div className="basla-ayar-card-header">
             <div className="basla-ayar-card-header-left">

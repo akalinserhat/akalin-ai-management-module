@@ -310,7 +310,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         type: node.tip,
         title: node.baslik,
         shapeBadgeText: isFormAc ? t('form_ac', 'Form Aç') : (typeInfo ? t(typeInfo.shortLabel) : node.tip),
-        prompt: node.prompt,
+        prompt: node.prompt || node.kullaniciMesaji,
         toolCode: node.aracKodu,
         uiAction: node.uiAksiyonu,
         uiActionLabel: resolvedUiActionLabel,
