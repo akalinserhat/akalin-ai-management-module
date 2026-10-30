@@ -39,7 +39,7 @@ export const YapayZekaAyarlari: React.FC<YapayZekaAyarlariProps> = ({ onBack }) 
   useEffect(() => {
     firmaAiSettingsService.getYanitSenteziAyar()
       .then(aktif => setIsYanitSenteziActive(aktif))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const handleToggleGlobalYanitSentezi = async (e: any) => {
@@ -48,8 +48,8 @@ export const YapayZekaAyarlari: React.FC<YapayZekaAyarlariProps> = ({ onBack }) 
     try {
       await firmaAiSettingsService.setYanitSenteziAyar(newVal);
       toast.success(
-        newVal 
-          ? t('ai_sentez_aktif_edildi', 'Akıllı Yanıt Sentezi aktif edildi: Araç ve validasyon sonuçları doğal dille yorumlanacak.') 
+        newVal
+          ? t('ai_sentez_aktif_edildi', 'Akıllı Yanıt Sentezi aktif edildi: Araç ve validasyon sonuçları doğal dille yorumlanacak.')
           : t('ai_sentez_pasif_edildi', 'Token tasarruf modu aktif: Doğrudan hızlı araç çıktısı dönecek.')
       );
     } catch {
@@ -70,9 +70,9 @@ export const YapayZekaAyarlari: React.FC<YapayZekaAyarlariProps> = ({ onBack }) 
       keywords: 'ai model sağlayıcı llm openai gemini claude deepseek ollama gpt yapay zeka',
       hasOwnLayout: true,
       component: () => (
-        <AiSaglayicilar 
-          backRoute={baseRoute} 
-          onBack={() => navigate(baseRoute)} 
+        <AiSaglayicilar
+          backRoute={baseRoute}
+          onBack={() => navigate(baseRoute)}
         />
       )
     },
@@ -84,9 +84,9 @@ export const YapayZekaAyarlari: React.FC<YapayZekaAyarlariProps> = ({ onBack }) 
       keywords: 'ai protokol api script javascript jint llm endpoint yapay zeka',
       hasOwnLayout: true,
       component: () => (
-        <AiProtokoller 
-          backRoute={baseRoute} 
-          onBack={() => navigate(baseRoute)} 
+        <AiProtokoller
+          backRoute={baseRoute}
+          onBack={() => navigate(baseRoute)}
         />
       )
     },
@@ -98,9 +98,9 @@ export const YapayZekaAyarlari: React.FC<YapayZekaAyarlariProps> = ({ onBack }) 
       keywords: 'ai ajan agent bot kural prompt uzman rol yapay zeka',
       hasOwnLayout: true,
       component: () => (
-        <AiAjanlar 
-          backRoute={baseRoute} 
-          onBack={() => navigate(baseRoute)} 
+        <AiAjanlar
+          backRoute={baseRoute}
+          onBack={() => navigate(baseRoute)}
         />
       )
     },
@@ -112,9 +112,9 @@ export const YapayZekaAyarlari: React.FC<YapayZekaAyarlariProps> = ({ onBack }) 
       keywords: 'ai mcp model context protocol fonksiyon arac tool modul liste kart belge schema erp api',
       hasOwnLayout: true,
       component: () => (
-        <AiMcpYonetimi 
-          backRoute={baseRoute} 
-          onBack={() => navigate(baseRoute)} 
+        <AiMcpYonetimi
+          backRoute={baseRoute}
+          onBack={() => navigate(baseRoute)}
         />
       )
     }

@@ -821,6 +821,49 @@
   margin-top: 6px;
 }
 
+.action-menu-select-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  box-sizing: border-box;
+  gap: 12px;
+}
+
+.action-menu-select-item:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.06));
+}
+
+.action-menu-select-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  margin: 0;
+  cursor: pointer;
+}
+
+.action-menu-select-control {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--glass-border);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+}
+
+.action-menu-select-control:focus {
+  border-color: var(--accent-primary);
+}
+
 .ai-synthesis-option-card {
   flex: 1 1 240px;
   padding: 10px 14px;

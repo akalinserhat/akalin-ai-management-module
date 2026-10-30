@@ -1879,44 +1879,6 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       icon: <Cpu size={16} />,
       content: (
         <div className="ai-model-tab-layer">
-          <div className="ai-ajan-section-card">
-            <div className="ai-ajan-section-header">
-              <div className="ai-ajan-section-title">
-                <Sparkles size={16} />
-                <span>{t('ai_yanit_sentezi_politikasi', 'Akıllı Yanıt Sentezi & Token Politikası')}</span>
-              </div>
-              <span className="ai-ajan-hint-text">
-                {t('ai_yanit_sentezi_aciklama', 'Araç ve validasyon çıktılarının LLM tarafından insansı yorumlanması')}
-              </span>
-            </div>
-
-            <div className="ai-synthesis-options-row">
-              {[
-                { value: 0, label: t('yanit_sentezi_sistem', '🌐 Sistem Ayarını Kullan'), desc: t('yanit_sentezi_sistem_desc', 'Genel sistem ayarını miras alır') },
-                { value: 1, label: t('yanit_sentezi_acik', '✨ Zorunlu Açık (LLM Sentezi)'), desc: t('yanit_sentezi_acik_desc', 'Araç sonuçlarını daima LLM doğal dille sentezler (+1 tur token)') },
-                { value: 2, label: t('yanit_sentezi_kapali', '⚡ Zorunlu Kapalı (Hızlı Mod)'), desc: t('yanit_sentezi_kapali_desc', 'Token tasarrufu, doğrudan teknik araç çıktısını döner') }
-              ].map(opt => (
-                <label
-                  key={opt.value}
-                  className={`ai-synthesis-option-card ${formData.yanitSenteziModu === opt.value ? 'active' : ''}`}
-                >
-                  <input
-                    type="radio"
-                    name="yanitSenteziModu"
-                    value={opt.value}
-                    checked={formData.yanitSenteziModu === opt.value}
-                    onChange={() => setFormData((prev: any) => ({ ...prev, yanitSenteziModu: opt.value }))}
-                    className="ai-synthesis-radio"
-                  />
-                  <div>
-                    <div className="ai-synthesis-opt-title">{opt.label}</div>
-                    <div className="ai-synthesis-opt-desc">{opt.desc}</div>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
-
           <div className="table-responsive rounded border border-glass">
             <DataTable
               data={configuredModels}
@@ -2385,6 +2347,29 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
             }
             className="action-menu-switch-item"
           />
+        )
+      },
+      {
+        custom: (
+          <div className="action-menu-select-item">
+            <label htmlFor="actionMenuYanitSenteziSelect" className="action-menu-select-label">
+              <Sparkles size={15} className="text-secondary" />
+              <span>{t('akilli_yanit_sentezi', 'Akıllı Yanıt Sentezi')}:</span>
+            </label>
+            <select
+              id="actionMenuYanitSenteziSelect"
+              className="action-menu-select-control"
+              value={formData.yanitSenteziModu ?? 0}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                setFormData((prev: any) => ({ ...prev, yanitSenteziModu: isNaN(val) ? 0 : val }));
+              }}
+            >
+              <option value={0}>{t('yanit_sentezi_sistem_kisa', '🌐 Sistem Ayarı')}</option>
+              <option value={1}>{t('yanit_sentezi_acik_kisa', '✨ Zorunlu Açık (Sentez)')}</option>
+              <option value={2}>{t('yanit_sentezi_kapali_kisa', '⚡ Zorunlu Kapalı (Hızlı)')}</option>
+            </select>
+          </div>
         ),
         dividerBelow: true
       },
