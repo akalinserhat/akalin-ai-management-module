@@ -68,6 +68,370 @@ export interface AiMcpYonetimiProps {
   onBack?: () => void;
 }
 
+// ─── ORTAK MCP AĞAÇ VERİ MOTORU ───────────────────────────────────────────────
+
+export function buildMcpTreeData(t: any): McpTreeNode[] {
+  const modules = ModuleRegistry.getModules();
+  if (!modules || modules.length === 0) return [];
+
+  return modules.map((mod): McpTreeNode => {
+    // 1. Kademe: Modül Bilgileri
+    const modKod = mod.id || '';
+    const modAd = mod.title || mod.name || modKod;
+    const modBaseRoute = (mod as any).baseRoute || mod.routes?.[0]?.path || '';
+
+    // 2. Kademe: Modüle tescil edilmiş listeler, kartlar ve belgeler
+    let entities = ModuleRegistry.getModuleEntities(modKod);
+    if ((!entities.tree || entities.tree.length === 0) && mod.title) {
+      const fromTitle = ModuleRegistry.getModuleEntities(mod.title);
+      if (fromTitle.tree && fromTitle.tree.length > 0) entities = fromTitle;
+    }
+    if ((!entities.tree || entities.tree.length === 0) && mod.name) {
+      const fromName = ModuleRegistry.getModuleEntities(mod.name);
+      if (fromName.tree && fromName.tree.length > 0) entities = fromName;
+    }
+
+    const entityList: IModuleEntityDefinition[] = [
+      ...(entities.documents || []),
+      ...(entities.cards || []),
+      ...(entities.lists || [])
+    ];
+
+    const finalEntities: IModuleEntityDefinition[] = entityList.length > 0 ? entityList : [
+      {
+        id: `${modKod}_genel_liste`,
+        category: 'liste',
+        titleKey: `${modKod}_genel_liste`,
+        title: `${modAd} ${t('listesi', 'Listesi')}`,
+        description: `${modAd} ${t('kayitlari_ve_tablo_verileri', 'kayıtları ve tablo verileri')}`,
+        route: modBaseRoute
+      }
+    ];
+
+    // 2. Kademe Düğümlerini Üret
+    const entityNodes: McpTreeNode[] = finalEntities.map((ent): McpTreeNode => {
+      const entKod = ent.id;
+      const entAd = ent.title || ent.titleKey || entKod;
+      const entCat = (ent.category || 'liste') as 'liste' | 'kart' | 'belge';
+      const entRoute = ent.route || ent.listRoute || ent.formRoute || modBaseRoute;
+
+      // 3. Kademe: Bu varlığa ait MCP Fonksiyonları
+      const mcpFunctions: McpTreeNode[] = [];
+
+      if (entCat === 'belge') {
+        mcpFunctions.push({
+          id: `mcp_${entKod}_create_document`,
+          kademe: 3,
+          ad: t('mcp_func_create_doc_title', 'Yeni Belge ve Taslak Hazırlama (BELGE_DOLDUR)'),
+          kod: 'erp_create_document',
+          kategori: 'mcp',
+          modulKodu: modKod,
+          varlikKodu: entKod,
+          varlikTuru: 'Belge',
+          isSistem: true,
+          isleyici: `${entKod}DocumentHandler (IDocumentMcpHandler)`,
+          rota: entRoute,
+          aciklama: t(
+            'mcp_func_create_doc_desc',
+            'Yapay zeka doğal dille bu belgeyi oluşturur, kalemleri ve başlık bilgilerini otomatik doldurur.'
+          ),
+          parametreSemasi: {
+            type: 'object',
+            properties: {
+              documentType: { type: 'string', default: entKod, description: 'Belge türü kimliği' },
+              isDraft: { type: 'boolean', default: true, description: 'Doğrudan taslak kalemlerle doldurulsun mu?' },
+              aciklama: { type: 'string', description: 'Belge başlık veya dipnot açıklaması' },
+              cariUnvan: { type: 'string', description: 'Hedef cari hesap unvanı' },
+              kalemler: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    stokKodu: { type: 'string' },
+                    miktar: { type: 'number' },
+                    birimFiyat: { type: 'number' }
+                  }
+                }
+              }
+            },
+            required: ['documentType']
+          },
+          ornekIstek: `{"name":"erp_create_document","arguments":{"documentType":"${entKod}","isDraft":true,"aciklama":"Yapay Zeka Taslağı"}}`
+        });
+
+        mcpFunctions.push({
+          id: `mcp_${entKod}_schema`,
+          kademe: 3,
+          ad: t('mcp_func_schema_title', 'Belge Şeması & Alan Doğrulama Kuralları'),
+          kod: 'erp_get_document_schema',
+          kategori: 'mcp',
+          modulKodu: modKod,
+          varlikKodu: entKod,
+          varlikTuru: 'Belge',
+          isSistem: true,
+          isleyici: 'InspectDocumentSchemaTool',
+          rota: entRoute,
+          aciklama: t(
+            'mcp_func_schema_desc',
+            'Belgenin kabul ettiği JSON şemasını, zorunlu alanlarını ve validasyon kurallarını sorgular.'
+          ),
+          parametreSemasi: {
+            type: 'object',
+            properties: {
+              documentType: { type: 'string', default: entKod, description: 'Şeması sorgulanacak belge türü' }
+            },
+            required: ['documentType']
+          },
+          ornekIstek: `{"name":"erp_get_document_schema","arguments":{"documentType":"${entKod}"}}`
+        });
+
+        mcpFunctions.push({
+          id: `mcp_${entKod}_navigate`,
+          kademe: 3,
+          ad: t('mcp_func_navigate_title', 'Belge Ekranına Yönlendirme & Sayfa Açma'),
+          kod: 'erp_navigate',
+          kategori: 'mcp',
+          modulKodu: modKod,
+          varlikKodu: entKod,
+          varlikTuru: 'Belge',
+          isSistem: true,
+          isleyici: 'NavigateTool',
+          rota: entRoute,
+          aciklama: t(
+            'mcp_func_nav_desc',
+            'Kullanıcıyı doğrudan bu belgenin yeni kayıt veya detay sayfasına yönlendirir.'
+          ),
+          parametreSemasi: {
+            type: 'object',
+            properties: {
+              target: { type: 'string', default: entRoute },
+              customRoute: { type: 'string' }
+            },
+            required: ['target']
+          },
+          ornekIstek: `{"name":"erp_navigate","arguments":{"target":"${entRoute}"}}`
+        });
+
+        mcpFunctions.push({
+          id: `mcp_${entKod}_context`,
+          kademe: 3,
+          ad: t('mcp_func_context_title', 'Aktif Form & Belge Bağlamı Okuma'),
+          kod: 'erp_get_page_context',
+          kategori: 'mcp',
+          modulKodu: modKod,
+          varlikKodu: entKod,
+          varlikTuru: 'Belge',
+          isSistem: true,
+          isleyici: 'GetPageContextTool',
+          rota: entRoute,
+          aciklama: t(
+            'mcp_func_ctx_desc',
+            'Kullanıcının bu belgede o anda açık olan verilerini, aktif sekmesini ve seçimlerini analiz eder.'
+          ),
+          parametreSemasi: { type: 'object', properties: {} },
+          ornekIstek: `{"name":"erp_get_page_context","arguments":{}}`
+        });
+      } else if (entCat === 'kart') {
+        mcpFunctions.push({
+          id: `mcp_${entKod}_create_card`,
+          kademe: 3,
+          ad: t('mcp_func_create_card_title', 'Yeni Kart Açma & Alan Doldurma'),
+          kod: 'erp_create_document',
+          kategori: 'mcp',
+          modulKodu: modKod,
+          varlikKodu: entKod,
+          varlikTuru: 'Kart',
+          isSistem: true,
+          isleyici: `${entKod}DocumentHandler`,
+          rota: entRoute,
+          aciklama: t(
+            'mcp_func_card_create_desc',
+            'Yapay zeka kart alanlarını (unvan, vergi no, kod, adres vb.) otomatik doldurarak kayda hazırlar.'
+          ),
+          parametreSemasi: {
+            type: 'object',
+            properties: {
+              documentType: { type: 'string', default: entKod },
+              isDraft: { type: 'boolean', default: false },
+              fields: { type: 'object', description: 'Doldurulacak kart alanları' }
+            },
+            required: ['documentType']
+          },
+          ornekIstek: `{"name":"erp_create_document","arguments":{"documentType":"${entKod}","isDraft":false}}`
+        });
+
+        mcpFunctions.push({
+          id: `mcp_${entKod}_schema`,
+          kademe: 3,
+          ad: t('mcp_func_card_schema_title', 'Kart Şeması & Validasyon Kuralları'),
+          kod: 'erp_get_document_schema',
+          kategori: 'mcp',
+          modulKodu: modKod,
+          varlikKodu: entKod,
+          varlikTuru: 'Kart',
+          isSistem: true,
+          isleyici: 'InspectDocumentSchemaTool',
+          rota: entRoute,
+          aciklama: t(
+            'mcp_func_card_schema_desc',
+            'Kartın kabul ettiği JSON alanlarını ve format gereksinimlerini LLM için döner.'
+          ),
+          parametreSemasi: {
+            type: 'object',
+            properties: {
+              documentType: { type: 'string', default: entKod }
+            },
+            required: ['documentType']
+          },
+          ornekIstek: `{"name":"erp_get_document_schema","arguments":{"documentType":"${entKod}"}}`
+        });
+
+        mcpFunctions.push({
+          id: `mcp_${entKod}_navigate`,
+          kademe: 3,
+          ad: t('mcp_func_card_nav_title', 'Kart Formuna Navigasyon'),
+          kod: 'erp_navigate',
+          kategori: 'mcp',
+          modulKodu: modKod,
+          varlikKodu: entKod,
+          varlikTuru: 'Kart',
+          isSistem: true,
+          isleyici: 'NavigateTool',
+          rota: entRoute,
+          aciklama: t('mcp_func_card_nav_desc', 'Kullanıcıyı kartın yeni kayıt veya düzenleme ekranına yönlendirir.'),
+          parametreSemasi: {
+            type: 'object',
+            properties: { target: { type: 'string', default: entRoute } },
+            required: ['target']
+          },
+          ornekIstek: `{"name":"erp_navigate","arguments":{"target":"${entRoute}"}}`
+        });
+      } else {
+        mcpFunctions.push({
+          id: `mcp_${entKod}_query`,
+          kademe: 3,
+          ad: t('mcp_func_query_title', 'Canlı Veritabanı & Tablo Kayıt Sorgulama'),
+          kod: 'erp_query_data',
+          kategori: 'mcp',
+          modulKodu: modKod,
+          varlikKodu: entKod,
+          varlikTuru: 'Liste',
+          isSistem: true,
+          isleyici: 'QueryDataTool',
+          rota: entRoute,
+          aciklama: t(
+            'mcp_func_query_desc',
+            'Veritabanından bu listeye ait kayıtları, filtreleri ve özet bilgileri LLM aracılığıyla güvenli sorgular.'
+          ),
+          parametreSemasi: {
+            type: 'object',
+            properties: {
+              entityType: { type: 'string', default: entKod, description: 'Sorgulanacak tablo/varlık' },
+              filter: { type: 'string', description: 'Doğal dil veya SQL filtre ifadesi' },
+              limit: { type: 'integer', default: 50, description: 'Maksimum kayıt limiti' }
+            },
+            required: ['entityType']
+          },
+          ornekIstek: `{"name":"erp_query_data","arguments":{"entityType":"${entKod}","filter":"aktifMi == true","limit":20}}`
+        });
+
+        mcpFunctions.push({
+          id: `mcp_${entKod}_navigate`,
+          kademe: 3,
+          ad: t('mcp_func_list_nav_title', 'Liste Sayfasına Navigasyon'),
+          kod: 'erp_navigate',
+          kategori: 'mcp',
+          modulKodu: modKod,
+          varlikKodu: entKod,
+          varlikTuru: 'Liste',
+          isSistem: true,
+          isleyici: 'NavigateTool',
+          rota: entRoute,
+          aciklama: t('mcp_func_list_nav_desc', 'Kullanıcıyı bu listenin gösterildiği tablo ekranına yönlendirir.'),
+          parametreSemasi: {
+            type: 'object',
+            properties: { target: { type: 'string', default: entRoute } },
+            required: ['target']
+          },
+          ornekIstek: `{"name":"erp_navigate","arguments":{"target":"${entRoute}"}}`
+        });
+
+        mcpFunctions.push({
+          id: `mcp_${entKod}_context`,
+          kademe: 3,
+          ad: t('mcp_func_list_ctx_title', 'Tablo Filtre & Seçili Satır Bağlamı'),
+          kod: 'erp_get_page_context',
+          kategori: 'mcp',
+          modulKodu: modKod,
+          varlikKodu: entKod,
+          varlikTuru: 'Liste',
+          isSistem: true,
+          isleyici: 'GetPageContextTool',
+          rota: entRoute,
+          aciklama: t(
+            'mcp_func_list_ctx_desc',
+            'Kullanıcının bu listede seçtiği satırları veya uyguladığı filtreleri LLM bağlamına aktarır.'
+          ),
+          parametreSemasi: { type: 'object', properties: {} },
+          ornekIstek: `{"name":"erp_get_page_context","arguments":{}}`
+        });
+      }
+
+      if (ent.customActions && ent.customActions.length > 0) {
+        ent.customActions.forEach((ca: any) => {
+          mcpFunctions.push({
+            id: `mcp_${entKod}_custom_${ca.action}`,
+            kademe: 3,
+            ad: `${ca.labelKey || ca.action} (${t('ozel_aksiyon', 'Özel Aksiyon')})`,
+            kod: `action_${ca.action.replace(/-/g, '_')}`,
+            kategori: 'mcp',
+            modulKodu: modKod,
+            varlikKodu: entKod,
+            varlikTuru: entCat.toUpperCase(),
+            isSistem: false,
+            isleyici: 'CustomActionDispatcher',
+            rota: entRoute,
+            aciklama: ca.description || t('ozel_aksiyon_aciklama', 'Bu varlığa özel tanımlanmış modüler MCP aksiyonu.'),
+            parametreSemasi: {
+              type: 'object',
+              properties: {
+                action: { type: 'string', default: ca.action },
+                targetId: { type: 'string', description: 'Hedef kayıt ID' }
+              }
+            },
+            ornekIstek: `{"name":"action_${ca.action.replace(/-/g, '_')}","arguments":{"targetId":"123"}}`
+          });
+        });
+      }
+
+      return {
+        id: `ent_${modKod}_${entCat}_${entKod}`,
+        kademe: 2,
+        ad: entAd,
+        kod: entKod,
+        kategori: entCat,
+        modulKodu: modKod,
+        rota: entRoute,
+        aciklama: ent.description || '',
+        rawEntity: ent,
+        children: mcpFunctions
+      };
+    });
+
+    return {
+      id: `mod_${modKod}`,
+      kademe: 1,
+      ad: modAd,
+      kod: modKod,
+      kategori: 'modul',
+      aciklama: mod.description || '',
+      rota: modBaseRoute,
+      rawModule: mod,
+      children: entityNodes
+    };
+  });
+}
+
 // ─── BİLEŞEN ──────────────────────────────────────────────────────────────────
 
 export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
@@ -111,379 +475,7 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
 
   // ─── 3 KADEMELİ TREE VIEW VERİ MOTORU ────────────────────────────────────────
 
-  const rawTreeData = useMemo<McpTreeNode[]>(() => {
-    const modules = ModuleRegistry.getModules();
-    if (!modules || modules.length === 0) return [];
-
-    return modules.map((mod): McpTreeNode => {
-      // 1. Kademe: Modül Bilgileri
-      const modKod = mod.id || '';
-      const modAd = mod.title || mod.name || modKod;
-      const modBaseRoute = (mod as any).baseRoute || mod.routes?.[0]?.path || '';
-
-      // 2. Kademe: Modüle tescil edilmiş listeler, kartlar ve belgeler
-      let entities = ModuleRegistry.getModuleEntities(modKod);
-      if ((!entities.tree || entities.tree.length === 0) && mod.title) {
-        const fromTitle = ModuleRegistry.getModuleEntities(mod.title);
-        if (fromTitle.tree && fromTitle.tree.length > 0) entities = fromTitle;
-      }
-      if ((!entities.tree || entities.tree.length === 0) && mod.name) {
-        const fromName = ModuleRegistry.getModuleEntities(mod.name);
-        if (fromName.tree && fromName.tree.length > 0) entities = fromName;
-      }
-
-      const entityList: IModuleEntityDefinition[] = [
-        ...(entities.documents || []),
-        ...(entities.cards || []),
-        ...(entities.lists || [])
-      ];
-
-      // Eğer modülde doğrudan tanımlı entity yoksa, bilinen rotalar veya varsayılanlar üzerinden yedek kütük
-      const finalEntities: IModuleEntityDefinition[] = entityList.length > 0 ? entityList : [
-        {
-          id: `${modKod}_genel_liste`,
-          category: 'liste',
-          titleKey: `${modKod}_genel_liste`,
-          title: `${modAd} ${t('listesi', 'Listesi')}`,
-          description: `${modAd} ${t('kayitlari_ve_tablo_verileri', 'kayıtları ve tablo verileri')}`,
-          route: modBaseRoute
-        }
-      ];
-
-      // 2. Kademe Düğümlerini Üret
-      const entityNodes: McpTreeNode[] = finalEntities.map((ent): McpTreeNode => {
-        const entKod = ent.id;
-        const entAd = ent.title || ent.titleKey || entKod;
-        const entCat = (ent.category || 'liste') as 'liste' | 'kart' | 'belge';
-        const entRoute = ent.route || ent.listRoute || ent.formRoute || modBaseRoute;
-
-        // 3. Kademe: Bu varlığa ait MCP Fonksiyonları
-        const mcpFunctions: McpTreeNode[] = [];
-
-        if (entCat === 'belge') {
-          // Belge MCP Fonksiyon 1: erp_create_document (Taslak hazırlama / Belge açma)
-          mcpFunctions.push({
-            id: `mcp_${entKod}_create_document`,
-            kademe: 3,
-            ad: t('mcp_func_create_doc_title', 'Yeni Belge ve Taslak Hazırlama (BELGE_DOLDUR)'),
-            kod: 'erp_create_document',
-            kategori: 'mcp',
-            modulKodu: modKod,
-            varlikKodu: entKod,
-            varlikTuru: 'Belge',
-            isSistem: true,
-            isleyici: `${entKod}DocumentHandler (IDocumentMcpHandler)`,
-            rota: entRoute,
-            aciklama: t(
-              'mcp_func_create_doc_desc',
-              'Yapay zeka doğal dille bu belgeyi oluşturur, kalemleri ve başlık bilgilerini otomatik doldurur.'
-            ),
-            parametreSemasi: {
-              type: 'object',
-              properties: {
-                documentType: { type: 'string', default: entKod, description: 'Belge türü kimliği' },
-                isDraft: { type: 'boolean', default: true, description: 'Doğrudan taslak kalemlerle doldurulsun mu?' },
-                aciklama: { type: 'string', description: 'Belge başlık veya dipnot açıklaması' },
-                cariUnvan: { type: 'string', description: 'Hedef cari hesap unvanı' },
-                kalemler: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      stokKodu: { type: 'string' },
-                      miktar: { type: 'number' },
-                      birimFiyat: { type: 'number' }
-                    }
-                  }
-                }
-              },
-              required: ['documentType']
-            },
-            ornekIstek: `{"name":"erp_create_document","arguments":{"documentType":"${entKod}","isDraft":true,"aciklama":"Yapay Zeka Taslağı"}}`
-          });
-
-          // Belge MCP Fonksiyon 2: erp_get_document_schema (Şema doğrulama)
-          mcpFunctions.push({
-            id: `mcp_${entKod}_schema`,
-            kademe: 3,
-            ad: t('mcp_func_schema_title', 'Belge Şeması & Alan Doğrulama Kuralları'),
-            kod: 'erp_get_document_schema',
-            kategori: 'mcp',
-            modulKodu: modKod,
-            varlikKodu: entKod,
-            varlikTuru: 'Belge',
-            isSistem: true,
-            isleyici: 'InspectDocumentSchemaTool',
-            rota: entRoute,
-            aciklama: t(
-              'mcp_func_schema_desc',
-              'Belgenin kabul ettiği JSON şemasını, zorunlu alanlarını ve validasyon kurallarını sorgular.'
-            ),
-            parametreSemasi: {
-              type: 'object',
-              properties: {
-                documentType: { type: 'string', default: entKod, description: 'Şeması sorgulanacak belge türü' }
-              },
-              required: ['documentType']
-            },
-            ornekIstek: `{"name":"erp_get_document_schema","arguments":{"documentType":"${entKod}"}}`
-          });
-
-          // Belge MCP Fonksiyon 3: erp_navigate (Navigasyon)
-          mcpFunctions.push({
-            id: `mcp_${entKod}_navigate`,
-            kademe: 3,
-            ad: t('mcp_func_navigate_title', 'Belge Ekranına Yönlendirme & Sayfa Açma'),
-            kod: 'erp_navigate',
-            kategori: 'mcp',
-            modulKodu: modKod,
-            varlikKodu: entKod,
-            varlikTuru: 'Belge',
-            isSistem: true,
-            isleyici: 'NavigateTool',
-            rota: entRoute,
-            aciklama: t(
-              'mcp_func_nav_desc',
-              'Kullanıcıyı doğrudan bu belgenin yeni kayıt veya detay sayfasına yönlendirir.'
-            ),
-            parametreSemasi: {
-              type: 'object',
-              properties: {
-                target: { type: 'string', default: entRoute },
-                customRoute: { type: 'string' }
-              },
-              required: ['target']
-            },
-            ornekIstek: `{"name":"erp_navigate","arguments":{"target":"${entRoute}"}}`
-          });
-
-          // Belge MCP Fonksiyon 4: erp_get_page_context (Ekran Durumu)
-          mcpFunctions.push({
-            id: `mcp_${entKod}_context`,
-            kademe: 3,
-            ad: t('mcp_func_context_title', 'Aktif Form & Belge Bağlamı Okuma'),
-            kod: 'erp_get_page_context',
-            kategori: 'mcp',
-            modulKodu: modKod,
-            varlikKodu: entKod,
-            varlikTuru: 'Belge',
-            isSistem: true,
-            isleyici: 'GetPageContextTool',
-            rota: entRoute,
-            aciklama: t(
-              'mcp_func_ctx_desc',
-              'Kullanıcının bu belgede o anda açık olan verilerini, aktif sekmesini ve seçimlerini analiz eder.'
-            ),
-            parametreSemasi: { type: 'object', properties: {} },
-            ornekIstek: `{"name":"erp_get_page_context","arguments":{}}`
-          });
-        } else if (entCat === 'kart') {
-          // Kart MCP Fonksiyon 1: erp_create_document (Kart doldurma)
-          mcpFunctions.push({
-            id: `mcp_${entKod}_create_card`,
-            kademe: 3,
-            ad: t('mcp_func_create_card_title', 'Yeni Kart Açma & Alan Doldurma'),
-            kod: 'erp_create_document',
-            kategori: 'mcp',
-            modulKodu: modKod,
-            varlikKodu: entKod,
-            varlikTuru: 'Kart',
-            isSistem: true,
-            isleyici: `${entKod}DocumentHandler`,
-            rota: entRoute,
-            aciklama: t(
-              'mcp_func_card_create_desc',
-              'Yapay zeka kart alanlarını (unvan, vergi no, kod, adres vb.) otomatik doldurarak kayda hazırlar.'
-            ),
-            parametreSemasi: {
-              type: 'object',
-              properties: {
-                documentType: { type: 'string', default: entKod },
-                isDraft: { type: 'boolean', default: false },
-                fields: { type: 'object', description: 'Doldurulacak kart alanları' }
-              },
-              required: ['documentType']
-            },
-            ornekIstek: `{"name":"erp_create_document","arguments":{"documentType":"${entKod}","isDraft":false}}`
-          });
-
-          // Kart MCP Fonksiyon 2: erp_get_document_schema
-          mcpFunctions.push({
-            id: `mcp_${entKod}_schema`,
-            kademe: 3,
-            ad: t('mcp_func_card_schema_title', 'Kart Şeması & Validasyon Kuralları'),
-            kod: 'erp_get_document_schema',
-            kategori: 'mcp',
-            modulKodu: modKod,
-            varlikKodu: entKod,
-            varlikTuru: 'Kart',
-            isSistem: true,
-            isleyici: 'InspectDocumentSchemaTool',
-            rota: entRoute,
-            aciklama: t(
-              'mcp_func_card_schema_desc',
-              'Kartın kabul ettiği JSON alanlarını ve format gereksinimlerini LLM için döner.'
-            ),
-            parametreSemasi: {
-              type: 'object',
-              properties: {
-                documentType: { type: 'string', default: entKod }
-              },
-              required: ['documentType']
-            },
-            ornekIstek: `{"name":"erp_get_document_schema","arguments":{"documentType":"${entKod}"}}`
-          });
-
-          // Kart MCP Fonksiyon 3: erp_navigate
-          mcpFunctions.push({
-            id: `mcp_${entKod}_navigate`,
-            kademe: 3,
-            ad: t('mcp_func_card_nav_title', 'Kart Formuna Navigasyon'),
-            kod: 'erp_navigate',
-            kategori: 'mcp',
-            modulKodu: modKod,
-            varlikKodu: entKod,
-            varlikTuru: 'Kart',
-            isSistem: true,
-            isleyici: 'NavigateTool',
-            rota: entRoute,
-            aciklama: t('mcp_func_card_nav_desc', 'Kullanıcıyı kartın yeni kayıt veya düzenleme ekranına yönlendirir.'),
-            parametreSemasi: {
-              type: 'object',
-              properties: { target: { type: 'string', default: entRoute } },
-              required: ['target']
-            },
-            ornekIstek: `{"name":"erp_navigate","arguments":{"target":"${entRoute}"}}`
-          });
-        } else {
-          // Liste MCP Fonksiyon 1: erp_query_data (Canlı Tablo ve Veri Sorgulama)
-          mcpFunctions.push({
-            id: `mcp_${entKod}_query`,
-            kademe: 3,
-            ad: t('mcp_func_query_title', 'Canlı Veritabanı & Tablo Kayıt Sorgulama'),
-            kod: 'erp_query_data',
-            kategori: 'mcp',
-            modulKodu: modKod,
-            varlikKodu: entKod,
-            varlikTuru: 'Liste',
-            isSistem: true,
-            isleyici: 'QueryDataTool',
-            rota: entRoute,
-            aciklama: t(
-              'mcp_func_query_desc',
-              'Veritabanından bu listeye ait kayıtları, filtreleri ve özet bilgileri LLM aracılığıyla güvenli sorgular.'
-            ),
-            parametreSemasi: {
-              type: 'object',
-              properties: {
-                entityType: { type: 'string', default: entKod, description: 'Sorgulanacak tablo/varlık' },
-                filter: { type: 'string', description: 'Doğal dil veya SQL filtre ifadesi' },
-                limit: { type: 'integer', default: 50, description: 'Maksimum kayıt limiti' }
-              },
-              required: ['entityType']
-            },
-            ornekIstek: `{"name":"erp_query_data","arguments":{"entityType":"${entKod}","filter":"aktifMi == true","limit":20}}`
-          });
-
-          // Liste MCP Fonksiyon 2: erp_navigate
-          mcpFunctions.push({
-            id: `mcp_${entKod}_navigate`,
-            kademe: 3,
-            ad: t('mcp_func_list_nav_title', 'Liste Sayfasına Navigasyon'),
-            kod: 'erp_navigate',
-            kategori: 'mcp',
-            modulKodu: modKod,
-            varlikKodu: entKod,
-            varlikTuru: 'Liste',
-            isSistem: true,
-            isleyici: 'NavigateTool',
-            rota: entRoute,
-            aciklama: t('mcp_func_list_nav_desc', 'Kullanıcıyı bu listenin gösterildiği tablo ekranına yönlendirir.'),
-            parametreSemasi: {
-              type: 'object',
-              properties: { target: { type: 'string', default: entRoute } },
-              required: ['target']
-            },
-            ornekIstek: `{"name":"erp_navigate","arguments":{"target":"${entRoute}"}}`
-          });
-
-          // Liste MCP Fonksiyon 3: erp_get_page_context
-          mcpFunctions.push({
-            id: `mcp_${entKod}_context`,
-            kademe: 3,
-            ad: t('mcp_func_list_ctx_title', 'Tablo Filtre & Seçili Satır Bağlamı'),
-            kod: 'erp_get_page_context',
-            kategori: 'mcp',
-            modulKodu: modKod,
-            varlikKodu: entKod,
-            varlikTuru: 'Liste',
-            isSistem: true,
-            isleyici: 'GetPageContextTool',
-            rota: entRoute,
-            aciklama: t(
-              'mcp_func_list_ctx_desc',
-              'Kullanıcının bu listede seçtiği satırları veya uyguladığı filtreleri LLM bağlamına aktarır.'
-            ),
-            parametreSemasi: { type: 'object', properties: {} },
-            ornekIstek: `{"name":"erp_get_page_context","arguments":{}}`
-          });
-        }
-
-        // Varlığa ait tescilli özel aksiyonlar varsa ekle
-        if (ent.customActions && ent.customActions.length > 0) {
-          ent.customActions.forEach((ca: any) => {
-            mcpFunctions.push({
-              id: `mcp_${entKod}_custom_${ca.action}`,
-              kademe: 3,
-              ad: `${ca.labelKey || ca.action} (${t('ozel_aksiyon', 'Özel Aksiyon')})`,
-              kod: `action_${ca.action.replace(/-/g, '_')}`,
-              kategori: 'mcp',
-              modulKodu: modKod,
-              varlikKodu: entKod,
-              varlikTuru: entCat.toUpperCase(),
-              isSistem: false,
-              isleyici: 'CustomActionDispatcher',
-              rota: entRoute,
-              aciklama: ca.description || t('ozel_aksiyon_aciklama', 'Bu varlığa özel tanımlanmış modüler MCP aksiyonu.'),
-              parametreSemasi: {
-                type: 'object',
-                properties: {
-                  action: { type: 'string', default: ca.action },
-                  targetId: { type: 'string', description: 'Hedef kayıt ID' }
-                }
-              },
-              ornekIstek: `{"name":"action_${ca.action.replace(/-/g, '_')}","arguments":{"targetId":"123"}}`
-            });
-          });
-        }
-
-        return {
-          id: `ent_${modKod}_${entCat}_${entKod}`,
-          kademe: 2,
-          ad: entAd,
-          kod: entKod,
-          kategori: entCat,
-          modulKodu: modKod,
-          rota: entRoute,
-          aciklama: ent.description || '',
-          rawEntity: ent,
-          children: mcpFunctions
-        };
-      });
-
-      return {
-        id: `mod_${modKod}`,
-        kademe: 1,
-        ad: modAd,
-        kod: modKod,
-        kategori: 'modul',
-        aciklama: mod.description || '',
-        rota: modBaseRoute,
-        rawModule: mod,
-        children: entityNodes
-      };
-    });
-  }, [t]);
+  const rawTreeData = useMemo<McpTreeNode[]>(() => buildMcpTreeData(t), [t]);
 
   // ─── FİLTRELENMİŞ TREE VIEW VERİSİ ──────────────────────────────────────────
 
@@ -675,15 +667,14 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
           return (
             <div className="flex items-center gap-10 py-3">
               <span
-                className={`badge text-xs font-semibold px-8 py-2 rounded-full flex items-center gap-4 ${
-                  isBelge
+                className={`badge text-xs font-semibold px-8 py-2 rounded-full flex items-center gap-4 ${isBelge
                     ? 'badge-success'
                     : isKart
-                    ? 'badge-secondary'
-                    : isListe
-                    ? 'badge-primary'
-                    : 'badge-info'
-                }`}
+                      ? 'badge-secondary'
+                      : isListe
+                        ? 'badge-primary'
+                        : 'badge-info'
+                  }`}
               >
                 {isBelge ? (
                   <>

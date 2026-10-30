@@ -22,6 +22,7 @@ const AiAjanHizliIstekFormPage = lazy(() => import('./pages/AiAjanHizliIstekForm
 const AiAjanFlowchartOgeAyarPage = lazy(() => import('./pages/BaseAiAjanFlowchartOgeAyarPage'));
 const BaslaFlowchartOgeAyarPage = lazy(() => import('./pages/BaslaFlowchartOgeAyarPage'));
 const AiMcpYonetimiPage = lazy(() => import('./pages/AiMcpYonetimi'));
+const MCPSelectionListPage = lazy(() => import('./pages/MCPSelectionList'));
 
 /**
  * Flowchart öğe ayar sayfaları için dinamik yönlendirici bileşen
@@ -73,6 +74,7 @@ export function createAiManagementModule(options: CreateAiManagementModuleOption
   const AiAjanFlowchartOgeAyarComponent = options.customComponents?.AiAjanFlowchartOgeAyarPage || AiAjanFlowchartOgeAyarPage;
   const BaslaFlowchartOgeAyarComponent = options.customComponents?.BaslaFlowchartOgeAyarPage || BaslaFlowchartOgeAyarPage;
   const AiMcpYonetimiComponent = options.customComponents?.AiMcpYonetimi || AiMcpYonetimiPage;
+  const MCPSelectionListComponent = options.customComponents?.MCPSelectionList || MCPSelectionListPage;
 
   return {
     id: 'ai_yonetimi',
@@ -229,7 +231,8 @@ export function createAiManagementModule(options: CreateAiManagementModuleOption
       AiAjanlar: AiAjanlarComponent,
       AiAjanForm: AiAjanFormComponent,
       AiAjanHizliIstekForm: AiAjanHizliIstekFormComponent,
-      AiMcpYonetimi: AiMcpYonetimiComponent
+      AiMcpYonetimi: AiMcpYonetimiComponent,
+      MCPSelectionList: MCPSelectionListComponent
     }
   };
 }
