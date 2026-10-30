@@ -105,7 +105,9 @@ export type AiHizliIstekUiAksiyonu =
   | string;
 
 export type AiAkisDugumuTipi =
+  | 'BASLA'
   | 'BASLANGIC_GIRDI'
+  | 'FORM_AC'
   | 'MCP_SORGULA'
   | 'KARAR_ONAY'
   | 'EKRAN_AC'
@@ -121,6 +123,14 @@ export interface AiAkisDugumu {
   aracKodu?: string;
   uiAksiyonu?: AiHizliIstekUiAksiyonu;
   hedefRota?: string;
+  mcpVarlikId?: string;
+  modulKodu?: string;
+  modulAdi?: string;
+  varlikKodu?: string;
+  varlikAdi?: string;
+  varlikTuru?: 'liste' | 'belge' | 'kart' | string;
+  kayitBekle?: boolean;
+  kayitSonrasiTeyitEt?: boolean;
   sonrakiDugumId?: string;
   evetDugumId?: string;
   hayirDugumId?: string;

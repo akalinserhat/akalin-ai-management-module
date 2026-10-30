@@ -4,7 +4,7 @@
  */
 
 import React, { lazy } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import { Bot, Coins } from 'lucide-react';
 import type { IModuleDefinition } from '@akalin/module_core';
 import { IAiManagementAdapter } from './types';
@@ -21,18 +21,30 @@ const AiAjanFormPage = lazy(() => import('./pages/AiAjanForm'));
 const AiAjanHizliIstekFormPage = lazy(() => import('./pages/AiAjanHizliIstekForm'));
 const AiAjanFlowchartOgeAyarPage = lazy(() => import('./pages/BaseAiAjanFlowchartOgeAyarPage'));
 const BaslaFlowchartOgeAyarPage = lazy(() => import('./pages/BaslaFlowchartOgeAyarPage'));
+const FormAcFlowchartOgeAyarPage = lazy(() => import('./pages/FormAcFlowchartOgeAyarPage'));
 const AiMcpYonetimiPage = lazy(() => import('./pages/AiMcpYonetimi'));
 const MCPSelectionListPage = lazy(() => import('./pages/MCPSelectionList'));
 
 /**
  * Flowchart öğe ayar sayfaları için dinamik yönlendirici bileşen
- * Adım parametresi (ogeId) 'BASLA' ise BaslaFlowchartOgeAyarPage'e, diğer durumlarda temel sınıfa yönlendirir.
+ * Adım parametresi (ogeId) 'BASLA' ise BaslaFlowchartOgeAyarPage'e, 'FORM_AC' / adım ise FormAcFlowchartOgeAyarPage'e yönlendirir.
  */
 const FlowchartOgeAyarDispatcher: React.FC = () => {
   const { ogeId } = useParams<{ ogeId?: string }>();
+  const location = useLocation();
   const idUpper = (ogeId || '').toUpperCase();
-  if (idUpper === 'BASLA' || idUpper === 'START') {
+  const nodeTip = (location.state?.nodeData?.tip || '').toUpperCase();
+
+  if (idUpper === 'BASLA' || idUpper === 'START' || nodeTip === 'BASLA') {
     return <BaslaFlowchartOgeAyarPage />;
+  }
+  if (
+    nodeTip === 'FORM_AC' ||
+    nodeTip === 'EKRAN_AC' ||
+    idUpper.startsWith('FORM_AC') ||
+    idUpper.startsWith('ADIM_')
+  ) {
+    return <FormAcFlowchartOgeAyarPage />;
   }
   return <AiAjanFlowchartOgeAyarPage />;
 };

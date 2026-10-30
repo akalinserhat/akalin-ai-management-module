@@ -2565,3 +2565,330 @@
   padding: 2px 9px;
   border-radius: 999px;
 }
+
+/* ─── "Form Aç" (FormAcFlowchartOgeAyarPage) Özel MD3 Stilleri ──────────────── */
+.basla-ayar-icon-box.cyan {
+  background: rgba(6, 182, 212, 0.14);
+  color: #0891b2;
+  border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+[data-theme='dark'] .basla-ayar-icon-box.cyan {
+  color: #22d3ee;
+}
+
+.form-ac-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+
+.form-ac-filter-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.form-ac-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.form-ac-filter-chip:hover {
+  border-color: #06b6d4;
+  color: var(--text-primary);
+}
+
+.form-ac-filter-chip.is-active {
+  background: rgba(6, 182, 212, 0.14);
+  border-color: #06b6d4;
+  color: #0891b2;
+}
+
+[data-theme='dark'] .form-ac-filter-chip.is-active {
+  color: #22d3ee;
+}
+
+.form-ac-filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.form-ac-empty-mcp-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px dashed rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.06);
+  flex-wrap: wrap;
+}
+
+.form-ac-empty-icon {
+  color: #d97706;
+  flex-shrink: 0;
+}
+
+.form-ac-empty-texts {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 220px;
+}
+
+.form-ac-empty-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.form-ac-empty-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.form-ac-goto-mcp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--accent-primary);
+  background: var(--accent-light);
+  color: var(--accent-primary);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.form-ac-goto-mcp-btn:hover {
+  background: var(--accent-primary);
+  color: #ffffff;
+}
+
+.form-ac-entity-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
+  max-height: 250px;
+  overflow-y: auto;
+  padding: 2px;
+  scrollbar-width: thin;
+}
+
+.form-ac-entity-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.form-ac-entity-card:hover {
+  border-color: rgba(6, 182, 212, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.08);
+}
+
+.form-ac-entity-card.is-selected {
+  border-color: #06b6d4;
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(8, 145, 178, 0.03) 100%);
+  box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.22);
+}
+
+.form-ac-entity-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 6px;
+}
+
+.form-ac-entity-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.form-ac-entity-badge.is-kart {
+  background: rgba(139, 92, 246, 0.12);
+  color: #7c3aed;
+}
+
+[data-theme='dark'] .form-ac-entity-badge.is-kart {
+  color: #a78bfa;
+}
+
+.form-ac-entity-badge.is-belge {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+[data-theme='dark'] .form-ac-entity-badge.is-belge {
+  color: #34d399;
+}
+
+.form-ac-entity-badge.is-liste {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+
+[data-theme='dark'] .form-ac-entity-badge.is-liste {
+  color: #60a5fa;
+}
+
+.form-ac-entity-module {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.form-ac-entity-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.form-ac-entity-route {
+  font-family: ui-monospace, monospace;
+  font-size: 10.5px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.form-ac-wizard-options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 860px) {
+  .form-ac-wizard-options-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.form-ac-wizard-option-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: var(--bg-primary);
+  transition: all 0.2s ease;
+}
+
+.form-ac-wizard-option-box.is-active {
+  border-color: rgba(6, 182, 212, 0.4);
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, transparent 100%);
+}
+
+.form-ac-wizard-option-texts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.form-ac-wizard-option-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.form-ac-wizard-option-box.is-active .form-ac-wizard-option-title svg {
+  color: #06b6d4;
+}
+
+.form-ac-wizard-option-desc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.form-ac-snippet-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.form-ac-snippet-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.form-ac-snippet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px dashed rgba(6, 182, 212, 0.45);
+  background: rgba(6, 182, 212, 0.06);
+  color: #0891b2;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+[data-theme='dark'] .form-ac-snippet-chip {
+  color: #22d3ee;
+}
+
+.form-ac-snippet-chip:hover {
+  background: rgba(6, 182, 212, 0.16);
+  border-style: solid;
+}

@@ -274,15 +274,20 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     return (formState.akisDugumleri || []).map((node) => {
       const typeInfo = FLOWCHART_NODE_TYPES.find(nt => nt.id === node.tip);
       const uiOpt = UI_ACTION_OPTIONS.find(o => o.id === node.uiAksiyonu || o.value === node.uiAksiyonu);
+      const isFormAc = node.tip === 'FORM_AC' || node.tip === 'EKRAN_AC';
+      const resolvedUiActionLabel = node.varlikAdi
+        ? `${node.varlikAdi}${node.modulAdi ? ` • ${node.modulAdi}` : ''}`
+        : (node.uiAksiyonu && node.uiAksiyonu !== 'YOK' ? (uiOpt ? t(uiOpt.badge) : node.uiAksiyonu) : undefined);
+
       return {
         id: node.id,
         type: node.tip,
         title: node.baslik,
-        shapeBadgeText: typeInfo ? t(typeInfo.shortLabel) : node.tip,
+        shapeBadgeText: isFormAc ? t('form_ac', 'Form Aç') : (typeInfo ? t(typeInfo.shortLabel) : node.tip),
         prompt: node.prompt,
         toolCode: node.aracKodu,
         uiAction: node.uiAksiyonu,
-        uiActionLabel: node.uiAksiyonu && node.uiAksiyonu !== 'YOK' ? (uiOpt ? t(uiOpt.badge) : node.uiAksiyonu) : undefined,
+        uiActionLabel: resolvedUiActionLabel,
         routePath: node.hedefRota,
         nextStepId: node.sonrakiDugumId,
         yesStepId: node.evetDugumId,
@@ -295,25 +300,33 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     setFormState(prev => {
       const existing = [...(prev.akisDugumleri || [])];
       const nextNum = existing.length + 1;
-      const newId = nodeType === 'BASLA' ? 'BASLA' : `ADIM_${nextNum}`;
+      const newId = nodeType === 'BASLA'
+        ? 'BASLA'
+        : `ADIM_${nextNum}_${Date.now().toString(36).slice(-4).toUpperCase()}`;
       const newNode: AiAkisDugumu = {
         id: newId,
         tip: nodeType,
         baslik: nodeType === 'BASLA'
           ? t('basla', 'Başla')
-          : nodeType === 'KARAR_ONAY'
-            ? `${t('karar_onay_adimi', 'Kullanıcı Onayı')} (${nextNum}. ${t('adim', 'Adım')})`
-            : nodeType === 'BELGE_OLUSTUR'
-              ? `${t('belge_olusturma_adimi', 'Belge Taslağı Oluştur')} (${nextNum}. ${t('adim', 'Adım')})`
-              : nodeType === 'EKRAN_AC'
-                ? `${t('ekran_acma_adimi', 'ERP Ekranı Aç')} (${nextNum}. ${t('adim', 'Adım')})`
-                : `${nextNum}. ${t('islem_adimi', 'İşlem Adımı')}`,
+          : nodeType === 'FORM_AC'
+            ? t('form_ac', 'Form Aç')
+            : nodeType === 'KARAR_ONAY'
+              ? `${t('karar_onay_adimi', 'Kullanıcı Onayı')} (${nextNum}. ${t('adim', 'Adım')})`
+              : nodeType === 'BELGE_OLUSTUR'
+                ? `${t('belge_olusturma_adimi', 'Belge Taslağı Oluştur')} (${nextNum}. ${t('adim', 'Adım')})`
+                : nodeType === 'EKRAN_AC'
+                  ? `${t('ekran_acma_adimi', 'ERP Ekranı Aç')} (${nextNum}. ${t('adim', 'Adım')})`
+                  : `${nextNum}. ${t('islem_adimi', 'İşlem Adımı')}`,
         prompt: '',
-        aracKodu: nodeType === 'KARAR_ONAY'
-          ? 'erp_request_confirmation'
-          : (nodeType === 'BELGE_OLUSTUR' ? 'erp_create_document' : (nodeType === 'MCP_SORGULA' ? 'erp_query_data' : '')),
-        uiAksiyonu: 'YOK',
+        aracKodu: nodeType === 'FORM_AC' || nodeType === 'EKRAN_AC'
+          ? 'erp_navigate'
+          : nodeType === 'KARAR_ONAY'
+            ? 'erp_request_confirmation'
+            : (nodeType === 'BELGE_OLUSTUR' ? 'erp_create_document' : (nodeType === 'MCP_SORGULA' ? 'erp_query_data' : '')),
+        uiAksiyonu: nodeType === 'FORM_AC' || nodeType === 'EKRAN_AC' ? 'OZEL_ROTA' : 'YOK',
         hedefRota: '',
+        kayitBekle: nodeType === 'FORM_AC' ? true : undefined,
+        kayitSonrasiTeyitEt: nodeType === 'FORM_AC' ? true : undefined,
         sonrakiDugumId: '',
         evetDugumId: '',
         hayirDugumId: ''

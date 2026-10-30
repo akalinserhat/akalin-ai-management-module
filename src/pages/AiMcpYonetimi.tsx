@@ -688,6 +688,125 @@ export function buildMcpTreeData(t: any): McpTreeNode[] {
   });
 }
 
+export interface AgentActiveMcpEntity {
+  id: string;
+  kod: string;
+  ad: string;
+  kategori: 'liste' | 'belge' | 'kart';
+  varlikTuruLabel: string;
+  modulKodu: string;
+  modulAdi: string;
+  ustListeAdi?: string;
+  rota: string;
+  aciklama?: string;
+}
+
+/**
+ * Bir ajanın seciliAracKodlari dizisine göre (aktif edilmiş ve '!' ile pasife alınmamış)
+ * tüm Liste, Belge ve Kart varlıklarını düzleştirilmiş liste olarak döner.
+ */
+export function getAgentActiveMcpEntities(
+  seciliAracKodlari: string[] | undefined,
+  t: any
+): AgentActiveMcpEntity[] {
+  const rawCodes: string[] = Array.isArray(seciliAracKodlari) ? seciliAracKodlari : [];
+  if (rawCodes.length === 0) return [];
+
+  const positiveCodes = rawCodes.filter((c) => typeof c === 'string' && !c.startsWith('!'));
+  if (positiveCodes.length === 0) return [];
+
+  const lowerCodes = new Set(positiveCodes.map((c) => (c || '').toLowerCase()));
+  const disabledSet = new Set(
+    rawCodes
+      .filter((c) => typeof c === 'string' && c.startsWith('!'))
+      .map((c) => c.slice(1).toLowerCase())
+  );
+
+  const isNodeSelected = (node: McpTreeNode): boolean => {
+    const k = (node.kod || '').toLowerCase();
+    const id = (node.id || '').toLowerCase();
+    return lowerCodes.has(k) || lowerCodes.has(id);
+  };
+
+  const isNodeDisabled = (node: McpTreeNode): boolean => {
+    const id = (node.id || '').toLowerCase();
+    const k = (node.kod || '').toLowerCase();
+    return disabledSet.has(id) || disabledSet.has(k);
+  };
+
+  const treeData = buildMcpTreeData(t);
+  const activeEntities: AgentActiveMcpEntity[] = [];
+
+  treeData.forEach((modNode) => {
+    if (isNodeDisabled(modNode)) return;
+    const isModSelected = isNodeSelected(modNode);
+    const modKodu = modNode.kod || '';
+    const modAdi = modNode.ad || modKodu;
+
+    (modNode.children || []).forEach((listNode) => {
+      if (isNodeDisabled(listNode)) return;
+      const isListSelected = isModSelected || isNodeSelected(listNode);
+
+      const belgeKartNodes = (listNode.children || []).filter(
+        (c) => c.kategori === 'belge' || c.kategori === 'kart'
+      );
+      const folderNode = (listNode.children || []).find((c) => c.kategori === 'klasor');
+      const selectedTools = (folderNode?.children || []).filter(
+        (toolNode) => !isNodeDisabled(toolNode) && isNodeSelected(toolNode)
+      );
+      const selectedToolEntityCodes = new Set(
+        selectedTools.map((tn) => (tn.varlikKodu || '').toLowerCase()).filter(Boolean)
+      );
+
+      const matchingBelgeKart = belgeKartNodes.filter((bk) => {
+        if (isNodeDisabled(bk)) return false;
+        if (isListSelected || isNodeSelected(bk)) return true;
+        return selectedToolEntityCodes.has((bk.kod || '').toLowerCase());
+      });
+
+      const listHasAnyChildMatch = matchingBelgeKart.length > 0 || selectedTools.length > 0;
+
+      // Liste düğümü aktifse ekle
+      if (isListSelected || listHasAnyChildMatch) {
+        activeEntities.push({
+          id: listNode.id,
+          kod: listNode.kod,
+          ad: listNode.ad,
+          kategori: 'liste',
+          varlikTuruLabel: t('liste', 'Liste'),
+          modulKodu: modKodu,
+          modulAdi: modAdi,
+          rota: listNode.rota || '',
+          aciklama: listNode.aciklama || ''
+        });
+      }
+
+      // Belge ve Kart düğümleri aktifse ekle
+      const effectiveBelgeKart = isListSelected
+        ? belgeKartNodes.filter((bk) => !isNodeDisabled(bk))
+        : matchingBelgeKart;
+
+      effectiveBelgeKart.forEach((bkNode) => {
+        const kat = bkNode.kategori === 'belge' ? 'belge' : 'kart';
+        activeEntities.push({
+          id: bkNode.id,
+          kod: bkNode.kod,
+          ad: bkNode.ad,
+          kategori: kat,
+          varlikTuruLabel: kat === 'belge' ? t('belge', 'Belge') : t('kart', 'Kart'),
+          modulKodu: modKodu,
+          modulAdi: modAdi,
+          ustListeAdi: listNode.ad,
+          rota: bkNode.rota || listNode.rota || '',
+          aciklama: bkNode.aciklama || ''
+        });
+      });
+    });
+  });
+
+  return activeEntities;
+}
+
 // ─── BİLEŞEN ──────────────────────────────────────────────────────────────────
 
 export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({

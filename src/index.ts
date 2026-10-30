@@ -34,7 +34,8 @@ export { default as AiAjanForm, AiAjanForm as NamedAiAjanForm } from './pages/Ai
 export { default as AiAjanHizliIstekForm, AiAjanHizliIstekForm as NamedAiAjanHizliIstekForm, type AiAjanHizliIstekFormProps } from './pages/AiAjanHizliIstekForm';
 export { default as BaseAiAjanFlowchartOgeAyarPage, BaseAiAjanFlowchartOgeAyarPage as NamedBaseAiAjanFlowchartOgeAyarPage, type BaseAiAjanFlowchartOgeAyarPageProps } from './pages/BaseAiAjanFlowchartOgeAyarPage';
 export { default as BaslaFlowchartOgeAyarPage, BaslaFlowchartOgeAyarPage as NamedBaslaFlowchartOgeAyarPage, type BaslaFlowchartOgeAyarPageProps } from './pages/BaslaFlowchartOgeAyarPage';
-export { default as AiMcpYonetimi, AiMcpYonetimi as NamedAiMcpYonetimi, buildMcpTreeData, countMcpNodeStats, type McpTreeNode, type AiMcpYonetimiProps } from './pages/AiMcpYonetimi';
+export { default as FormAcFlowchartOgeAyarPage, FormAcFlowchartOgeAyarPage as NamedFormAcFlowchartOgeAyarPage, type FormAcFlowchartOgeAyarPageProps } from './pages/FormAcFlowchartOgeAyarPage';
+export { default as AiMcpYonetimi, AiMcpYonetimi as NamedAiMcpYonetimi, buildMcpTreeData, countMcpNodeStats, getAgentActiveMcpEntities, type McpTreeNode, type AgentActiveMcpEntity, type AiMcpYonetimiProps } from './pages/AiMcpYonetimi';
 export { default as MCPSelectionList, MCPSelectionList as NamedMCPSelectionList, type MCPSelectionListProps, type McpStageOneItem } from './pages/MCPSelectionList';
 
 // Modül Fabrikası
