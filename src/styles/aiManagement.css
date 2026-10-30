@@ -2342,3 +2342,223 @@
   color: var(--text-primary);
   font-family: ui-monospace, monospace;
 }
+
+/* ─── FLOWCHART ÖĞE AYAR SAYFALARI (BAŞLA DÜĞÜMÜ VB.) MD3 KART TASARIMI ─── */
+
+.flowchart-oge-ayar-content {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.basla-ayar-page-container {
+  max-width: 920px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.basla-ayar-card {
+  background: var(--surface-card, var(--bg-secondary));
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  box-shadow: var(--md3-elevation-1, 0 2px 8px rgba(0, 0, 0, 0.04));
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.basla-ayar-card:focus-within {
+  border-color: rgba(99, 102, 241, 0.45);
+}
+
+.basla-ayar-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--glass-border);
+  flex-wrap: wrap;
+}
+
+.basla-ayar-card-header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex: 1;
+  min-width: 240px;
+}
+
+.basla-ayar-icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.basla-ayar-icon-box.primary {
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--accent-primary, #6366f1);
+  border: 1px solid rgba(99, 102, 241, 0.24);
+}
+
+.basla-ayar-icon-box.warning {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--warning, #f59e0b);
+  border: 1px solid rgba(245, 158, 11, 0.24);
+}
+
+.basla-ayar-icon-box.emerald {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success, #10b981);
+  border: 1px solid rgba(16, 185, 129, 0.24);
+}
+
+.basla-ayar-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.basla-ayar-card-title {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.basla-ayar-card-subtitle {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.basla-ayar-switch-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--glass-border);
+  flex-shrink: 0;
+}
+
+.basla-ayar-switch-pill.is-active {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.28);
+}
+
+.basla-ayar-card-body {
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.basla-ayar-input-grid {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 20px;
+  align-items: stretch;
+}
+
+@media (max-width: 768px) {
+  .basla-ayar-input-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.basla-ayar-field-col,
+.basla-ayar-preview-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.basla-ayar-field-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.basla-ayar-preview-box {
+  flex: 1;
+  min-height: 42px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px dashed var(--glass-border);
+  background: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  transition: all 0.2s ease;
+}
+
+.basla-ayar-preview-box.is-disabled {
+  opacity: 0.65;
+}
+
+.basla-ayar-preview-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: var(--accent-primary, #6366f1);
+  font-size: 12.5px;
+  font-weight: 600;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.basla-ayar-preview-disabled-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.basla-ayar-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 4px;
+  flex-wrap: wrap;
+}
+
+.basla-ayar-footer-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.basla-ayar-char-count {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  border: 1px solid var(--glass-border);
+  padding: 2px 9px;
+  border-radius: 999px;
+}

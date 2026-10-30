@@ -10,7 +10,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Play, Terminal, Sparkles, Tag } from 'lucide-react';
+import { Play, Terminal, Sparkles, Tag, EyeOff, Info } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
@@ -291,24 +291,25 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
       onClose={handleBackOrClose}
       onBack={handleBackOrClose}
     >
-      <div className="form-grid max-w-4xl mx-auto flex flex-col gap-20">
-        <div className="form-group">
-          <label className="form-label font-semibold text-sm flex items-center gap-6">
-            <Sparkles size={14} className="text-primary" />
-            <span>{t('hizli_erisim_dugmesi', 'Hızlı Erişim Düğmesi')}</span>
-          </label>
-          <div className="flex items-center gap-16 mt-4">
-            <div className="flex-1">
-              <BaseInput
-                autoFocus={formData.hizliErisimDugmesi !== false}
-                disabled={formData.hizliErisimDugmesi === false}
-                icon={<Tag size={14} />}
-                value={formData.dugmeBasligi || ''}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, dugmeBasligi: e.target.value }))}
-                placeholder={t('dugme_ismi_placeholder', 'Düğme İsmi (Boş bırakılırsa akış başlığı kullanılır)')}
-              />
+      <div className="basla-ayar-page-container">
+        {/* 1. BÖLÜM: HIZLI ERİŞİM DÜĞMESİ & KISAYOL GÖRÜNÜMÜ */}
+        <section className="basla-ayar-card">
+          <div className="basla-ayar-card-header">
+            <div className="basla-ayar-card-header-left">
+              <div className="basla-ayar-icon-box primary">
+                <Sparkles size={18} />
+              </div>
+              <div className="basla-ayar-header-text">
+                <h3 className="basla-ayar-card-title">
+                  {t('hizli_erisim_dugmesi', 'Hızlı Erişim Düğmesi')}
+                </h3>
+                <p className="basla-ayar-card-subtitle">
+                  {t('hizli_erisim_dugmesi_aciklama', 'Etkinleştirildiğinde bu görev akışı, asistan panelinde tek tıkla başlatılabilen bir kısayol düğmesi olarak gösterilir.')}
+                </p>
+              </div>
             </div>
-            <div className="flex-shrink-0">
+
+            <div className={`basla-ayar-switch-pill ${formData.hizliErisimDugmesi !== false ? 'is-active' : ''}`}>
               <BaseSwitch
                 id="hizliErisimDugmesiSwitch"
                 checked={formData.hizliErisimDugmesi !== false}
@@ -317,7 +318,7 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
                   setFormData((prev: any) => ({ ...prev, hizliErisimDugmesi: checked }));
                 }}
                 label={
-                  <span className="text-sm font-medium">
+                  <span className="text-sm font-semibold">
                     {formData.hizliErisimDugmesi !== false
                       ? t('aktif', 'Aktif')
                       : t('pasif', 'Pasif')}
@@ -326,21 +327,82 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
               />
             </div>
           </div>
-        </div>
 
-        <div className="form-group">
-          <label className="form-label font-semibold text-sm flex items-center gap-6">
-            <Terminal size={14} className="text-warning" />
-            <span>{t('gorev_akisi_amaci_ve_baslangic_talimati', 'Görev Akışının Amacı ve Başlangıç Talimatı')}</span>
-          </label>
-          <NotInput
-            autoFocus={formData.hizliErisimDugmesi === false}
-            rows={4}
-            value={formData.prompt}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, prompt: e.target.value }))}
-            placeholder={t('gorev_akisi_amaci_placeholder', 'Kullanıcı hangi amaçla istekte bulunduğunda LLM bu görev akışını başlatmalı ve başlarken nasıl davranmalı? (Örn: Kullanıcı yeni bir satış kampanyası, promosyon veya indirim kurgulamak istediğinde bu akışı başlat...)')}
-          />
-        </div>
+          <div className="basla-ayar-card-body">
+            <div className="basla-ayar-input-grid">
+              <div className="basla-ayar-field-col">
+                <label className="basla-ayar-field-label">
+                  {t('dugme_gorunen_ismi', 'Düğme Üzerinde Görünecek İsim')}
+                </label>
+                <BaseInput
+                  autoFocus={formData.hizliErisimDugmesi !== false}
+                  disabled={formData.hizliErisimDugmesi === false}
+                  icon={<Tag size={14} />}
+                  value={formData.dugmeBasligi || ''}
+                  onChange={(e) => setFormData((prev: any) => ({ ...prev, dugmeBasligi: e.target.value }))}
+                  placeholder={t('dugme_ismi_placeholder', 'Düğme İsmi (Boş bırakılırsa akış başlığı kullanılır)')}
+                />
+              </div>
+
+              <div className="basla-ayar-preview-col">
+                <span className="basla-ayar-field-label">
+                  {t('asistan_dugme_onizlemesi', 'Asistan Paneli Görünümü')}
+                </span>
+                <div className={`basla-ayar-preview-box ${formData.hizliErisimDugmesi === false ? 'is-disabled' : ''}`}>
+                  {formData.hizliErisimDugmesi !== false ? (
+                    <span className="basla-ayar-preview-chip">
+                      <Sparkles size={13} />
+                      <span>{formData.dugmeBasligi?.trim() || istekTitle}</span>
+                    </span>
+                  ) : (
+                    <span className="basla-ayar-preview-disabled-text">
+                      <EyeOff size={14} />
+                      <span>{t('hizli_erisim_dugmesi_gizli', 'Kısayol düğmesi gizli (Sadece sohbet içinden tetiklenir)')}</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* 2. BÖLÜM: GÖREV AKIŞININ AMACI VE BAŞLANGIÇ TALİMATI */}
+        <section className="basla-ayar-card">
+          <div className="basla-ayar-card-header">
+            <div className="basla-ayar-card-header-left">
+              <div className="basla-ayar-icon-box warning">
+                <Terminal size={18} />
+              </div>
+              <div className="basla-ayar-header-text">
+                <h3 className="basla-ayar-card-title">
+                  {t('gorev_akisi_amaci_ve_baslangic_talimati', 'Görev Akışının Amacı ve Başlangıç Talimatı')}
+                </h3>
+                <p className="basla-ayar-card-subtitle">
+                  {t('gorev_akisi_amaci_aciklama', 'Yapay zekanın bu görev akışını hangi kullanıcı isteklerinde devreye alacağını ve başlarken nasıl davranacağını tanımlayın.')}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="basla-ayar-card-body">
+            <NotInput
+              autoFocus={formData.hizliErisimDugmesi === false}
+              rows={6}
+              value={formData.prompt}
+              onChange={(e) => setFormData((prev: any) => ({ ...prev, prompt: e.target.value }))}
+              placeholder={t('gorev_akisi_amaci_placeholder', 'Kullanıcı hangi amaçla istekte bulunduğunda LLM bu görev akışını başlatmalı ve başlarken nasıl davranmalı? (Örn: Kullanıcı yeni bir satış kampanyası, promosyon veya indirim kurgulamak istediğinde bu akışı başlat...)')}
+            />
+            <div className="basla-ayar-card-footer">
+              <span className="basla-ayar-footer-hint">
+                <Info size={13} />
+                <span>{t('gorev_akisi_amaci_ipucu', 'İpucu: Kullanıcının hangi cümlelerle veya niyetle bu akışı tetikleyeceğini açıkça belirtin.')}</span>
+              </span>
+              <span className="basla-ayar-char-count">
+                {(formData.prompt || '').length} {t('karakter', 'karakter')}
+              </span>
+            </div>
+          </div>
+        </section>
       </div>
     </BaseAiAjanFlowchartOgeAyarPage>
   );

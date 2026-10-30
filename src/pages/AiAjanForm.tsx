@@ -1929,9 +1929,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
           return (
             <div className="flex items-center gap-10 py-2">
               <span
-                className={`badge text-xs font-semibold px-8 py-2 rounded-full flex items-center gap-4 ${
-                  isBelge ? 'badge-success' : 'badge-secondary'
-                }`}
+                className={`badge text-xs font-semibold px-8 py-2 rounded-full flex items-center gap-4 ${isBelge ? 'badge-success' : 'badge-secondary'
+                  }`}
               >
                 {isBelge ? (
                   <>
@@ -2101,9 +2100,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         const isActive = node.aktifMi !== false;
         return (
           <span
-            className={`badge text-xs font-semibold px-8 py-2 rounded-full inline-flex items-center gap-4 ${
-              isActive ? 'badge-success' : 'badge-neutral'
-            }`}
+            className={`badge text-xs font-semibold px-8 py-2 rounded-full inline-flex items-center gap-4 ${isActive ? 'badge-success' : 'badge-neutral'
+              }`}
           >
             <Power size={11} />
             {isActive ? t('aktif', 'Aktif') : t('pasif', 'Pasif')}
