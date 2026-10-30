@@ -807,6 +807,60 @@ export function getAgentActiveMcpEntities(
   return activeEntities;
 }
 
+/**
+ * Sistemdeki tüm kayıtlı modüllerden Liste, Belge ve Kart varlıklarını düz liste olarak döndürür.
+ * Modül fonksiyonları (mcp ve klasor) kesinlikle bu listeye dahil edilmez.
+ */
+export function getAllMcpEntities(t: any): AgentActiveMcpEntity[] {
+  const treeData = buildMcpTreeData(t);
+  const entities: AgentActiveMcpEntity[] = [];
+
+  treeData.forEach((modNode) => {
+    const modKodu = modNode.kod || '';
+    const modAdi = modNode.ad || modKodu;
+
+    (modNode.children || []).forEach((listNode) => {
+      // 2. Kademe: Liste düğümü
+      if (listNode.kategori === 'liste') {
+        entities.push({
+          id: listNode.id,
+          kod: listNode.kod,
+          ad: listNode.ad,
+          kategori: 'liste',
+          varlikTuruLabel: t('liste', 'Liste'),
+          modulKodu: modKodu,
+          modulAdi: modAdi,
+          rota: listNode.rota || '',
+          aciklama: listNode.aciklama || ''
+        });
+      }
+
+      // 3. Kademe: Belge ve Kart düğümleri
+      const belgeKartNodes = (listNode.children || []).filter(
+        (c) => c.kategori === 'belge' || c.kategori === 'kart'
+      );
+
+      belgeKartNodes.forEach((bkNode) => {
+        const kat = bkNode.kategori === 'belge' ? 'belge' : 'kart';
+        entities.push({
+          id: bkNode.id,
+          kod: bkNode.kod,
+          ad: bkNode.ad,
+          kategori: kat,
+          varlikTuruLabel: kat === 'belge' ? t('belge', 'Belge') : t('kart', 'Kart'),
+          modulKodu: modKodu,
+          modulAdi: modAdi,
+          ustListeAdi: listNode.ad,
+          rota: bkNode.rota || listNode.rota || '',
+          aciklama: bkNode.aciklama || ''
+        });
+      });
+    });
+  });
+
+  return entities;
+}
+
 // ─── BİLEŞEN ──────────────────────────────────────────────────────────────────
 
 export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({

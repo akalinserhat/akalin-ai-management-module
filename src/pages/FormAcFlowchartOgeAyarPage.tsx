@@ -30,7 +30,6 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
   BaseInput,
-  BaseDropdownSecici,
   BaseSwitch,
   NotInput
 } from '@akalin/ui';
@@ -40,8 +39,10 @@ import {
 } from './BaseAiAjanFlowchartOgeAyarPage';
 import {
   getAgentActiveMcpEntities,
+  getAllMcpEntities,
   type AgentActiveMcpEntity
 } from './AiMcpYonetimi';
+import { McpVarlikSeciciInput } from './McpVarlikSeciciInput';
 
 export interface FormAcFlowchartOgeAyarPageProps extends Partial<BaseAiAjanFlowchartOgeAyarPageProps> {
   onSuccess?: () => void;
@@ -151,30 +152,29 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
     return activeMcpEntities.filter((item) => item.kategori === categoryFilter);
   }, [activeMcpEntities, categoryFilter]);
 
-  // Dropdown seçenekleri
-  const dropdownOptions = useMemo(() => {
-    return filteredMcpEntities.map((item) => {
-      const displayLabel = `[${item.varlikTuruLabel}] ${item.ad} — ${item.modulAdi} (${item.rota || item.kod})`;
-      return {
-        id: item.id,
-        value: item.id,
-        label: displayLabel,
-        name: displayLabel
-      };
-    });
-  }, [filteredMcpEntities]);
+  // Sistemdeki tüm MCP varlıkları (fallback amaçlı)
+  const allMcpEntities = useMemo<AgentActiveMcpEntity[]>(() => {
+    return getAllMcpEntities(t);
+  }, [t]);
 
-  // Seçili MCP varlığını bul
+  // Seçili MCP varlığını bul (önce ajanın aktif listesinde, bulunamazsa genel listede arar)
   const selectedEntity = useMemo<AgentActiveMcpEntity | null>(() => {
     if (!formData.mcpVarlikId && !formData.varlikKodu) return null;
+    const foundInActive = activeMcpEntities.find(
+      (e) =>
+        e.id === formData.mcpVarlikId ||
+        (formData.varlikKodu && e.kod === formData.varlikKodu)
+    );
+    if (foundInActive) return foundInActive;
+
     return (
-      activeMcpEntities.find(
+      allMcpEntities.find(
         (e) =>
           e.id === formData.mcpVarlikId ||
           (formData.varlikKodu && e.kod === formData.varlikKodu)
       ) || null
     );
-  }, [activeMcpEntities, formData.mcpVarlikId, formData.varlikKodu]);
+  }, [activeMcpEntities, allMcpEntities, formData.mcpVarlikId, formData.varlikKodu]);
 
   // Bir MCP varlığı (Belge / Kart / Liste) seçildiğinde form alanlarını senkronize et
   const handleSelectMcpEntity = (entity: AgentActiveMcpEntity) => {
@@ -202,6 +202,21 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
       hedefRota: entity.rota || prev.hedefRota || '',
       aracKodu: nextToolCode,
       uiAksiyonu: 'OZEL_ROTA'
+    }));
+  };
+
+  // MCP varlık seçimini temizle
+  const handleClearMcpEntity = () => {
+    setFormData((prev: any) => ({
+      ...prev,
+      mcpVarlikId: '',
+      modulKodu: '',
+      modulAdi: '',
+      varlikKodu: '',
+      varlikAdi: '',
+      varlikTuru: '',
+      hedefRota: '',
+      aracKodu: 'erp_navigate'
     }));
   };
 
@@ -274,50 +289,30 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
         agentToUpdate = res.data;
       }
 
-      const activeIstekSource = istekData || incomingIstekData;
-      let updatedReq: any = activeIstekSource ? { ...activeIstekSource } : null;
-
-      if (updatedReq) {
-        const baseNodes = Array.isArray(updatedReq.akisDugumleri)
-          ? [...updatedReq.akisDugumleri]
-          : [];
-        const nIdx = baseNodes.findIndex((x: any) => x.id === payloadNode.id);
-        if (nIdx !== -1) {
-          baseNodes[nIdx] = { ...baseNodes[nIdx], ...payloadNode };
-        } else {
-          baseNodes.push(payloadNode);
-        }
-        updatedReq.akisDugumleri = baseNodes;
-      }
+      let updatedReq: any = null;
 
       if (effectiveAgentId && agentToUpdate && effectiveIstekId) {
         const currentRequests = Array.isArray(agentToUpdate.hizliIstekler)
           ? [...agentToUpdate.hizliIstekler]
           : [];
-        const targetReqId = updatedReq?.id || effectiveIstekId;
-        const reqIdx = currentRequests.findIndex(
-          (x: any) => x.id === effectiveIstekId || x.id === targetReqId
-        );
+        const reqIdx = currentRequests.findIndex((x: any) => x.id === effectiveIstekId);
 
         if (reqIdx !== -1) {
-          const currentReq = { ...currentRequests[reqIdx], ...(updatedReq || {}) };
-          const sourceNodes = Array.isArray(updatedReq?.akisDugumleri)
-            ? [...updatedReq.akisDugumleri]
-            : Array.isArray(currentReq.akisDugumleri)
-              ? [...currentReq.akisDugumleri]
-              : [];
-          const nodeIdx = sourceNodes.findIndex((x: any) => x.id === payloadNode.id);
+          const currentReq = { ...currentRequests[reqIdx] };
+          const currentNodes = Array.isArray(currentReq.akisDugumleri)
+            ? [...currentReq.akisDugumleri]
+            : [];
+          const nodeIdx = currentNodes.findIndex((x: any) => x.id === payloadNode.id);
 
           if (nodeIdx !== -1) {
-            sourceNodes[nodeIdx] = { ...sourceNodes[nodeIdx], ...payloadNode };
+            currentNodes[nodeIdx] = { ...currentNodes[nodeIdx], ...payloadNode };
           } else {
-            sourceNodes.push(payloadNode);
+            currentNodes.push(payloadNode);
           }
 
-          currentReq.akisDugumleri = sourceNodes;
+          currentReq.akisDugumleri = currentNodes;
           currentRequests[reqIdx] = currentReq;
           updatedReq = currentReq;
-          agentToUpdate = { ...agentToUpdate, hizliIstekler: currentRequests };
 
           const payload = {
             ...agentToUpdate,
@@ -595,60 +590,65 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
                 <div className="basla-ayar-field-col">
                   <label className="basla-ayar-field-label">
                     {t(
-                      'aktif_mcp_listesinden_form_secin',
-                      'Ajanın Aktif MCP Listesinden Form Seçin'
+                      'acılacak_form_ve_mcp_varligi',
+                      'Açılacak Form ve Aktif MCP Varlığı'
                     )}
                   </label>
-                  <BaseDropdownSecici
-                    id="formAcMcpEntityDropdown"
-                    value={selectedEntity?.id || formData.mcpVarlikId || ''}
-                    options={dropdownOptions}
+                  <McpVarlikSeciciInput
+                    id="formAcMcpEntitySecici"
+                    selectedEntity={selectedEntity}
+                    seciliAracKodlari={agentData?.seciliAracKodlari || incomingAgentData?.seciliAracKodlari}
+                    categoryFilter={categoryFilter}
                     placeholder={t(
                       'mcp_belge_kart_liste_secin',
                       'Açılacak Belge, Kart veya Listeyi seçin...'
                     )}
-                    onChange={(selectedId: string | number) => {
-                      const found = activeMcpEntities.find(
-                        (item) => String(item.id) === String(selectedId)
-                      );
-                      if (found) {
-                        handleSelectMcpEntity(found);
-                      }
-                    }}
+                    onSelect={(entity) => handleSelectMcpEntity(entity)}
+                    onClear={handleClearMcpEntity}
                   />
                 </div>
 
-                {/* Hızlı Seçim Kartları Grid */}
-                <div className="form-ac-entity-grid">
-                  {filteredMcpEntities.map((entity) => {
-                    const isSelected =
-                      selectedEntity?.id === entity.id ||
-                      formData.mcpVarlikId === entity.id;
-                    return (
-                      <button
-                        key={entity.id}
-                        type="button"
-                        onClick={() => handleSelectMcpEntity(entity)}
-                        className={`form-ac-entity-card is-${entity.kategori} ${isSelected ? 'is-selected' : ''
-                          }`}
-                      >
-                        <div className="form-ac-entity-card-top">
-                          <span className={`form-ac-entity-badge is-${entity.kategori}`}>
-                            {entity.kategori === 'kart' && <CreditCard size={12} />}
-                            {entity.kategori === 'belge' && <FileText size={12} />}
-                            {entity.kategori === 'liste' && <Table size={12} />}
-                            <span>{entity.varlikTuruLabel}</span>
+                {/* Seçili Varlık Detay Kartı */}
+                {selectedEntity && (
+                  <div className="form-ac-selected-preview">
+                    <div className="form-ac-selected-preview-header">
+                      <div className={`form-ac-selected-preview-icon is-${selectedEntity.kategori}`}>
+                        {selectedEntity.kategori === 'kart' && <CreditCard size={20} />}
+                        {selectedEntity.kategori === 'belge' && <FileText size={20} />}
+                        {selectedEntity.kategori === 'liste' && <Table size={20} />}
+                      </div>
+                      <div className="form-ac-selected-preview-text">
+                        <div className="form-ac-selected-preview-top">
+                          <span className={`form-ac-entity-badge is-${selectedEntity.kategori}`}>
+                            {selectedEntity.varlikTuruLabel}
                           </span>
-                          <span className="form-ac-entity-module">{entity.modulAdi}</span>
+                          <span className="form-ac-entity-module">{selectedEntity.modulAdi}</span>
                         </div>
-                        <div className="form-ac-entity-name">{entity.ad}</div>
-                        {entity.rota && (
-                          <div className="form-ac-entity-route">{entity.rota}</div>
+                        <h4 className="form-ac-selected-preview-title">{selectedEntity.ad}</h4>
+                        {selectedEntity.aciklama && (
+                          <p className="form-ac-selected-preview-desc">{selectedEntity.aciklama}</p>
                         )}
-                      </button>
-                    );
-                  })}
-                </div>
+                      </div>
+                    </div>
+
+                    <div className="form-ac-selected-preview-meta">
+                      <div className="form-ac-selected-preview-meta-item">
+                        <span className="meta-label">{t('varlik_kodu', 'Varlık Kodu')}:</span>
+                        <span className="meta-val font-mono">{selectedEntity.kod}</span>
+                      </div>
+                      {selectedEntity.rota && (
+                        <div className="form-ac-selected-preview-meta-item">
+                          <span className="meta-label">{t('rota', 'Ekran Rotası')}:</span>
+                          <span className="meta-val font-mono">{selectedEntity.rota}</span>
+                        </div>
+                      )}
+                      <div className="form-ac-selected-preview-meta-item">
+                        <span className="meta-label">{t('bagli_modul', 'Bağlı Modül')}:</span>
+                        <span className="meta-val">{selectedEntity.modulAdi}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
