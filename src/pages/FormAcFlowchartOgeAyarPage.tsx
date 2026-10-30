@@ -15,7 +15,6 @@ import {
   Monitor,
   Terminal,
   Sparkles,
-  Tag,
   Info,
   CreditCard,
   FileText,
@@ -179,13 +178,6 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
 
   // Bir MCP varlığı (Belge / Kart / Liste) seçildiğinde form alanlarını senkronize et
   const handleSelectMcpEntity = (entity: AgentActiveMcpEntity | any) => {
-    const isDefaultTitle =
-      !formData.baslik ||
-      formData.baslik.trim() === '' ||
-      formData.baslik.trim() === defaultFormTitle ||
-      (selectedEntity && formData.baslik.trim() === `${selectedEntity.ad} ${t('ac', 'Aç')}`);
-
-    const nextTitle = isDefaultTitle ? `${entity.ad} ${t('ac', 'Aç')}` : formData.baslik;
     const nextToolCode =
       entity.kategori === 'belge' || entity.kategori === 'kart'
         ? 'erp_create_document'
@@ -193,7 +185,7 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
 
     setFormData((prev: any) => ({
       ...prev,
-      baslik: nextTitle,
+      baslik: defaultFormTitle,
       mcpVarlikId: entity.id,
       modulKodu: entity.modulKodu,
       modulAdi: entity.modulAdi,
@@ -238,7 +230,7 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
       ...(overrideData || {}),
       id: formData.id || effectiveOgeId || `adim_${Date.now()}`,
       tip: 'FORM_AC',
-      baslik: (overrideData?.baslik ?? formData.baslik)?.trim() || defaultFormTitle,
+      baslik: defaultFormTitle,
       kayitBekle: (overrideData?.kayitBekle !== undefined ? overrideData.kayitBekle : formData.kayitBekle) !== false,
       kayitSonrasiTeyitEt:
         (overrideData?.kayitSonrasiTeyitEt !== undefined
@@ -371,7 +363,7 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
     istekData?.baslik ||
     incomingIstekData?.baslik ||
     t('gorev_akisi', 'Görev Akışı');
-  const nodeTitle = formData.baslik?.trim() || defaultFormTitle;
+  const nodeTitle = defaultFormTitle;
 
   const agentRoute = isUnderAyarlar
     ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveAgentId}`
@@ -484,35 +476,18 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
           </div>
 
           <div className="basla-ayar-card-body">
-            <div className="basla-ayar-input-grid">
-              <div className="basla-ayar-field-col">
-                <label className="basla-ayar-field-label">
-                  {t('dugum_basligi', 'Düğüm Başlığı')}
-                </label>
-                <BaseInput
-                  autoFocus
-                  icon={<Tag size={14} />}
-                  value={formData.baslik || ''}
-                  onChange={(e) =>
-                    setFormData((prev: any) => ({ ...prev, baslik: e.target.value }))
-                  }
-                  placeholder={t('form_ac_baslik_placeholder', 'Örn: Cari Kart Aç, Satış Faturası Aç...')}
-                />
-              </div>
-
-              <div className="basla-ayar-field-col">
-                <label className="basla-ayar-field-label">
-                  {t('hedef_sayfa_rotasi', 'Açılacak Sayfa Rotası (Otomatik veya Özel)')}
-                </label>
-                <BaseInput
-                  icon={<Compass size={14} />}
-                  value={formData.hedefRota || ''}
-                  onChange={(e) =>
-                    setFormData((prev: any) => ({ ...prev, hedefRota: e.target.value }))
-                  }
-                  placeholder={t('hedef_rota_placeholder', 'Örn: /cari-kartlar/yeni')}
-                />
-              </div>
+            <div className="basla-ayar-field-col">
+              <label className="basla-ayar-field-label">
+                {t('hedef_sayfa_rotasi', 'Açılacak Sayfa Rotası (Otomatik veya Özel)')}
+              </label>
+              <BaseInput
+                icon={<Compass size={14} />}
+                value={formData.hedefRota || ''}
+                onChange={(e) =>
+                  setFormData((prev: any) => ({ ...prev, hedefRota: e.target.value }))
+                }
+                placeholder={t('hedef_rota_placeholder', 'Örn: /cari-kartlar/yeni')}
+              />
             </div>
 
             {/* Kategori Filtre Sekmeleri */}
