@@ -19,7 +19,7 @@ import {
   Zap, RotateCcw, Plus, Trash2, Eye, CheckCircle2,
   SlidersHorizontal, GitBranch, ArrowUp, ArrowDown, X, Shield, ShieldAlert,
   BookOpen, FileSpreadsheet, FileText, Users, AlertCircle, TrendingUp, FolderOpen,
-  Power, Package, Edit2
+  Power, Package, Edit2, Boxes, CreditCard, Table, Wrench
 } from 'lucide-react';
 import {
   BaseCardPage,
@@ -43,7 +43,7 @@ import {
 import type { AiAkisDugumu } from '../types';
 import AiAjanHizliIstekForm from './AiAjanHizliIstekForm';
 import MCPSelectionList, { type McpStageOneItem } from './MCPSelectionList';
-import { buildMcpTreeData } from './AiMcpYonetimi';
+import { buildMcpTreeData, type McpTreeNode } from './AiMcpYonetimi';
 
 // ─── UI Aksiyonu Seçenekleri ──────────────────────────────────────────────────
 export const UI_ACTION_OPTIONS = [
@@ -1642,96 +1642,254 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
 
   const selectedMcpTools = useMemo(() => {
     const codes: string[] = Array.isArray(formData.seciliAracKodlari) ? formData.seciliAracKodlari : [];
-    return codes.map((code) => {
-      const codeLower = (code || '').toLowerCase();
+    const lowerCodes = new Set(codes.map(c => (c || '').toLowerCase()));
 
-      // 1. Önce MCP Ağacındaki 1. Aşama (Modül) kayıtlarında ara
-      const stageOneNode = mcpTreeData.find(
-        (n) => n.kademe === 1 && (n.kod?.toLowerCase() === codeLower || n.id?.toLowerCase() === codeLower)
-      );
-      if (stageOneNode) {
-        const entityCount = stageOneNode.children ? stageOneNode.children.length : 0;
-        let mcpCount = 0;
-        stageOneNode.children?.forEach((c) => {
-          mcpCount += c.children ? c.children.length : 0;
+    const result: McpTreeNode[] = [];
+
+    // Her bir modül için kontrol et
+    mcpTreeData.forEach(moduleNode => {
+      const modKodLower = (moduleNode.kod || '').toLowerCase();
+      const modIdLower = (moduleNode.id || '').toLowerCase();
+
+      // Durum A: Doğrudan 1. Kademe (Modül) yetkilendirilmiş mi?
+      const isWholeModuleSelected = lowerCodes.has(modKodLower) || lowerCodes.has(modIdLower);
+
+      if (isWholeModuleSelected) {
+        // Tüm modül seçilmiş: 2 alt bölümü (varlıklar ve onların altındaki MCP araçları) ile birlikte ekle
+        result.push(moduleNode);
+      } else {
+        // Durum B: Alt varlık veya araçlardan tekil seçimler var mı?
+        const matchingEntities: McpTreeNode[] = [];
+
+        (moduleNode.children || []).forEach(entNode => {
+          const entKodLower = (entNode.kod || '').toLowerCase();
+          const entIdLower = (entNode.id || '').toLowerCase();
+          const isEntitySelected = lowerCodes.has(entKodLower) || lowerCodes.has(entIdLower);
+
+          if (isEntitySelected) {
+            matchingEntities.push(entNode);
+          } else {
+            const matchingTools = (entNode.children || []).filter(toolNode => {
+              const toolKodLower = (toolNode.kod || '').toLowerCase();
+              const toolIdLower = (toolNode.id || '').toLowerCase();
+              return lowerCodes.has(toolKodLower) || lowerCodes.has(toolIdLower);
+            });
+
+            if (matchingTools.length > 0) {
+              matchingEntities.push({
+                ...entNode,
+                children: matchingTools
+              });
+            }
+          }
         });
-        return {
-          id: stageOneNode.id,
-          aracKodu: stageOneNode.kod,
-          aracAdi: stageOneNode.ad,
-          kategoriAdi: `1. ${t('modul', 'Modül')} (${entityCount} ${t('varlik', 'Varlık')} • ${mcpCount} ${t('mcp_araci', 'MCP Aracı')})`,
-          aciklama: stageOneNode.aciklama || stageOneNode.rota || '-',
-          kapsam: formData.kapsam || 1,
-          rawIcon: stageOneNode.rawModule?.icon
-        };
-      }
 
-      // 2. API Araç Kataloğunda ara
-      const found = internalTools.find(
-        (tItem: any) => tItem.aracKodu?.toLowerCase() === codeLower
-      );
-      if (found) {
-        return found;
+        if (matchingEntities.length > 0) {
+          result.push({
+            ...moduleNode,
+            children: matchingEntities
+          });
+        }
       }
-
-      return {
-        id: code,
-        aracKodu: code,
-        aracAdi: code,
-        kategoriAdi: t('modul', 'Modül'),
-        aciklama: '-',
-        kapsam: codeLower.startsWith('admin_') ? 2 : (formData.kapsam || 1)
-      };
     });
-  }, [formData.seciliAracKodlari, formData.kapsam, mcpTreeData, internalTools, t]);
 
-  const mcpToolColumns: Column<any>[] = useMemo(() => [
+    // mcpTreeData içinde bulunmayan legacy veya harici araçlar varsa onları da ekle
+    codes.forEach(code => {
+      const codeLower = (code || '').toLowerCase();
+      const existsInTree = result.some(m => {
+        if ((m.kod || '').toLowerCase() === codeLower || (m.id || '').toLowerCase() === codeLower) return true;
+        return m.children?.some(e => {
+          if ((e.kod || '').toLowerCase() === codeLower || (e.id || '').toLowerCase() === codeLower) return true;
+          return e.children?.some(t => (t.kod || '').toLowerCase() === codeLower || (t.id || '').toLowerCase() === codeLower);
+        });
+      });
+
+      if (!existsInTree) {
+        const found = internalTools.find((tItem: any) => tItem.aracKodu?.toLowerCase() === codeLower);
+        result.push({
+          id: code,
+          kademe: 3,
+          kod: code,
+          ad: found?.aracAdi || code,
+          kategori: 'mcp',
+          aciklama: found?.aciklama || '-',
+          isSistem: true
+        });
+      }
+    });
+
+    return result;
+  }, [formData.seciliAracKodlari, mcpTreeData, internalTools]);
+
+  const mcpToolColumns: Column<McpTreeNode>[] = useMemo(() => [
     {
-      id: 'aracAdi',
-      header: t('arac_adi', 'Modül / Araç Adı'),
-      accessor: 'aracAdi',
-      render: (tool: any) => {
-        const isToolAdmin = tool.kapsam === 2 || tool.aracKodu?.toLowerCase().startsWith('admin_');
-        return (
-          <div className="ai-hizli-istek-title-cell">
-            <div className="ai-hizli-istek-icon-box">
-              {tool.rawIcon && React.isValidElement(tool.rawIcon)
-                ? tool.rawIcon
-                : isToolAdmin
-                  ? <Shield size={16} />
-                  : getToolIcon(tool.ikon, tool.kategoriAdi)}
+      id: 'ad',
+      header: t('modul_varlik_mcp_fonksiyonu', 'Modül / Varlık / MCP Fonksiyonu'),
+      accessor: 'ad',
+      minWidth: '340px',
+      render: (node: McpTreeNode) => {
+        // 1. Kademe: Modül Seviyesi
+        if (node.kademe === 1) {
+          const entityCount = node.children ? node.children.length : 0;
+          let mcpCount = 0;
+          node.children?.forEach(c => {
+            mcpCount += c.children ? c.children.length : 0;
+          });
+
+          return (
+            <div className="flex items-center gap-10 py-3">
+              <div className="flex items-center justify-center p-8 rounded-xl bg-surface-subtle border border-border text-primary">
+                {node.rawModule?.icon && React.isValidElement(node.rawModule.icon) ? (
+                  node.rawModule.icon
+                ) : (
+                  <Boxes size={20} />
+                )}
+              </div>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-8">
+                  <span className="font-bold text-primary text-14">{node.ad}</span>
+                  <span className="badge badge-neutral text-xs font-semibold px-6 py-1 rounded">
+                    {t('modul', 'Modül')}
+                  </span>
+                  <span className="text-11 text-secondary font-medium">
+                    ({entityCount} {t('varlik', 'Varlık')} • {mcpCount} {t('mcp_araci', 'MCP Aracı')})
+                  </span>
+                </div>
+                {node.aciklama && (
+                  <span className="text-12 text-secondary line-clamp-1">{node.aciklama}</span>
+                )}
+              </div>
             </div>
-            <div className="flex-col">
-              <span className="ai-hizli-istek-title-text">
-                {tool.aracAdi || tool.aracKodu}
+          );
+        }
+
+        // 2. Kademe: Varlık Seviyesi (Liste, Kart, Belge)
+        if (node.kademe === 2) {
+          const isBelge = node.kategori === 'belge';
+          const isKart = node.kategori === 'kart';
+          const childMcpCount = node.children ? node.children.length : 0;
+
+          return (
+            <div className="flex items-center gap-10 py-2">
+              <span
+                className={`badge text-xs font-semibold px-8 py-2 rounded-full flex items-center gap-4 ${
+                  isBelge
+                    ? 'badge-success'
+                    : isKart
+                      ? 'badge-secondary'
+                      : 'badge-primary'
+                }`}
+              >
+                {isBelge ? (
+                  <>
+                    <FileText size={12} />
+                    {t('belge', 'Belge')}
+                  </>
+                ) : isKart ? (
+                  <>
+                    <CreditCard size={12} />
+                    {t('kart', 'Kart')}
+                  </>
+                ) : (
+                  <>
+                    <Table size={12} />
+                    {t('liste', 'Liste')}
+                  </>
+                )}
               </span>
-              <code className="ai-flowchart-tool-tag">
-                {tool.aracKodu}
-              </code>
+
+              <div className="flex flex-col">
+                <div className="flex items-center gap-6">
+                  <span className="font-semibold text-primary text-13">{node.ad}</span>
+                  <span className="text-11 text-secondary">
+                    ({childMcpCount} {t('mcp_fonksiyonu', 'Fonksiyon')})
+                  </span>
+                </div>
+                {node.aciklama && (
+                  <span className="text-11 text-secondary line-clamp-1">{node.aciklama}</span>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        // 3. Kademe: MCP Fonksiyonu Seviyesi
+        return (
+          <div className="flex items-center gap-10 py-2">
+            <div className="flex items-center justify-center p-6 rounded-lg bg-surface-subtle border border-border text-accent">
+              <Wrench size={14} />
+            </div>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-6">
+                <span className="font-semibold text-primary text-13">{node.ad}</span>
+                {node.isSistem && (
+                  <span className="badge badge-accent text-10 font-bold px-6 py-1 rounded">
+                    MCP Core
+                  </span>
+                )}
+              </div>
+              <span className="text-11 text-secondary line-clamp-1">{node.aciklama}</span>
             </div>
           </div>
         );
       }
     },
     {
-      id: 'kategoriAdi',
-      header: t('kategori', 'Kategori'),
-      accessor: 'kategoriAdi',
-      render: (tool: any) => (
-        <span className="ai-flowchart-step-num">
-          {tool.kategoriAdi || t('genel', 'Genel')}
-        </span>
-      )
+      id: 'kod',
+      header: t('kod_fonksiyon', 'Kod / Fonksiyon Adı'),
+      accessor: 'kod',
+      sortable: true,
+      width: '240px',
+      render: (node: McpTreeNode) => {
+        if (node.kademe === 3) {
+          return (
+            <span className="font-mono text-xs font-bold text-accent bg-surface-subtle px-8 py-3 rounded border border-border inline-flex items-center gap-6">
+              <Sparkles size={11} />
+              {node.kod}
+            </span>
+          );
+        }
+        return (
+          <span className="font-mono text-xs text-secondary bg-surface-subtle px-8 py-3 rounded border border-border font-medium">
+            {node.kod}
+          </span>
+        );
+      }
     },
     {
-      id: 'kapsam',
-      header: t('kapsam', 'Kapsam'),
-      accessor: 'kapsam',
-      render: (tool: any) => {
-        const isToolAdmin = tool.kapsam === 2 || tool.aracKodu?.toLowerCase().startsWith('admin_');
+      id: 'kategori',
+      header: t('kademe_kategori', 'Kademe & Kategori'),
+      accessor: 'kategori',
+      sortable: true,
+      width: '160px',
+      render: (node: McpTreeNode) => {
+        if (node.kademe === 1) {
+          return (
+            <span className="badge badge-neutral text-xs font-semibold px-8 py-2 rounded">
+              1. {t('modul', 'Modül')}
+            </span>
+          );
+        }
+        if (node.kademe === 2) {
+          let badgeColor = 'badge-primary';
+          let label = t('liste', 'Liste');
+          if (node.kategori === 'belge') {
+            badgeColor = 'badge-success';
+            label = t('belge', 'Belge');
+          } else if (node.kategori === 'kart') {
+            badgeColor = 'badge-secondary';
+            label = t('kart', 'Kart');
+          }
+          return (
+            <span className={`badge ${badgeColor} text-xs font-semibold px-8 py-2 rounded`}>
+              2. {label}
+            </span>
+          );
+        }
         return (
-          <span className={`ai-ajan-scope-badge ${isToolAdmin ? 'scope-admin' : 'scope-erp'}`}>
-            {isToolAdmin ? `🛡️ ${t('admin', 'Admin')}` : `🏢 ${t('erp', 'ERP')}`}
+          <span className="badge badge-accent text-xs font-semibold px-8 py-2 rounded flex items-center gap-4 w-fit">
+            <Wrench size={11} />
+            3. {t('mcp_fonksiyonu', 'MCP')}
           </span>
         );
       }
@@ -1740,9 +1898,9 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       id: 'aciklama',
       header: t('aciklama', 'Açıklama'),
       accessor: 'aciklama',
-      render: (tool: any) => (
-        <span className="ai-hizli-istek-prompt-preview" title={tool.aciklama || ''}>
-          {tool.aciklama || '-'}
+      render: (node: McpTreeNode) => (
+        <span className="ai-hizli-istek-prompt-preview" title={node.aciklama || ''}>
+          {node.aciklama || '-'}
         </span>
       )
     },
@@ -1751,20 +1909,23 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       header: t('islemler', 'İşlemler'),
       align: 'right',
       width: 60,
-      render: (tool: any) => (
-        <div onClick={e => e.stopPropagation()}>
-          <ActionMenu
-            actions={[
-              {
-                label: t('kaldir', 'Kaldır'),
-                icon: <Trash2 size={14} />,
-                variant: 'danger',
-                onClick: () => handleToggleTool(tool.aracKodu)
-              }
-            ]}
-          />
-        </div>
-      )
+      render: (node: McpTreeNode) => {
+        // Yalnızca kaldırılabilir kayıtlar veya ana modüller için kaldırma işlemi
+        return (
+          <div onClick={e => e.stopPropagation()}>
+            <ActionMenu
+              actions={[
+                {
+                  label: t('kaldir', 'Kaldır'),
+                  icon: <Trash2 size={14} />,
+                  variant: 'danger',
+                  onClick: () => handleToggleTool(node.kod || node.id)
+                }
+              ]}
+            />
+          </div>
+        );
+      }
     }
   ], [t]);
 
@@ -2253,11 +2414,15 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       icon: <Code2 size={16} />,
       content: (
         <div className="table-responsive rounded border border-glass">
-          <DataTable
+          <DataTable<McpTreeNode>
             data={selectedMcpTools}
             columns={mcpToolColumns}
-            keyExtractor={(item) => String(item.aracKodu || item.id || '')}
-            showRowIndex={true}
+            enableTreeView={true}
+            childrenField="children"
+            defaultExpandAll={true}
+            treeColumnId="ad"
+            keyExtractor={(item) => String(item.id || item.kod || '')}
+            showRowIndex={false}
             emptyMessage={t('mcp_yetkisi_bulunamadi', 'Henüz tanımlanmış MCP yetkisi bulunmuyor.')}
           />
 
