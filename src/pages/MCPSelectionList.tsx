@@ -19,10 +19,12 @@ import {
   type Column,
   type FetchDataArgs
 } from '@akalin/ui';
-import { buildMcpTreeData, type McpTreeNode } from './AiMcpYonetimi';
+import { buildMcpTreeData, countMcpNodeStats, type McpTreeNode } from './AiMcpYonetimi';
 
 export interface McpStageOneItem extends Omit<McpTreeNode, 'children'> {
   varlikSayisi: number;
+  listeSayisi: number;
+  belgeKartSayisi: number;
   mcpAracSayisi: number;
   altVarliklar?: McpTreeNode[];
 }
@@ -62,16 +64,14 @@ export const MCPSelectionList: React.FC<MCPSelectionListProps> = ({
     return fullTree
       .filter((node) => node.kademe === 1)
       .map((node) => {
-        const entityCount = node.children ? node.children.length : 0;
-        let mcpCount = 0;
-        node.children?.forEach((c) => {
-          mcpCount += c.children ? c.children.length : 0;
-        });
+        const { listCount, belgeKartCount, mcpCount } = countMcpNodeStats(node);
 
         const { children, ...restNode } = node;
         return {
           ...restNode,
-          varlikSayisi: entityCount,
+          varlikSayisi: listCount + belgeKartCount,
+          listeSayisi: listCount,
+          belgeKartSayisi: belgeKartCount,
           mcpAracSayisi: mcpCount,
           altVarliklar: children
         };

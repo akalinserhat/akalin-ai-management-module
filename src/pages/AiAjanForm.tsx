@@ -43,7 +43,7 @@ import {
 import type { AiAkisDugumu } from '../types';
 import AiAjanHizliIstekForm from './AiAjanHizliIstekForm';
 import MCPSelectionList, { type McpStageOneItem } from './MCPSelectionList';
-import { buildMcpTreeData, type McpTreeNode } from './AiMcpYonetimi';
+import { buildMcpTreeData, countMcpNodeStats, type McpTreeNode } from './AiMcpYonetimi';
 
 // ─── UI Aksiyonu Seçenekleri ──────────────────────────────────────────────────
 export const UI_ACTION_OPTIONS = [
@@ -1644,71 +1644,89 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     const codes: string[] = Array.isArray(formData.seciliAracKodlari) ? formData.seciliAracKodlari : [];
     const lowerCodes = new Set(codes.map(c => (c || '').toLowerCase()));
 
+    const isNodeSelected = (node: McpTreeNode): boolean => {
+      const k = (node.kod || '').toLowerCase();
+      const id = (node.id || '').toLowerCase();
+      return lowerCodes.has(k) || lowerCodes.has(id);
+    };
+
     const result: McpTreeNode[] = [];
 
     // Her bir modül için kontrol et
     mcpTreeData.forEach(moduleNode => {
-      const modKodLower = (moduleNode.kod || '').toLowerCase();
-      const modIdLower = (moduleNode.id || '').toLowerCase();
-
       // Durum A: Doğrudan 1. Kademe (Modül) yetkilendirilmiş mi?
-      const isWholeModuleSelected = lowerCodes.has(modKodLower) || lowerCodes.has(modIdLower);
-
-      if (isWholeModuleSelected) {
-        // Tüm modül seçilmiş: 2 alt bölümü (varlıklar ve onların altındaki MCP araçları) ile birlikte ekle
+      if (isNodeSelected(moduleNode)) {
+        // Tüm modül seçilmiş: 4 kademeli alt hiyerarşisi ile birlikte ekle
         result.push(moduleNode);
-      } else {
-        // Durum B: Alt varlık veya araçlardan tekil seçimler var mı?
-        const matchingEntities: McpTreeNode[] = [];
+        return;
+      }
 
-        (moduleNode.children || []).forEach(entNode => {
-          const entKodLower = (entNode.kod || '').toLowerCase();
-          const entIdLower = (entNode.id || '').toLowerCase();
-          const isEntitySelected = lowerCodes.has(entKodLower) || lowerCodes.has(entIdLower);
+      // Durum B: Alt Liste, Belge/Kart veya Fonksiyonlardan tekil seçimler var mı?
+      const matchingLists: McpTreeNode[] = [];
 
-          if (isEntitySelected) {
-            matchingEntities.push(entNode);
-          } else {
-            const matchingTools = (entNode.children || []).filter(toolNode => {
-              const toolKodLower = (toolNode.kod || '').toLowerCase();
-              const toolIdLower = (toolNode.id || '').toLowerCase();
-              return lowerCodes.has(toolKodLower) || lowerCodes.has(toolIdLower);
-            });
+      (moduleNode.children || []).forEach(listNode => {
+        if (isNodeSelected(listNode)) {
+          matchingLists.push(listNode);
+          return;
+        }
 
-            if (matchingTools.length > 0) {
-              matchingEntities.push({
-                ...entNode,
-                children: matchingTools
-              });
-            }
-          }
+        const belgeKartNodes = (listNode.children || []).filter(
+          c => c.kategori === 'belge' || c.kategori === 'kart'
+        );
+        const matchingBelgeKart = belgeKartNodes.filter(isNodeSelected);
+        const selectedBelgeKartCodes = new Set(
+          matchingBelgeKart.map(bk => (bk.kod || '').toLowerCase())
+        );
+
+        const folderNode = (listNode.children || []).find(c => c.kategori === 'klasor');
+        const matchingTools = (folderNode?.children || []).filter(toolNode => {
+          if (isNodeSelected(toolNode)) return true;
+          const vKod = (toolNode.varlikKodu || '').toLowerCase();
+          return Boolean(vKod && selectedBelgeKartCodes.has(vKod));
         });
 
-        if (matchingEntities.length > 0) {
-          result.push({
-            ...moduleNode,
-            children: matchingEntities
+        if (matchingBelgeKart.length > 0 || matchingTools.length > 0) {
+          const nextChildren: McpTreeNode[] = [
+            ...(matchingBelgeKart.length > 0 ? matchingBelgeKart : belgeKartNodes)
+          ];
+          if (folderNode && matchingTools.length > 0) {
+            nextChildren.push({
+              ...folderNode,
+              children: matchingTools
+            });
+          }
+          matchingLists.push({
+            ...listNode,
+            children: nextChildren
           });
         }
+      });
+
+      if (matchingLists.length > 0) {
+        result.push({
+          ...moduleNode,
+          children: matchingLists
+        });
       }
     });
 
     // mcpTreeData içinde bulunmayan legacy veya harici araçlar varsa onları da ekle
+    const nodeOrChildrenHasCode = (node: McpTreeNode, codeLower: string): boolean => {
+      if ((node.kod || '').toLowerCase() === codeLower || (node.id || '').toLowerCase() === codeLower) {
+        return true;
+      }
+      return Boolean(node.children?.some(c => nodeOrChildrenHasCode(c, codeLower)));
+    };
+
     codes.forEach(code => {
       const codeLower = (code || '').toLowerCase();
-      const existsInTree = result.some(m => {
-        if ((m.kod || '').toLowerCase() === codeLower || (m.id || '').toLowerCase() === codeLower) return true;
-        return m.children?.some(e => {
-          if ((e.kod || '').toLowerCase() === codeLower || (e.id || '').toLowerCase() === codeLower) return true;
-          return e.children?.some(t => (t.kod || '').toLowerCase() === codeLower || (t.id || '').toLowerCase() === codeLower);
-        });
-      });
+      const existsInTree = result.some(m => nodeOrChildrenHasCode(m, codeLower));
 
       if (!existsInTree) {
         const found = internalTools.find((tItem: any) => tItem.aracKodu?.toLowerCase() === codeLower);
         result.push({
           id: code,
-          kademe: 3,
+          kademe: 4,
           kod: code,
           ad: found?.aracAdi || code,
           kategori: 'mcp',
@@ -1726,15 +1744,11 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       id: 'ad',
       header: t('modul_varlik_mcp_fonksiyonu', 'Modül / Varlık / MCP Fonksiyonu'),
       accessor: 'ad',
-      minWidth: '340px',
+      minWidth: '360px',
       render: (node: McpTreeNode) => {
         // 1. Kademe: Modül Seviyesi
         if (node.kademe === 1) {
-          const entityCount = node.children ? node.children.length : 0;
-          let mcpCount = 0;
-          node.children?.forEach(c => {
-            mcpCount += c.children ? c.children.length : 0;
-          });
+          const { listCount, belgeKartCount, mcpCount } = countMcpNodeStats(node);
 
           return (
             <div className="flex items-center gap-10 py-3">
@@ -1752,7 +1766,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                     {t('modul', 'Modül')}
                   </span>
                   <span className="text-11 text-secondary font-medium">
-                    ({entityCount} {t('varlik', 'Varlık')} • {mcpCount} {t('mcp_araci', 'MCP Aracı')})
+                    ({listCount} {t('liste', 'Liste')} • {belgeKartCount} {t('belge_kart', 'Belge/Kart')} • {mcpCount}{' '}
+                    {t('mcp_araci', 'MCP Aracı')})
                   </span>
                 </div>
                 {node.aciklama && (
@@ -1763,36 +1778,52 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
           );
         }
 
-        // 2. Kademe: Varlık Seviyesi (Liste, Kart, Belge)
-        if (node.kademe === 2) {
+        // 2. Kademe: Liste Seviyesi
+        if (node.kademe === 2 || node.kategori === 'liste') {
+          const { belgeKartCount, mcpCount } = countMcpNodeStats(node);
+
+          return (
+            <div className="flex items-center gap-10 py-2">
+              <span className="badge badge-primary text-xs font-semibold px-8 py-2 rounded-full flex items-center gap-4">
+                <Table size={12} />
+                {t('liste', 'Liste')}
+              </span>
+
+              <div className="flex flex-col">
+                <div className="flex items-center gap-6">
+                  <span className="font-semibold text-primary text-13">{node.ad}</span>
+                  <span className="text-11 text-secondary">
+                    ({belgeKartCount} {t('belge_kart', 'Belge/Kart')} • {mcpCount} {t('mcp_fonksiyonu', 'Fonksiyon')})
+                  </span>
+                </div>
+                {node.aciklama && (
+                  <span className="text-11 text-secondary line-clamp-1">{node.aciklama}</span>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        // 3. Kademe (A): Belge / Kart Seviyesi
+        if (node.kategori === 'belge' || node.kategori === 'kart') {
           const isBelge = node.kategori === 'belge';
-          const isKart = node.kategori === 'kart';
-          const childMcpCount = node.children ? node.children.length : 0;
 
           return (
             <div className="flex items-center gap-10 py-2">
               <span
-                className={`badge text-xs font-semibold px-8 py-2 rounded-full flex items-center gap-4 ${isBelge
-                    ? 'badge-success'
-                    : isKart
-                      ? 'badge-secondary'
-                      : 'badge-primary'
-                  }`}
+                className={`badge text-xs font-semibold px-8 py-2 rounded-full flex items-center gap-4 ${
+                  isBelge ? 'badge-success' : 'badge-secondary'
+                }`}
               >
                 {isBelge ? (
                   <>
                     <FileText size={12} />
                     {t('belge', 'Belge')}
                   </>
-                ) : isKart ? (
+                ) : (
                   <>
                     <CreditCard size={12} />
                     {t('kart', 'Kart')}
-                  </>
-                ) : (
-                  <>
-                    <Table size={12} />
-                    {t('liste', 'Liste')}
                   </>
                 )}
               </span>
@@ -1800,6 +1831,30 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
               <div className="flex flex-col">
                 <div className="flex items-center gap-6">
                   <span className="font-semibold text-primary text-13">{node.ad}</span>
+                </div>
+                {node.aciklama && (
+                  <span className="text-11 text-secondary line-clamp-1">{node.aciklama}</span>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        // 3. Kademe (B): "Fonksiyonlar" Klasörü Seviyesi
+        if (node.kategori === 'klasor') {
+          const childMcpCount = node.children ? node.children.length : 0;
+
+          return (
+            <div className="flex items-center gap-10 py-2">
+              <div className="flex items-center justify-center p-6 rounded-lg bg-surface-subtle border border-border text-warning">
+                <FolderOpen size={15} />
+              </div>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-6">
+                  <span className="font-bold text-primary text-13">{node.ad}</span>
+                  <span className="badge badge-warning text-10 font-semibold px-6 py-1 rounded">
+                    {t('klasor', 'Klasör')}
+                  </span>
                   <span className="text-11 text-secondary">
                     ({childMcpCount} {t('mcp_fonksiyonu', 'Fonksiyon')})
                   </span>
@@ -1812,7 +1867,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
           );
         }
 
-        // 3. Kademe: MCP Fonksiyonu Seviyesi
+        // 4. Kademe: MCP Fonksiyonu Seviyesi
         return (
           <div className="flex items-center gap-10 py-2">
             <div className="flex items-center justify-center p-6 rounded-lg bg-surface-subtle border border-border text-accent">
@@ -1840,7 +1895,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       sortable: true,
       width: '240px',
       render: (node: McpTreeNode) => {
-        if (node.kademe === 3) {
+        if (node.kategori === 'mcp') {
           return (
             <span className="font-mono text-xs font-bold text-accent bg-surface-subtle px-8 py-3 rounded border border-border inline-flex items-center gap-6">
               <Sparkles size={11} />
@@ -1869,26 +1924,42 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
             </span>
           );
         }
-        if (node.kademe === 2) {
-          let badgeColor = 'badge-primary';
-          let label = t('liste', 'Liste');
-          if (node.kategori === 'belge') {
-            badgeColor = 'badge-success';
-            label = t('belge', 'Belge');
-          } else if (node.kategori === 'kart') {
-            badgeColor = 'badge-secondary';
-            label = t('kart', 'Kart');
-          }
+        if (node.kademe === 2 || node.kategori === 'liste') {
           return (
-            <span className={`badge ${badgeColor} text-xs font-semibold px-8 py-2 rounded`}>
-              2. {label}
+            <span className="badge badge-primary text-xs font-semibold px-8 py-2 rounded flex items-center gap-4 w-fit">
+              <Table size={11} />
+              2. {t('liste', 'Liste')}
+            </span>
+          );
+        }
+        if (node.kategori === 'belge') {
+          return (
+            <span className="badge badge-success text-xs font-semibold px-8 py-2 rounded flex items-center gap-4 w-fit">
+              <FileText size={11} />
+              3. {t('belge', 'Belge')}
+            </span>
+          );
+        }
+        if (node.kategori === 'kart') {
+          return (
+            <span className="badge badge-secondary text-xs font-semibold px-8 py-2 rounded flex items-center gap-4 w-fit">
+              <CreditCard size={11} />
+              3. {t('kart', 'Kart')}
+            </span>
+          );
+        }
+        if (node.kategori === 'klasor') {
+          return (
+            <span className="badge badge-warning text-xs font-semibold px-8 py-2 rounded flex items-center gap-4 w-fit">
+              <FolderOpen size={11} />
+              3. {t('klasor', 'Klasör')}
             </span>
           );
         }
         return (
           <span className="badge badge-accent text-xs font-semibold px-8 py-2 rounded flex items-center gap-4 w-fit">
             <Wrench size={11} />
-            3. {t('mcp_fonksiyonu', 'MCP')}
+            4. {t('mcp_fonksiyonu', 'MCP')}
           </span>
         );
       }
@@ -1909,7 +1980,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       align: 'right',
       width: 60,
       render: (node: McpTreeNode) => {
-        // Yalnızca kaldırılabilir kayıtlar veya ana modüller için kaldırma işlemi
+        if (node.kategori === 'klasor') return null;
         return (
           <div onClick={e => e.stopPropagation()}>
             <ActionMenu

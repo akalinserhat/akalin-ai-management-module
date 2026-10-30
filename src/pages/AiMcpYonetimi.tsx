@@ -2,10 +2,11 @@
  * @akalin/ai_management_module - Model Context Protocol (MCP) Yönetim Sayfası (AiMcpYonetimi.tsx)
  * 
  * Başlıca Sorumlulukları ve Görevleri:
- * - BaseSystemPage ve DataTable (enableTreeView={true}) mimarisi ile 3 kademeli hiyerarşik yapı sunmak:
+ * - BaseSystemPage ve DataTable (enableTreeView={true}) mimarisi ile 4 kademeli hiyerarşik yapı sunmak:
  *   1. Kademe: Sistemde kayıtlı ERP ve Admin modülleri (ModuleRegistry.getModules())
- *   2. Kademe: Her modüle ait tescilli listeler, kartlar ve belgeler (ModuleRegistry.getModuleEntities())
- *   3. Kademe: Bu öğelere bağlı otonom MCP fonksiyonları (erp_create_document, erp_query_data, erp_get_document_schema, erp_navigate, erp_get_page_context vb.)
+ *   2. Kademe: Her modüle ait tescilli Listeler (ModuleRegistry.getModuleEntities())
+ *   3. Kademe: İlgili Listelerin altındaki Belgeler / Kartlar ve "Fonksiyonlar" klasörü
+ *   4. Kademe: "Fonksiyonlar" klasörü altında ilgili otonom MCP fonksiyonları (erp_create_document, erp_query_data, erp_get_document_schema, erp_navigate, erp_get_page_context vb.)
  * - Her MCP fonksiyonunun JSON şemasını, kabul edilen parametrelerini, bağlı işleyicisini (IDocumentMcpHandler) ve örnek çağrısını Modal pencerede inceleme olanağı
  * - Hiyerarşik arama, filtreleme, tümünü genişletme/daraltma ve canlı API katalog senkronizasyonu
  * - Sıfır inline CSS (%100 aiManagement.css ve MD3 uyumu) ve tam i18n desteği
@@ -22,6 +23,7 @@ import {
   FileText,
   CreditCard,
   Table,
+  FolderOpen,
   Wrench,
   Code2,
   Copy,
@@ -44,10 +46,10 @@ import { ModuleRegistry, type IModuleDefinition, type IModuleEntityDefinition } 
 
 export interface McpTreeNode {
   id: string;
-  kademe: 1 | 2 | 3;
+  kademe: 1 | 2 | 3 | 4;
   ad: string;
   kod: string;
-  kategori: 'modul' | 'liste' | 'kart' | 'belge' | 'mcp';
+  kategori: 'modul' | 'liste' | 'kart' | 'belge' | 'klasor' | 'mcp';
   aciklama?: string;
   rota?: string;
   isleyici?: string;
@@ -68,6 +70,342 @@ export interface AiMcpYonetimiProps {
   onBack?: () => void;
 }
 
+// ─── YARDIMCI FONKSİYONLAR ───────────────────────────────────────────────────
+
+/**
+ * Bir düğümün altındaki toplam Liste, Belge/Kart ve MCP Fonksiyonu sayılarını递归 (recursive) olarak hesaplar.
+ */
+export function countMcpNodeStats(node: McpTreeNode): {
+  listCount: number;
+  belgeKartCount: number;
+  mcpCount: number;
+} {
+  let listCount = 0;
+  let belgeKartCount = 0;
+  let mcpCount = 0;
+
+  const traverse = (n: McpTreeNode) => {
+    if (n.kategori === 'liste') listCount += 1;
+    else if (n.kategori === 'belge' || n.kategori === 'kart') belgeKartCount += 1;
+    else if (n.kategori === 'mcp') mcpCount += 1;
+
+    if (n.children && n.children.length > 0) {
+      n.children.forEach(traverse);
+    }
+  };
+
+  if (node.children && node.children.length > 0) {
+    node.children.forEach(traverse);
+  }
+
+  return { listCount, belgeKartCount, mcpCount };
+}
+
+/**
+ * Verilen varlık (liste, belge veya kart) için standart ve özel MCP fonksiyon düğümlerini üretir.
+ */
+function buildEntityMcpFunctions(
+  modKod: string,
+  ent: IModuleEntityDefinition,
+  kademe: 1 | 2 | 3 | 4,
+  t: any,
+  adSuffix?: string
+): McpTreeNode[] {
+  const entKod = ent.id;
+  const entCat = (ent.category || 'liste') as 'liste' | 'kart' | 'belge';
+  const entRoute = ent.route || ent.listRoute || ent.formRoute || '';
+  const suffixText = adSuffix ? ` (${adSuffix})` : '';
+  const mcpFunctions: McpTreeNode[] = [];
+
+  if (entCat === 'belge') {
+    mcpFunctions.push({
+      id: `mcp_${entKod}_create_document`,
+      kademe,
+      ad: `${t('mcp_func_create_doc_title', 'Yeni Belge ve Taslak Hazırlama (BELGE_DOLDUR)')}${suffixText}`,
+      kod: 'erp_create_document',
+      kategori: 'mcp',
+      modulKodu: modKod,
+      varlikKodu: entKod,
+      varlikTuru: 'Belge',
+      isSistem: true,
+      isleyici: `${entKod}DocumentHandler (IDocumentMcpHandler)`,
+      rota: entRoute,
+      aciklama: t(
+        'mcp_func_create_doc_desc',
+        'Yapay zeka doğal dille bu belgeyi oluşturur, kalemleri ve başlık bilgilerini otomatik doldurur.'
+      ),
+      parametreSemasi: {
+        type: 'object',
+        properties: {
+          documentType: { type: 'string', default: entKod, description: 'Belge türü kimliği' },
+          isDraft: { type: 'boolean', default: true, description: 'Doğrudan taslak kalemlerle doldurulsun mu?' },
+          aciklama: { type: 'string', description: 'Belge başlık veya dipnot açıklaması' },
+          cariUnvan: { type: 'string', description: 'Hedef cari hesap unvanı' },
+          kalemler: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                stokKodu: { type: 'string' },
+                miktar: { type: 'number' },
+                birimFiyat: { type: 'number' }
+              }
+            }
+          }
+        },
+        required: ['documentType']
+      },
+      ornekIstek: `{"name":"erp_create_document","arguments":{"documentType":"${entKod}","isDraft":true,"aciklama":"Yapay Zeka Taslağı"}}`
+    });
+
+    mcpFunctions.push({
+      id: `mcp_${entKod}_schema`,
+      kademe,
+      ad: `${t('mcp_func_schema_title', 'Belge Şeması & Alan Doğrulama Kuralları')}${suffixText}`,
+      kod: 'erp_get_document_schema',
+      kategori: 'mcp',
+      modulKodu: modKod,
+      varlikKodu: entKod,
+      varlikTuru: 'Belge',
+      isSistem: true,
+      isleyici: 'InspectDocumentSchemaTool',
+      rota: entRoute,
+      aciklama: t(
+        'mcp_func_schema_desc',
+        'Belgenin kabul ettiği JSON şemasını, zorunlu alanlarını ve validasyon kurallarını sorgular.'
+      ),
+      parametreSemasi: {
+        type: 'object',
+        properties: {
+          documentType: { type: 'string', default: entKod, description: 'Şeması sorgulanacak belge türü' }
+        },
+        required: ['documentType']
+      },
+      ornekIstek: `{"name":"erp_get_document_schema","arguments":{"documentType":"${entKod}"}}`
+    });
+
+    mcpFunctions.push({
+      id: `mcp_${entKod}_navigate`,
+      kademe,
+      ad: `${t('mcp_func_navigate_title', 'Belge Ekranına Yönlendirme & Sayfa Açma')}${suffixText}`,
+      kod: 'erp_navigate',
+      kategori: 'mcp',
+      modulKodu: modKod,
+      varlikKodu: entKod,
+      varlikTuru: 'Belge',
+      isSistem: true,
+      isleyici: 'NavigateTool',
+      rota: entRoute,
+      aciklama: t(
+        'mcp_func_nav_desc',
+        'Kullanıcıyı doğrudan bu belgenin yeni kayıt veya detay sayfasına yönlendirir.'
+      ),
+      parametreSemasi: {
+        type: 'object',
+        properties: {
+          target: { type: 'string', default: entRoute },
+          customRoute: { type: 'string' }
+        },
+        required: ['target']
+      },
+      ornekIstek: `{"name":"erp_navigate","arguments":{"target":"${entRoute}"}}`
+    });
+
+    mcpFunctions.push({
+      id: `mcp_${entKod}_context`,
+      kademe,
+      ad: `${t('mcp_func_context_title', 'Aktif Form & Belge Bağlamı Okuma')}${suffixText}`,
+      kod: 'erp_get_page_context',
+      kategori: 'mcp',
+      modulKodu: modKod,
+      varlikKodu: entKod,
+      varlikTuru: 'Belge',
+      isSistem: true,
+      isleyici: 'GetPageContextTool',
+      rota: entRoute,
+      aciklama: t(
+        'mcp_func_ctx_desc',
+        'Kullanıcının bu belgede o anda açık olan verilerini, aktif sekmesini ve seçimlerini analiz eder.'
+      ),
+      parametreSemasi: { type: 'object', properties: {} },
+      ornekIstek: `{"name":"erp_get_page_context","arguments":{}}`
+    });
+  } else if (entCat === 'kart') {
+    mcpFunctions.push({
+      id: `mcp_${entKod}_create_card`,
+      kademe,
+      ad: `${t('mcp_func_create_card_title', 'Yeni Kart Açma & Alan Doldurma')}${suffixText}`,
+      kod: 'erp_create_document',
+      kategori: 'mcp',
+      modulKodu: modKod,
+      varlikKodu: entKod,
+      varlikTuru: 'Kart',
+      isSistem: true,
+      isleyici: `${entKod}DocumentHandler`,
+      rota: entRoute,
+      aciklama: t(
+        'mcp_func_card_create_desc',
+        'Yapay zeka kart alanlarını (unvan, vergi no, kod, adres vb.) otomatik doldurarak kayda hazırlar.'
+      ),
+      parametreSemasi: {
+        type: 'object',
+        properties: {
+          documentType: { type: 'string', default: entKod },
+          isDraft: { type: 'boolean', default: false },
+          fields: { type: 'object', description: 'Doldurulacak kart alanları' }
+        },
+        required: ['documentType']
+      },
+      ornekIstek: `{"name":"erp_create_document","arguments":{"documentType":"${entKod}","isDraft":false}}`
+    });
+
+    mcpFunctions.push({
+      id: `mcp_${entKod}_schema`,
+      kademe,
+      ad: `${t('mcp_func_card_schema_title', 'Kart Şeması & Validasyon Kuralları')}${suffixText}`,
+      kod: 'erp_get_document_schema',
+      kategori: 'mcp',
+      modulKodu: modKod,
+      varlikKodu: entKod,
+      varlikTuru: 'Kart',
+      isSistem: true,
+      isleyici: 'InspectDocumentSchemaTool',
+      rota: entRoute,
+      aciklama: t(
+        'mcp_func_card_schema_desc',
+        'Kartın kabul ettiği JSON alanlarını ve format gereksinimlerini LLM için döner.'
+      ),
+      parametreSemasi: {
+        type: 'object',
+        properties: {
+          documentType: { type: 'string', default: entKod }
+        },
+        required: ['documentType']
+      },
+      ornekIstek: `{"name":"erp_get_document_schema","arguments":{"documentType":"${entKod}"}}`
+    });
+
+    mcpFunctions.push({
+      id: `mcp_${entKod}_navigate`,
+      kademe,
+      ad: `${t('mcp_func_card_nav_title', 'Kart Formuna Navigasyon')}${suffixText}`,
+      kod: 'erp_navigate',
+      kategori: 'mcp',
+      modulKodu: modKod,
+      varlikKodu: entKod,
+      varlikTuru: 'Kart',
+      isSistem: true,
+      isleyici: 'NavigateTool',
+      rota: entRoute,
+      aciklama: t('mcp_func_card_nav_desc', 'Kullanıcıyı kartın yeni kayıt veya düzenleme ekranına yönlendirir.'),
+      parametreSemasi: {
+        type: 'object',
+        properties: { target: { type: 'string', default: entRoute } },
+        required: ['target']
+      },
+      ornekIstek: `{"name":"erp_navigate","arguments":{"target":"${entRoute}"}}`
+    });
+  } else {
+    mcpFunctions.push({
+      id: `mcp_${entKod}_query`,
+      kademe,
+      ad: `${t('mcp_func_query_title', 'Canlı Veritabanı & Tablo Kayıt Sorgulama')}${suffixText}`,
+      kod: 'erp_query_data',
+      kategori: 'mcp',
+      modulKodu: modKod,
+      varlikKodu: entKod,
+      varlikTuru: 'Liste',
+      isSistem: true,
+      isleyici: 'QueryDataTool',
+      rota: entRoute,
+      aciklama: t(
+        'mcp_func_query_desc',
+        'Veritabanından bu listeye ait kayıtları, filtreleri ve özet bilgileri LLM aracılığıyla güvenli sorgular.'
+      ),
+      parametreSemasi: {
+        type: 'object',
+        properties: {
+          entityType: { type: 'string', default: entKod, description: 'Sorgulanacak tablo/varlık' },
+          filter: { type: 'string', description: 'Doğal dil veya SQL filtre ifadesi' },
+          limit: { type: 'integer', default: 50, description: 'Maksimum kayıt limiti' }
+        },
+        required: ['entityType']
+      },
+      ornekIstek: `{"name":"erp_query_data","arguments":{"entityType":"${entKod}","filter":"aktifMi == true","limit":20}}`
+    });
+
+    mcpFunctions.push({
+      id: `mcp_${entKod}_navigate`,
+      kademe,
+      ad: `${t('mcp_func_list_nav_title', 'Liste Sayfasına Navigasyon')}${suffixText}`,
+      kod: 'erp_navigate',
+      kategori: 'mcp',
+      modulKodu: modKod,
+      varlikKodu: entKod,
+      varlikTuru: 'Liste',
+      isSistem: true,
+      isleyici: 'NavigateTool',
+      rota: entRoute,
+      aciklama: t('mcp_func_list_nav_desc', 'Kullanıcıyı bu listenin gösterildiği tablo ekranına yönlendirir.'),
+      parametreSemasi: {
+        type: 'object',
+        properties: { target: { type: 'string', default: entRoute } },
+        required: ['target']
+      },
+      ornekIstek: `{"name":"erp_navigate","arguments":{"target":"${entRoute}"}}`
+    });
+
+    mcpFunctions.push({
+      id: `mcp_${entKod}_context`,
+      kademe,
+      ad: `${t('mcp_func_list_ctx_title', 'Tablo Filtre & Seçili Satır Bağlamı')}${suffixText}`,
+      kod: 'erp_get_page_context',
+      kategori: 'mcp',
+      modulKodu: modKod,
+      varlikKodu: entKod,
+      varlikTuru: 'Liste',
+      isSistem: true,
+      isleyici: 'GetPageContextTool',
+      rota: entRoute,
+      aciklama: t(
+        'mcp_func_list_ctx_desc',
+        'Kullanıcının bu listede seçtiği satırları veya uyguladığı filtreleri LLM bağlamına aktarır.'
+      ),
+      parametreSemasi: { type: 'object', properties: {} },
+      ornekIstek: `{"name":"erp_get_page_context","arguments":{}}`
+    });
+  }
+
+  if (ent.customActions && ent.customActions.length > 0) {
+    ent.customActions.forEach((ca: any) => {
+      mcpFunctions.push({
+        id: `mcp_${entKod}_custom_${ca.action}`,
+        kademe,
+        ad: `${ca.labelKey ? t(ca.labelKey, ca.action) : ca.action} (${t('ozel_aksiyon', 'Özel Aksiyon')})${suffixText}`,
+        kod: `action_${ca.action.replace(/-/g, '_')}`,
+        kategori: 'mcp',
+        modulKodu: modKod,
+        varlikKodu: entKod,
+        varlikTuru: entCat.toUpperCase(),
+        isSistem: false,
+        isleyici: 'CustomActionDispatcher',
+        rota: entRoute,
+        aciklama: ca.description || t('ozel_aksiyon_aciklama', 'Bu varlığa özel tanımlanmış modüler MCP aksiyonu.'),
+        parametreSemasi: {
+          type: 'object',
+          properties: {
+            action: { type: 'string', default: ca.action },
+            targetId: { type: 'string', description: 'Hedef kayıt ID' }
+          }
+        },
+        ornekIstek: `{"name":"action_${ca.action.replace(/-/g, '_')}","arguments":{"targetId":"123"}}`
+      });
+    });
+  }
+
+  return mcpFunctions;
+}
+
 // ─── ORTAK MCP AĞAÇ VERİ MOTORU ───────────────────────────────────────────────
 
 export function buildMcpTreeData(t: any): McpTreeNode[] {
@@ -80,7 +418,7 @@ export function buildMcpTreeData(t: any): McpTreeNode[] {
     const modAd = mod.title || mod.name || modKod;
     const modBaseRoute = (mod as any).baseRoute || mod.routes?.[0]?.path || '';
 
-    // 2. Kademe: Modüle tescil edilmiş listeler, kartlar ve belgeler
+    // Modüle tescil edilmiş varlık ağacını (entities.tree) al
     let entities = ModuleRegistry.getModuleEntities(modKod);
     if ((!entities.tree || entities.tree.length === 0) && mod.title) {
       const fromTitle = ModuleRegistry.getModuleEntities(mod.title);
@@ -91,330 +429,247 @@ export function buildMcpTreeData(t: any): McpTreeNode[] {
       if (fromName.tree && fromName.tree.length > 0) entities = fromName;
     }
 
-    const entityList: IModuleEntityDefinition[] = [
-      ...(entities.documents || []),
-      ...(entities.cards || []),
-      ...(entities.lists || [])
-    ];
+    // Tüm varlıkları "Liste -> [Belge | Kart]" hiyerarşisine normalize et
+    const normalizedListEntities: IModuleEntityDefinition[] = [];
 
-    const finalEntities: IModuleEntityDefinition[] = entityList.length > 0 ? entityList : [
-      {
-        id: `${modKod}_genel_liste`,
-        category: 'liste',
-        titleKey: `${modKod}_genel_liste`,
-        title: `${modAd} ${t('listesi', 'Listesi')}`,
-        description: `${modAd} ${t('kayitlari_ve_tablo_verileri', 'kayıtları ve tablo verileri')}`,
-        route: modBaseRoute
-      }
-    ];
+    if (entities.tree && entities.tree.length > 0) {
+      entities.tree.forEach((item) => {
+        if (item.category === 'liste') {
+          const validChildren = (item.children || []).filter(
+            (c) => c.category === 'kart' || c.category === 'belge'
+          );
 
-    // 2. Kademe Düğümlerini Üret
-    const entityNodes: McpTreeNode[] = finalEntities.map((ent): McpTreeNode => {
-      const entKod = ent.id;
-      const entAd = ent.title || ent.titleKey || entKod;
-      const entCat = (ent.category || 'liste') as 'liste' | 'kart' | 'belge';
-      const entRoute = ent.route || ent.listRoute || ent.formRoute || modBaseRoute;
-
-      // 3. Kademe: Bu varlığa ait MCP Fonksiyonları
-      const mcpFunctions: McpTreeNode[] = [];
-
-      if (entCat === 'belge') {
-        mcpFunctions.push({
-          id: `mcp_${entKod}_create_document`,
-          kademe: 3,
-          ad: t('mcp_func_create_doc_title', 'Yeni Belge ve Taslak Hazırlama (BELGE_DOLDUR)'),
-          kod: 'erp_create_document',
-          kategori: 'mcp',
-          modulKodu: modKod,
-          varlikKodu: entKod,
-          varlikTuru: 'Belge',
-          isSistem: true,
-          isleyici: `${entKod}DocumentHandler (IDocumentMcpHandler)`,
-          rota: entRoute,
-          aciklama: t(
-            'mcp_func_create_doc_desc',
-            'Yapay zeka doğal dille bu belgeyi oluşturur, kalemleri ve başlık bilgilerini otomatik doldurur.'
-          ),
-          parametreSemasi: {
-            type: 'object',
-            properties: {
-              documentType: { type: 'string', default: entKod, description: 'Belge türü kimliği' },
-              isDraft: { type: 'boolean', default: true, description: 'Doğrudan taslak kalemlerle doldurulsun mu?' },
-              aciklama: { type: 'string', description: 'Belge başlık veya dipnot açıklaması' },
-              cariUnvan: { type: 'string', description: 'Hedef cari hesap unvanı' },
-              kalemler: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  properties: {
-                    stokKodu: { type: 'string' },
-                    miktar: { type: 'number' },
-                    birimFiyat: { type: 'number' }
-                  }
+          if (validChildren.length > 0) {
+            normalizedListEntities.push({
+              ...item,
+              children: validChildren
+            });
+          } else {
+            const rawTitle = item.title || (item.titleKey ? t(item.titleKey, item.id) : item.id);
+            const baseTitle = rawTitle
+              .replace(/\s*Listesi$/i, '')
+              .replace(/\s*Liste$/i, '')
+              .trim();
+            normalizedListEntities.push({
+              ...item,
+              children: [
+                {
+                  id: `${item.id}-kart`,
+                  category: 'kart',
+                  titleKey: `${item.titleKey || item.id}_kart`,
+                  title: `${baseTitle} ${t('karti', 'Kartı')}`,
+                  description: item.description || `${baseTitle} ${t('detay_ve_yapilandirma_karti', 'detay ve yapılandırma kartı')}`,
+                  route: item.formRoute || item.route || modBaseRoute,
+                  formRoute: item.formRoute || item.route || modBaseRoute
                 }
-              }
-            },
-            required: ['documentType']
-          },
-          ornekIstek: `{"name":"erp_create_document","arguments":{"documentType":"${entKod}","isDraft":true,"aciklama":"Yapay Zeka Taslağı"}}`
-        });
+              ]
+            });
+          }
+        } else if (item.category === 'belge' || item.category === 'kart') {
+          const rawTitle = item.title || (item.titleKey ? t(item.titleKey, item.id) : item.id);
+          let listTitle = rawTitle;
+          if (/\s+Kartı$/i.test(rawTitle)) {
+            listTitle = rawTitle.replace(/\s+Kartı$/i, ` ${t('listesi', 'Listesi')}`);
+          } else if (!/Listesi$/i.test(rawTitle) && !/Liste$/i.test(rawTitle)) {
+            listTitle = `${rawTitle} ${t('listesi', 'Listesi')}`;
+          }
 
-        mcpFunctions.push({
-          id: `mcp_${entKod}_schema`,
-          kademe: 3,
-          ad: t('mcp_func_schema_title', 'Belge Şeması & Alan Doğrulama Kuralları'),
-          kod: 'erp_get_document_schema',
-          kategori: 'mcp',
-          modulKodu: modKod,
-          varlikKodu: entKod,
-          varlikTuru: 'Belge',
-          isSistem: true,
-          isleyici: 'InspectDocumentSchemaTool',
-          rota: entRoute,
-          aciklama: t(
-            'mcp_func_schema_desc',
-            'Belgenin kabul ettiği JSON şemasını, zorunlu alanlarını ve validasyon kurallarını sorgular.'
-          ),
-          parametreSemasi: {
-            type: 'object',
-            properties: {
-              documentType: { type: 'string', default: entKod, description: 'Şeması sorgulanacak belge türü' }
-            },
-            required: ['documentType']
-          },
-          ornekIstek: `{"name":"erp_get_document_schema","arguments":{"documentType":"${entKod}"}}`
-        });
-
-        mcpFunctions.push({
-          id: `mcp_${entKod}_navigate`,
-          kademe: 3,
-          ad: t('mcp_func_navigate_title', 'Belge Ekranına Yönlendirme & Sayfa Açma'),
-          kod: 'erp_navigate',
-          kategori: 'mcp',
-          modulKodu: modKod,
-          varlikKodu: entKod,
-          varlikTuru: 'Belge',
-          isSistem: true,
-          isleyici: 'NavigateTool',
-          rota: entRoute,
-          aciklama: t(
-            'mcp_func_nav_desc',
-            'Kullanıcıyı doğrudan bu belgenin yeni kayıt veya detay sayfasına yönlendirir.'
-          ),
-          parametreSemasi: {
-            type: 'object',
-            properties: {
-              target: { type: 'string', default: entRoute },
-              customRoute: { type: 'string' }
-            },
-            required: ['target']
-          },
-          ornekIstek: `{"name":"erp_navigate","arguments":{"target":"${entRoute}"}}`
-        });
-
-        mcpFunctions.push({
-          id: `mcp_${entKod}_context`,
-          kademe: 3,
-          ad: t('mcp_func_context_title', 'Aktif Form & Belge Bağlamı Okuma'),
-          kod: 'erp_get_page_context',
-          kategori: 'mcp',
-          modulKodu: modKod,
-          varlikKodu: entKod,
-          varlikTuru: 'Belge',
-          isSistem: true,
-          isleyici: 'GetPageContextTool',
-          rota: entRoute,
-          aciklama: t(
-            'mcp_func_ctx_desc',
-            'Kullanıcının bu belgede o anda açık olan verilerini, aktif sekmesini ve seçimlerini analiz eder.'
-          ),
-          parametreSemasi: { type: 'object', properties: {} },
-          ornekIstek: `{"name":"erp_get_page_context","arguments":{}}`
-        });
-      } else if (entCat === 'kart') {
-        mcpFunctions.push({
-          id: `mcp_${entKod}_create_card`,
-          kademe: 3,
-          ad: t('mcp_func_create_card_title', 'Yeni Kart Açma & Alan Doldurma'),
-          kod: 'erp_create_document',
-          kategori: 'mcp',
-          modulKodu: modKod,
-          varlikKodu: entKod,
-          varlikTuru: 'Kart',
-          isSistem: true,
-          isleyici: `${entKod}DocumentHandler`,
-          rota: entRoute,
-          aciklama: t(
-            'mcp_func_card_create_desc',
-            'Yapay zeka kart alanlarını (unvan, vergi no, kod, adres vb.) otomatik doldurarak kayda hazırlar.'
-          ),
-          parametreSemasi: {
-            type: 'object',
-            properties: {
-              documentType: { type: 'string', default: entKod },
-              isDraft: { type: 'boolean', default: false },
-              fields: { type: 'object', description: 'Doldurulacak kart alanları' }
-            },
-            required: ['documentType']
-          },
-          ornekIstek: `{"name":"erp_create_document","arguments":{"documentType":"${entKod}","isDraft":false}}`
-        });
-
-        mcpFunctions.push({
-          id: `mcp_${entKod}_schema`,
-          kademe: 3,
-          ad: t('mcp_func_card_schema_title', 'Kart Şeması & Validasyon Kuralları'),
-          kod: 'erp_get_document_schema',
-          kategori: 'mcp',
-          modulKodu: modKod,
-          varlikKodu: entKod,
-          varlikTuru: 'Kart',
-          isSistem: true,
-          isleyici: 'InspectDocumentSchemaTool',
-          rota: entRoute,
-          aciklama: t(
-            'mcp_func_card_schema_desc',
-            'Kartın kabul ettiği JSON alanlarını ve format gereksinimlerini LLM için döner.'
-          ),
-          parametreSemasi: {
-            type: 'object',
-            properties: {
-              documentType: { type: 'string', default: entKod }
-            },
-            required: ['documentType']
-          },
-          ornekIstek: `{"name":"erp_get_document_schema","arguments":{"documentType":"${entKod}"}}`
-        });
-
-        mcpFunctions.push({
-          id: `mcp_${entKod}_navigate`,
-          kademe: 3,
-          ad: t('mcp_func_card_nav_title', 'Kart Formuna Navigasyon'),
-          kod: 'erp_navigate',
-          kategori: 'mcp',
-          modulKodu: modKod,
-          varlikKodu: entKod,
-          varlikTuru: 'Kart',
-          isSistem: true,
-          isleyici: 'NavigateTool',
-          rota: entRoute,
-          aciklama: t('mcp_func_card_nav_desc', 'Kullanıcıyı kartın yeni kayıt veya düzenleme ekranına yönlendirir.'),
-          parametreSemasi: {
-            type: 'object',
-            properties: { target: { type: 'string', default: entRoute } },
-            required: ['target']
-          },
-          ornekIstek: `{"name":"erp_navigate","arguments":{"target":"${entRoute}"}}`
-        });
-      } else {
-        mcpFunctions.push({
-          id: `mcp_${entKod}_query`,
-          kademe: 3,
-          ad: t('mcp_func_query_title', 'Canlı Veritabanı & Tablo Kayıt Sorgulama'),
-          kod: 'erp_query_data',
-          kategori: 'mcp',
-          modulKodu: modKod,
-          varlikKodu: entKod,
-          varlikTuru: 'Liste',
-          isSistem: true,
-          isleyici: 'QueryDataTool',
-          rota: entRoute,
-          aciklama: t(
-            'mcp_func_query_desc',
-            'Veritabanından bu listeye ait kayıtları, filtreleri ve özet bilgileri LLM aracılığıyla güvenli sorgular.'
-          ),
-          parametreSemasi: {
-            type: 'object',
-            properties: {
-              entityType: { type: 'string', default: entKod, description: 'Sorgulanacak tablo/varlık' },
-              filter: { type: 'string', description: 'Doğal dil veya SQL filtre ifadesi' },
-              limit: { type: 'integer', default: 50, description: 'Maksimum kayıt limiti' }
-            },
-            required: ['entityType']
-          },
-          ornekIstek: `{"name":"erp_query_data","arguments":{"entityType":"${entKod}","filter":"aktifMi == true","limit":20}}`
-        });
-
-        mcpFunctions.push({
-          id: `mcp_${entKod}_navigate`,
-          kademe: 3,
-          ad: t('mcp_func_list_nav_title', 'Liste Sayfasına Navigasyon'),
-          kod: 'erp_navigate',
-          kategori: 'mcp',
-          modulKodu: modKod,
-          varlikKodu: entKod,
-          varlikTuru: 'Liste',
-          isSistem: true,
-          isleyici: 'NavigateTool',
-          rota: entRoute,
-          aciklama: t('mcp_func_list_nav_desc', 'Kullanıcıyı bu listenin gösterildiği tablo ekranına yönlendirir.'),
-          parametreSemasi: {
-            type: 'object',
-            properties: { target: { type: 'string', default: entRoute } },
-            required: ['target']
-          },
-          ornekIstek: `{"name":"erp_navigate","arguments":{"target":"${entRoute}"}}`
-        });
-
-        mcpFunctions.push({
-          id: `mcp_${entKod}_context`,
-          kademe: 3,
-          ad: t('mcp_func_list_ctx_title', 'Tablo Filtre & Seçili Satır Bağlamı'),
-          kod: 'erp_get_page_context',
-          kategori: 'mcp',
-          modulKodu: modKod,
-          varlikKodu: entKod,
-          varlikTuru: 'Liste',
-          isSistem: true,
-          isleyici: 'GetPageContextTool',
-          rota: entRoute,
-          aciklama: t(
-            'mcp_func_list_ctx_desc',
-            'Kullanıcının bu listede seçtiği satırları veya uyguladığı filtreleri LLM bağlamına aktarır.'
-          ),
-          parametreSemasi: { type: 'object', properties: {} },
-          ornekIstek: `{"name":"erp_get_page_context","arguments":{}}`
-        });
-      }
-
-      if (ent.customActions && ent.customActions.length > 0) {
-        ent.customActions.forEach((ca: any) => {
-          mcpFunctions.push({
-            id: `mcp_${entKod}_custom_${ca.action}`,
-            kademe: 3,
-            ad: `${ca.labelKey || ca.action} (${t('ozel_aksiyon', 'Özel Aksiyon')})`,
-            kod: `action_${ca.action.replace(/-/g, '_')}`,
-            kategori: 'mcp',
-            modulKodu: modKod,
-            varlikKodu: entKod,
-            varlikTuru: entCat.toUpperCase(),
-            isSistem: false,
-            isleyici: 'CustomActionDispatcher',
-            rota: entRoute,
-            aciklama: ca.description || t('ozel_aksiyon_aciklama', 'Bu varlığa özel tanımlanmış modüler MCP aksiyonu.'),
-            parametreSemasi: {
-              type: 'object',
-              properties: {
-                action: { type: 'string', default: ca.action },
-                targetId: { type: 'string', description: 'Hedef kayıt ID' }
-              }
-            },
-            ornekIstek: `{"name":"action_${ca.action.replace(/-/g, '_')}","arguments":{"targetId":"123"}}`
+          normalizedListEntities.push({
+            id: `${item.id}-liste`,
+            category: 'liste',
+            titleKey: item.titleKey ? `${item.titleKey}_liste` : `${item.id}_liste`,
+            title: listTitle,
+            description: item.description || `${rawTitle} ${t('kayitlari_ve_tablo_verileri', 'kayıtları ve tablo verileri')}`,
+            route: item.listRoute || item.route || modBaseRoute,
+            listRoute: item.listRoute || item.route || modBaseRoute,
+            children: [item]
           });
+        }
+      });
+    }
+
+    if (normalizedListEntities.length === 0) {
+      if (modKod === 'ai_yonetimi' || modKod === 'ai-management-module') {
+        normalizedListEntities.push(
+          {
+            id: 'ai-saglayicilar-liste',
+            category: 'liste',
+            titleKey: 'menu_ai_saglayicilar_liste',
+            title: t('menu_ai_saglayicilar_liste', 'Model Sağlayıcıları Listesi'),
+            description: t('ai_saglayicilar_liste_aciklama', 'Yapay zeka sağlayıcıları, API anahtarları ve aktif modeller listesi.'),
+            route: '/ayarlar/YapayZekaAyarlari/AiSaglayicilar',
+            children: [
+              {
+                id: 'ai-saglayici-karti',
+                category: 'kart',
+                titleKey: 'ai_saglayici_karti',
+                title: t('ai_saglayici_karti', 'Model Sağlayıcısı Kartı'),
+                description: t('ai_saglayici_karti_aciklama', 'Model sağlayıcısı bağlantı, API anahtarı ve model tanımlama kartı.'),
+                route: '/ayarlar/YapayZekaAyarlari/AiSaglayicilar/yeni'
+              }
+            ]
+          },
+          {
+            id: 'ai-protokoller-liste',
+            category: 'liste',
+            titleKey: 'menu_ai_protokoller_liste',
+            title: t('menu_ai_protokoller_liste', 'API Protokolleri Listesi'),
+            description: t('ai_protokoller_liste_aciklama', 'LLM iletişim protokolleri ve uç nokta şablonları listesi.'),
+            route: '/ayarlar/YapayZekaAyarlari/AiProtokoller',
+            children: [
+              {
+                id: 'ai-protokol-karti',
+                category: 'kart',
+                titleKey: 'ai_protokol_karti',
+                title: t('ai_protokol_karti', 'API Protokolü Kartı'),
+                description: t('ai_protokol_karti_aciklama', 'API protokolü şablon ve uç nokta yapılandırma kartı.'),
+                route: '/ayarlar/YapayZekaAyarlari/AiProtokoller/yeni'
+              }
+            ]
+          },
+          {
+            id: 'ai-ajanlar-liste',
+            category: 'liste',
+            titleKey: 'menu_ai_ajanlar_liste',
+            title: t('menu_ai_ajanlar_liste', 'Yapay Zeka Ajanları Listesi'),
+            description: t('ai_ajanlar_liste_aciklama', 'Sistem ve kullanıcı tanımlı yapay zeka ajanları listesi.'),
+            route: '/ayarlar/YapayZekaAyarlari/AiAjanlar',
+            children: [
+              {
+                id: 'ai-ajan-karti',
+                category: 'kart',
+                titleKey: 'ai_ajan_karti',
+                title: t('ai_ajan_karti', 'Yapay Zeka Ajanı Kartı'),
+                description: t('ai_ajan_karti_aciklama', 'Yapay zeka ajanı sistem istemi, model, görev akışı ve MCP yetkileri kartı.'),
+                route: '/ayarlar/YapayZekaAyarlari/AiAjanlar/yeni'
+              }
+            ]
+          },
+          {
+            id: 'ai-cuzdan-liste',
+            category: 'liste',
+            titleKey: 'menu_ai_cuzdan_liste',
+            title: t('menu_ai_cuzdan_liste', 'Token Cüzdanı & Kullanım Listesi'),
+            description: t('ai_cuzdan_liste_aciklama', 'Token bakiyesi, tüketim geçmişi ve bütçe hareketleri listesi.'),
+            route: '/ayarlar/YapayZekaAyarlari/AiCuzdan',
+            children: [
+              {
+                id: 'ai-cuzdan-karti',
+                category: 'kart',
+                titleKey: 'ai_cuzdan_karti',
+                title: t('ai_cuzdan_karti', 'Token Cüzdanı & Bütçe Kartı'),
+                description: t('ai_cuzdan_karti_aciklama', 'Token cüzdanı bakiye yükleme ve limit ayarları kartı.'),
+                route: '/ayarlar/YapayZekaAyarlari/AiCuzdan'
+              }
+            ]
+          }
+        );
+      } else {
+        normalizedListEntities.push({
+          id: `${modKod}_genel_liste`,
+          category: 'liste',
+          titleKey: `${modKod}_genel_liste`,
+          title: `${modAd} ${t('listesi', 'Listesi')}`,
+          description: `${modAd} ${t('kayitlari_ve_tablo_verileri', 'kayıtları ve tablo verileri')}`,
+          route: modBaseRoute,
+          children: [
+            {
+              id: `${modKod}_genel_kart`,
+              category: 'kart',
+              titleKey: `${modKod}_genel_kart`,
+              title: `${modAd} ${t('karti', 'Kartı')}`,
+              description: `${modAd} ${t('detay_ve_yapilandirma_karti', 'detay ve yapılandırma kartı')}`,
+              route: modBaseRoute
+            }
+          ]
         });
       }
+    }
+
+    // 2. Kademe: Liste Düğümleri
+    const listNodes: McpTreeNode[] = normalizedListEntities.map((listEnt): McpTreeNode => {
+      const listKod = listEnt.id;
+      const listAd = listEnt.title || (listEnt.titleKey ? t(listEnt.titleKey, listKod) : listKod);
+      const listRoute = listEnt.route || listEnt.listRoute || listEnt.formRoute || modBaseRoute;
+      const childDefs = listEnt.children || [];
+
+      // 3. Kademe (A): İlgili Belge veya Kart Düğümleri (Yaprak olarak listelenir)
+      const belgeKartNodes: McpTreeNode[] = childDefs.map((childEnt): McpTreeNode => {
+        const childKod = childEnt.id;
+        const childAd = childEnt.title || (childEnt.titleKey ? t(childEnt.titleKey, childKod) : childKod);
+        const childCat = (childEnt.category === 'belge' ? 'belge' : 'kart') as 'kart' | 'belge';
+        const childRoute = childEnt.formRoute || childEnt.route || listRoute;
+
+        return {
+          id: `ent_${modKod}_${childCat}_${childKod}`,
+          kademe: 3,
+          ad: childAd,
+          kod: childKod,
+          kategori: childCat,
+          modulKodu: modKod,
+          varlikKodu: childKod,
+          varlikTuru: childCat === 'belge' ? 'Belge' : 'Kart',
+          rota: childRoute,
+          aciklama: childEnt.description || '',
+          rawEntity: childEnt
+        };
+      });
+
+      // 4. Kademe: Liste ve altındaki Belge/Kartlara ait tüm MCP Fonksiyonları
+      const allListMcpFunctions: McpTreeNode[] = [
+        ...buildEntityMcpFunctions(
+          modKod,
+          { ...listEnt, category: 'liste', title: listAd, route: listRoute },
+          4,
+          t
+        )
+      ];
+
+      childDefs.forEach((childEnt) => {
+        const childAd = childEnt.title || (childEnt.titleKey ? t(childEnt.titleKey, childEnt.id) : childEnt.id);
+        const childRoute = childEnt.formRoute || childEnt.route || listRoute;
+        const suffix = childDefs.length > 1 ? childAd : undefined;
+        allListMcpFunctions.push(
+          ...buildEntityMcpFunctions(
+            modKod,
+            { ...childEnt, title: childAd, route: childRoute },
+            4,
+            t,
+            suffix
+          )
+        );
+      });
+
+      // 3. Kademe (B): "Fonksiyonlar" Klasörü Düğümü
+      const fonksiyonlarFolderNode: McpTreeNode = {
+        id: `folder_${modKod}_${listKod}_fonksiyonlar`,
+        kademe: 3,
+        ad: t('fonksiyonlar', 'Fonksiyonlar'),
+        kod: 'fonksiyonlar',
+        kategori: 'klasor',
+        modulKodu: modKod,
+        varlikKodu: listKod,
+        rota: listRoute,
+        aciklama: t(
+          'mcp_fonksiyonlari_klasor_aciklama',
+          'Bu listeye ve bağlı belge/kartlara ait otonom MCP fonksiyonları'
+        ),
+        children: allListMcpFunctions
+      };
 
       return {
-        id: `ent_${modKod}_${entCat}_${entKod}`,
+        id: `ent_${modKod}_liste_${listKod}`,
         kademe: 2,
-        ad: entAd,
-        kod: entKod,
-        kategori: entCat,
+        ad: listAd,
+        kod: listKod,
+        kategori: 'liste',
         modulKodu: modKod,
-        rota: entRoute,
-        aciklama: ent.description || '',
-        rawEntity: ent,
-        children: mcpFunctions
+        varlikKodu: listKod,
+        varlikTuru: 'Liste',
+        rota: listRoute,
+        aciklama: listEnt.description || '',
+        rawEntity: listEnt,
+        children: [...belgeKartNodes, fonksiyonlarFolderNode]
       };
     });
 
@@ -427,7 +682,7 @@ export function buildMcpTreeData(t: any): McpTreeNode[] {
       aciklama: mod.description || '',
       rota: modBaseRoute,
       rawModule: mod,
-      children: entityNodes
+      children: listNodes
     };
   });
 }
@@ -473,7 +728,7 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
     fetchKatalog();
   }, [fetchKatalog]);
 
-  // ─── 3 KADEMELİ TREE VIEW VERİ MOTORU ────────────────────────────────────────
+  // ─── 4 KADEMELİ TREE VIEW VERİ MOTORU ────────────────────────────────────────
 
   const rawTreeData = useMemo<McpTreeNode[]>(() => buildMcpTreeData(t), [t]);
 
@@ -483,46 +738,64 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
     const q = searchTerm.trim().toLowerCase();
     if (!q) return rawTreeData;
 
+    const nodeSelfMatches = (node: McpTreeNode): boolean => {
+      return (
+        node.ad.toLowerCase().includes(q) ||
+        node.kod.toLowerCase().includes(q) ||
+        Boolean(node.aciklama && node.aciklama.toLowerCase().includes(q)) ||
+        Boolean(node.rota && node.rota.toLowerCase().includes(q)) ||
+        Boolean(node.isleyici && node.isleyici.toLowerCase().includes(q))
+      );
+    };
+
     return rawTreeData
       .map((modNode): McpTreeNode | null => {
-        const filteredEntities = (modNode.children || [])
-          .map((entNode): McpTreeNode | null => {
-            const filteredTools = (entNode.children || []).filter(toolNode => {
-              return (
-                toolNode.ad.toLowerCase().includes(q) ||
-                toolNode.kod.toLowerCase().includes(q) ||
-                (toolNode.aciklama && toolNode.aciklama.toLowerCase().includes(q)) ||
-                (toolNode.isleyici && toolNode.isleyici.toLowerCase().includes(q))
-              );
-            });
+        if (nodeSelfMatches(modNode)) {
+          return modNode;
+        }
 
-            const entMatches = (
-              entNode.ad.toLowerCase().includes(q) ||
-              entNode.kod.toLowerCase().includes(q) ||
-              (entNode.aciklama && entNode.aciklama.toLowerCase().includes(q)) ||
-              (entNode.rota && entNode.rota.toLowerCase().includes(q))
+        const filteredLists = (modNode.children || [])
+          .map((listNode): McpTreeNode | null => {
+            if (nodeSelfMatches(listNode)) {
+              return listNode;
+            }
+
+            const belgeKartChildren = (listNode.children || []).filter(
+              (c) => c.kategori === 'belge' || c.kategori === 'kart'
             );
+            const matchingBelgeKart = belgeKartChildren.filter(nodeSelfMatches);
 
-            if (entMatches || filteredTools.length > 0) {
+            const folderNode = (listNode.children || []).find((c) => c.kategori === 'klasor');
+            let filteredFolder: McpTreeNode | null = null;
+            if (folderNode) {
+              const matchingTools = (folderNode.children || []).filter(nodeSelfMatches);
+              if (matchingTools.length > 0 || nodeSelfMatches(folderNode)) {
+                filteredFolder = {
+                  ...folderNode,
+                  children: matchingTools.length > 0 ? matchingTools : folderNode.children
+                };
+              }
+            }
+
+            if (matchingBelgeKart.length > 0 || filteredFolder) {
+              const nextChildren: McpTreeNode[] = [
+                ...(matchingBelgeKart.length > 0 ? matchingBelgeKart : belgeKartChildren),
+                ...(filteredFolder ? [filteredFolder] : folderNode ? [folderNode] : [])
+              ];
               return {
-                ...entNode,
-                children: filteredTools
+                ...listNode,
+                children: nextChildren
               };
             }
+
             return null;
           })
           .filter((n): n is McpTreeNode => n !== null);
 
-        const modMatches = (
-          modNode.ad.toLowerCase().includes(q) ||
-          modNode.kod.toLowerCase().includes(q) ||
-          (modNode.aciklama && modNode.aciklama.toLowerCase().includes(q))
-        );
-
-        if (modMatches || filteredEntities.length > 0) {
+        if (filteredLists.length > 0) {
           return {
             ...modNode,
-            children: filteredEntities
+            children: filteredLists
           };
         }
         return null;
@@ -546,7 +819,20 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
     return ids;
   }, []);
 
-  // Sayfa açıldığında modülleri ve varlıkları açık başlat
+  const collectModuleAndListIds = useCallback((nodes: McpTreeNode[]): string[] => {
+    const ids: string[] = [];
+    nodes.forEach((modNode) => {
+      ids.push(modNode.id);
+      modNode.children?.forEach((listNode) => {
+        if (listNode.kategori === 'liste') {
+          ids.push(listNode.id);
+        }
+      });
+    });
+    return ids;
+  }, []);
+
+  // Sayfa açıldığında tüm hiyerarşik dalları açık başlat
   useEffect(() => {
     if (!isInitialExpanded && rawTreeData.length > 0) {
       const allParentIds = collectAllParentIds(rawTreeData);
@@ -558,6 +844,10 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
   const handleExpandAll = useCallback(() => {
     setExpandedRowIds(collectAllParentIds(filteredTreeData));
   }, [filteredTreeData, collectAllParentIds]);
+
+  const handleExpandListsOnly = useCallback(() => {
+    setExpandedRowIds(collectModuleAndListIds(filteredTreeData));
+  }, [filteredTreeData, collectModuleAndListIds]);
 
   const handleExpandModulesOnly = useCallback(() => {
     setExpandedRowIds(filteredTreeData.map(m => m.id));
@@ -574,6 +864,11 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
       onClick: handleExpandAll
     },
     {
+      label: t('modul_ve_listeleri_genislet', 'Modül ve Listeleri Genişlet (Belge/Kart Görünümü)'),
+      icon: <Table size={15} />,
+      onClick: handleExpandListsOnly
+    },
+    {
       label: t('sadece_modulleri_genislet', 'Sadece Modülleri Genişlet'),
       icon: <Layers size={15} />,
       onClick: handleExpandModulesOnly
@@ -583,7 +878,7 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
       icon: <ChevronsDownUp size={15} />,
       onClick: handleCollapseAll
     }
-  ], [t, handleExpandAll, handleExpandModulesOnly, handleCollapseAll]);
+  ], [t, handleExpandAll, handleExpandListsOnly, handleExpandModulesOnly, handleCollapseAll]);
 
   // ─── ŞEMA MODAL İNCELEME & KOPYALAMA ─────────────────────────────────────────
 
@@ -620,15 +915,11 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
     {
       id: 'ad',
       header: t('modul_varlik_mcp_fonksiyonu', 'Modül / Varlık / MCP Fonksiyonu'),
-      minWidth: '360px',
+      minWidth: '380px',
       render: (node: McpTreeNode) => {
         // 1. Kademe: Modül Seviyesi
         if (node.kademe === 1) {
-          const entityCount = node.children ? node.children.length : 0;
-          let mcpCount = 0;
-          node.children?.forEach(c => {
-            mcpCount += c.children ? c.children.length : 0;
-          });
+          const { listCount, belgeKartCount, mcpCount } = countMcpNodeStats(node);
 
           return (
             <div className="flex items-center gap-10 py-4">
@@ -646,7 +937,8 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
                     {t('modul', 'Modül')}
                   </span>
                   <span className="text-11 text-secondary font-medium">
-                    ({entityCount} {t('varlik', 'Varlık')} • {mcpCount} {t('mcp_araci', 'MCP Aracı')})
+                    ({listCount} {t('liste', 'Liste')} • {belgeKartCount} {t('belge_kart', 'Belge/Kart')} • {mcpCount}{' '}
+                    {t('mcp_araci', 'MCP Aracı')})
                   </span>
                 </div>
                 {node.aciklama && (
@@ -657,39 +949,52 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
           );
         }
 
-        // 2. Kademe: Varlık Seviyesi (Liste, Kart, Belge)
-        if (node.kademe === 2) {
+        // 2. Kademe: Liste Seviyesi
+        if (node.kademe === 2 || node.kategori === 'liste') {
+          const { belgeKartCount, mcpCount } = countMcpNodeStats(node);
+
+          return (
+            <div className="flex items-center gap-10 py-3">
+              <span className="badge badge-primary text-xs font-semibold px-8 py-2 rounded-full flex items-center gap-4">
+                <Table size={12} />
+                {t('liste', 'Liste')}
+              </span>
+
+              <div className="flex flex-col">
+                <div className="flex items-center gap-6">
+                  <span className="font-semibold text-primary text-13">{node.ad}</span>
+                  <span className="text-11 text-secondary">
+                    ({belgeKartCount} {t('belge_kart', 'Belge/Kart')} • {mcpCount} {t('mcp_fonksiyonu', 'Fonksiyon')})
+                  </span>
+                </div>
+                {node.aciklama && (
+                  <span className="text-11 text-secondary line-clamp-1">{node.aciklama}</span>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        // 3. Kademe (A): İlgili Belge veya Kart Seviyesi (Liste altında gösterilir)
+        if (node.kategori === 'belge' || node.kategori === 'kart') {
           const isBelge = node.kategori === 'belge';
-          const isKart = node.kategori === 'kart';
-          const isListe = node.kategori === 'liste';
-          const childMcpCount = node.children ? node.children.length : 0;
 
           return (
             <div className="flex items-center gap-10 py-3">
               <span
-                className={`badge text-xs font-semibold px-8 py-2 rounded-full flex items-center gap-4 ${isBelge
-                  ? 'badge-success'
-                  : isKart
-                    ? 'badge-secondary'
-                    : isListe
-                      ? 'badge-primary'
-                      : 'badge-info'
-                  }`}
+                className={`badge text-xs font-semibold px-8 py-2 rounded-full flex items-center gap-4 ${
+                  isBelge ? 'badge-success' : 'badge-secondary'
+                }`}
               >
                 {isBelge ? (
                   <>
                     <FileText size={12} />
                     {t('belge', 'Belge')}
                   </>
-                ) : isKart ? (
+                ) : (
                   <>
                     <CreditCard size={12} />
                     {t('kart', 'Kart')}
-                  </>
-                ) : (
-                  <>
-                    <Table size={12} />
-                    {t('liste', 'Liste')}
                   </>
                 )}
               </span>
@@ -697,6 +1002,30 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
               <div className="flex flex-col">
                 <div className="flex items-center gap-6">
                   <span className="font-semibold text-primary text-13">{node.ad}</span>
+                </div>
+                {node.aciklama && (
+                  <span className="text-11 text-secondary line-clamp-1">{node.aciklama}</span>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        // 3. Kademe (B): "Fonksiyonlar" Klasörü Seviyesi
+        if (node.kategori === 'klasor') {
+          const childMcpCount = node.children ? node.children.length : 0;
+
+          return (
+            <div className="flex items-center gap-10 py-3">
+              <div className="flex items-center justify-center p-6 rounded-lg bg-surface-subtle border border-border text-warning">
+                <FolderOpen size={15} />
+              </div>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-6">
+                  <span className="font-bold text-primary text-13">{node.ad}</span>
+                  <span className="badge badge-warning text-10 font-semibold px-6 py-1 rounded">
+                    {t('klasor', 'Klasör')}
+                  </span>
                   <span className="text-11 text-secondary">
                     ({childMcpCount} {t('mcp_fonksiyonu', 'Fonksiyon')})
                   </span>
@@ -709,7 +1038,7 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
           );
         }
 
-        // 3. Kademe: MCP Fonksiyonu Seviyesi
+        // 4. Kademe: MCP Fonksiyonu Seviyesi (Fonksiyonlar klasörü altında gösterilir)
         return (
           <div className="flex items-center gap-10 py-3">
             <div className="flex items-center justify-center p-6 rounded-lg bg-surface-subtle border border-border text-accent">
@@ -736,7 +1065,7 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
       sortable: true,
       width: '240px',
       render: (node: McpTreeNode) => {
-        if (node.kademe === 3) {
+        if (node.kategori === 'mcp') {
           return (
             <span className="font-mono text-xs font-bold text-accent bg-surface-subtle px-8 py-3 rounded border border-border inline-flex items-center gap-6">
               <Sparkles size={11} />
@@ -764,26 +1093,42 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
             </span>
           );
         }
-        if (node.kademe === 2) {
-          let badgeColor = 'badge-primary';
-          let label = t('liste', 'Liste');
-          if (node.kategori === 'belge') {
-            badgeColor = 'badge-success';
-            label = t('belge', 'Belge');
-          } else if (node.kategori === 'kart') {
-            badgeColor = 'badge-secondary';
-            label = t('kart', 'Kart');
-          }
+        if (node.kademe === 2 || node.kategori === 'liste') {
           return (
-            <span className={`badge ${badgeColor} text-xs font-semibold px-8 py-2 rounded`}>
-              2. {label}
+            <span className="badge badge-primary text-xs font-semibold px-8 py-2 rounded flex items-center gap-4 w-fit">
+              <Table size={11} />
+              2. {t('liste', 'Liste')}
+            </span>
+          );
+        }
+        if (node.kategori === 'belge') {
+          return (
+            <span className="badge badge-success text-xs font-semibold px-8 py-2 rounded flex items-center gap-4 w-fit">
+              <FileText size={11} />
+              3. {t('belge', 'Belge')}
+            </span>
+          );
+        }
+        if (node.kategori === 'kart') {
+          return (
+            <span className="badge badge-secondary text-xs font-semibold px-8 py-2 rounded flex items-center gap-4 w-fit">
+              <CreditCard size={11} />
+              3. {t('kart', 'Kart')}
+            </span>
+          );
+        }
+        if (node.kategori === 'klasor') {
+          return (
+            <span className="badge badge-warning text-xs font-semibold px-8 py-2 rounded flex items-center gap-4 w-fit">
+              <FolderOpen size={11} />
+              3. {t('klasor', 'Klasör')}
             </span>
           );
         }
         return (
           <span className="badge badge-accent text-xs font-semibold px-8 py-2 rounded flex items-center gap-4 w-fit">
             <Wrench size={11} />
-            3. {t('mcp_fonksiyonu', 'MCP')}
+            4. {t('mcp_fonksiyonu', 'MCP')}
           </span>
         );
       }
@@ -793,7 +1138,7 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
       header: t('isleyici_veya_rota', 'İşleyici / Rota'),
       minWidth: '220px',
       render: (node: McpTreeNode) => {
-        if (node.kademe === 3 && node.isleyici) {
+        if (node.kategori === 'mcp' && node.isleyici) {
           return (
             <div className="flex items-center gap-6 text-xs font-mono text-primary truncate max-w-260" title={node.isleyici}>
               <ShieldCheck size={13} className="text-success flex-shrink-0" />
@@ -817,7 +1162,7 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
       width: '140px',
       align: 'center',
       render: (node: McpTreeNode) => {
-        if (node.kademe === 3) {
+        if (node.kategori === 'mcp') {
           return (
             <button
               type="button"
@@ -842,7 +1187,7 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
 
   const renderContent = () => (
     <>
-      {/* 3 Kademeli Hiyerarşik TreeView Tablosu */}
+      {/* 4 Kademeli Hiyerarşik TreeView Tablosu */}
       <DataTable<McpTreeNode>
         data={filteredTreeData}
         columns={treeColumns}
