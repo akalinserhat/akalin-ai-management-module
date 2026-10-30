@@ -402,10 +402,10 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     }
   }, []);
 
-  // Doğrudan ID ile açıldığında ajan detaylarını çek
+  // Doğrudan ID ile açıldığında (alt sayfadan dönülmüyorsa) ajan detaylarını sunucudan taze çek
   useEffect(() => {
-    if (effectiveId && !localInitialData) {
-      setDataLoading(true);
+    if (effectiveId && !location.state?.fromSubPage) {
+      if (!localInitialData) setDataLoading(true);
       axios.get(`/api/AiAjanlar/${effectiveId}`)
         .then(res => {
           if (res.data) {
@@ -414,7 +414,9 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         })
         .catch(err => {
           console.error(err);
-          toast.error(t('auto_ajan_yukleme_hata', 'Ajan bilgisi yüklenirken hata oluştu.'));
+          if (!localInitialData) {
+            toast.error(t('auto_ajan_yukleme_hata', 'Ajan bilgisi yüklenirken hata oluştu.'));
+          }
         })
         .finally(() => setDataLoading(false));
     }
@@ -428,7 +430,20 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     if (location.state?.activeTabId) {
       setActiveTabId(location.state.activeTabId);
     }
-  }, [location.state?.activeTabId]);
+    if (location.state?.fromSubPage && location.state?.agentData) {
+      setFormData((prev: any) => {
+        const next = {
+          ...prev,
+          ...location.state.agentData,
+          seciliAracKodlari: Array.isArray(location.state.agentData.seciliAracKodlari)
+            ? location.state.agentData.seciliAracKodlari
+            : prev.seciliAracKodlari
+        };
+        formDataRef.current = next;
+        return next;
+      });
+    }
+  }, [location.state]);
 
   // Katman 1 görünüm modu: 'sabitPrompt' (Sabit Sistem İstemi & Yetki Sınırları) veya 'kurallar' (Madde Bazlı Kurallar)
   const [systemPromptViewMode, setSystemPromptViewMode] = useState<'sabitPrompt' | 'kurallar'>('sabitPrompt');
@@ -1019,7 +1034,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
 
   const handleSubmit = async (e?: any) => {
     if (e && e.preventDefault) e.preventDefault();
-    if (!formData.ad?.trim() || !formData.kod?.trim()) {
+    const currentFormData = formDataRef.current || formData;
+    if (!currentFormData.ad?.trim() || !currentFormData.kod?.trim()) {
       toast.error(t('ajan_ad_ve_kod_zorunlu', 'Lütfen ajan adı ve benzersiz kodunu giriniz.'));
       setActiveTabId('genel');
       return;
@@ -1029,17 +1045,22 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       setIsSaving(true);
       let agentId;
 
-      const finalSystemPrompt = formData.sistemIstemi?.trim()
-        ? formData.sistemIstemi.trim()
-        : compilePromptPreview(formData.kurallar);
+      const finalSystemPrompt = currentFormData.sistemIstemi?.trim()
+        ? currentFormData.sistemIstemi.trim()
+        : compilePromptPreview(currentFormData.kurallar);
+
+      const seciliAracKodlari = Array.isArray(currentFormData.seciliAracKodlari)
+        ? currentFormData.seciliAracKodlari
+        : [];
 
       const payload = {
-        ...formData,
-        kapsam: parseInt(formData.kapsam, 10) || 1,
-        aiSaglayiciId: formData.aiSaglayiciId ? parseInt(formData.aiSaglayiciId, 10) : null,
-        sicaklik: parseFloat(formData.sicaklik) || 0.7,
-        maxTokens: parseInt(formData.maxTokens, 10) || 2048,
-        yanitSenteziModu: parseInt(formData.yanitSenteziModu as any, 10) || 0,
+        ...currentFormData,
+        seciliAracKodlari,
+        kapsam: parseInt(currentFormData.kapsam, 10) || 1,
+        aiSaglayiciId: currentFormData.aiSaglayiciId ? parseInt(currentFormData.aiSaglayiciId, 10) : null,
+        sicaklik: parseFloat(currentFormData.sicaklik) || 0.7,
+        maxTokens: parseInt(currentFormData.maxTokens, 10) || 2048,
+        yanitSenteziModu: parseInt(currentFormData.yanitSenteziModu as any, 10) || 0,
         sistemIstemi: finalSystemPrompt
       };
 
@@ -1054,8 +1075,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         toast.success(t('auto_ajan_olusturuldu', 'Yeni ajan oluşturuldu'));
       }
 
-      if (formData.seciliAracKodlari && Array.isArray(formData.seciliAracKodlari)) {
-        await axios.post(`/api/AiAraclar/ajan/${agentId}/araclar`, formData.seciliAracKodlari);
+      if (agentId) {
+        await axios.post(`/api/AiAraclar/ajan/${agentId}/araclar`, seciliAracKodlari);
       }
 
       if (onSuccess) {
@@ -1561,7 +1582,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     navigate(`${basePath}/mcp-secim`, {
       state: {
         agentData: formDataRef.current,
-        activeTabId: 'mcp'
+        activeTabId: 'mcp',
+        fromSubPage: true
       }
     });
   }, [effectiveId, isUnderAyarlar, location.pathname, navigate]);
@@ -1576,7 +1598,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       navigate(targetParentRoute, {
         state: {
           agentData: formDataRef.current,
-          activeTabId: 'mcp'
+          activeTabId: 'mcp',
+          fromSubPage: true
         }
       });
     }
