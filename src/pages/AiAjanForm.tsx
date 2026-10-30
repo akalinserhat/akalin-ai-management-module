@@ -298,7 +298,7 @@ const compilePromptPreview = (rules: any[] = []) => {
 
 // ─── Ana Sayfa Bileşeni (BaseCardPage Tabanlı AiAjanForm) ─────────────────────
 export interface AiAjanFormProps {
-  id?: string | number;
+  id?: string | number | null;
   initialData?: any;
   onClose?: () => void;
   onSuccess?: () => void;

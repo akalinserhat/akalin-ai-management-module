@@ -43,8 +43,8 @@ import {
 const START_NODE_ID = '__START__';
 
 export interface AiAjanHizliIstekFormProps {
-  agentId?: string | number;
-  istekId?: string;
+  agentId?: string | number | null;
+  istekId?: string | null;
   initialAgentData?: any;
   initialItem?: any;
   onBack?: () => void;
@@ -135,6 +135,72 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     return null;
   }, [initialItem, location.state?.hizliIstekItem, agentData, effectiveIstekId]);
 
+  // Akış düğümlerini normalize et: Başta her zaman tek bir BASLA düğümü bulunmasını ve sıralı bağlantıları garanti et
+  const normalizeFlowNodes = (
+    rawNodes: any[] | undefined,
+    fallbackItem?: any
+  ): AiAkisDugumu[] => {
+    const cloned: AiAkisDugumu[] = Array.isArray(rawNodes)
+      ? JSON.parse(JSON.stringify(rawNodes))
+      : [];
+
+    const existingBaslaIdx = cloned.findIndex(
+      (n) => n && (n.id === 'BASLA' || n.tip === 'BASLA' || n.tip === 'START')
+    );
+
+    let baslaNode: AiAkisDugumu;
+    const otherNodes: AiAkisDugumu[] = [];
+
+    if (existingBaslaIdx !== -1) {
+      baslaNode = {
+        ...cloned[existingBaslaIdx],
+        id: 'BASLA',
+        tip: 'BASLA',
+        baslik: t('basla', 'Başla'),
+        prompt: cloned[existingBaslaIdx].prompt || fallbackItem?.prompt || '',
+        hizliErisimDugmesi:
+          cloned[existingBaslaIdx].hizliErisimDugmesi !== undefined
+            ? cloned[existingBaslaIdx].hizliErisimDugmesi
+            : fallbackItem?.hizliErisimDugmesi !== false,
+        dugmeBasligi:
+          cloned[existingBaslaIdx].dugmeBasligi !== undefined
+            ? cloned[existingBaslaIdx].dugmeBasligi
+            : fallbackItem?.dugmeBasligi || ''
+      };
+      cloned.forEach((n, idx) => {
+        if (idx !== existingBaslaIdx && n && n.id !== 'BASLA' && n.tip !== 'BASLA') {
+          otherNodes.push(n);
+        }
+      });
+    } else {
+      baslaNode = {
+        id: 'BASLA',
+        tip: 'BASLA',
+        baslik: t('basla', 'Başla'),
+        prompt: fallbackItem?.prompt || '',
+        aracKodu: '',
+        uiAksiyonu: fallbackItem?.uiAksiyonu || 'YOK',
+        hedefRota: '',
+        sonrakiDugumId: '',
+        hizliErisimDugmesi: fallbackItem?.hizliErisimDugmesi !== false,
+        dugmeBasligi: fallbackItem?.dugmeBasligi || ''
+      };
+      cloned.forEach((n) => {
+        if (n) otherNodes.push(n);
+      });
+    }
+
+    const result = [baslaNode, ...otherNodes];
+    for (let i = 0; i < result.length; i++) {
+      const curr = result[i];
+      const next = result[i + 1];
+      if (curr.tip !== 'KARAR_ONAY') {
+        curr.sonrakiDugumId = next ? next.id : '';
+      }
+    }
+    return result;
+  };
+
   const [formState, setFormState] = useState<{
     id: string;
     baslik: string;
@@ -149,9 +215,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     akisDugumleri: AiAkisDugumu[];
   }>(() => {
     if (targetItem) {
-      const nodes: AiAkisDugumu[] = Array.isArray(targetItem.akisDugumleri)
-        ? JSON.parse(JSON.stringify(targetItem.akisDugumleri))
-        : [];
+      const nodes = normalizeFlowNodes(targetItem.akisDugumleri, targetItem);
 
       return {
         id: targetItem.id || `req_${Date.now()}`,
@@ -178,20 +242,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       hizliErisimDugmesi: true,
       dugmeBasligi: '',
       tetiklemeAnahtarlari: '',
-      akisDugumleri: [
-        {
-          id: 'BASLA',
-          tip: 'BASLA',
-          baslik: t('basla', 'Başla'),
-          prompt: '',
-          aracKodu: '',
-          uiAksiyonu: 'YOK',
-          hedefRota: '',
-          sonrakiDugumId: '',
-          hizliErisimDugmesi: true,
-          dugmeBasligi: ''
-        }
-      ]
+      akisDugumleri: normalizeFlowNodes([])
     };
   });
 
@@ -202,20 +253,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
   // targetItem sonradan yüklendiğinde formState'i senkronize et
   useEffect(() => {
     if (targetItem && (!formState.baslik || formState.id !== targetItem.id)) {
-      const nodes: AiAkisDugumu[] = Array.isArray(targetItem.akisDugumleri) && targetItem.akisDugumleri.length > 0
-        ? JSON.parse(JSON.stringify(targetItem.akisDugumleri))
-        : [
-          {
-            id: 'BASLA',
-            tip: 'BASLA',
-            baslik: t('basla', 'Başla'),
-            prompt: targetItem.prompt || '',
-            aracKodu: '',
-            uiAksiyonu: targetItem.uiAksiyonu || 'YOK',
-            hedefRota: '',
-            sonrakiDugumId: ''
-          }
-        ];
+      const nodes = normalizeFlowNodes(targetItem.akisDugumleri, targetItem);
 
       setFormState({
         id: targetItem.id || `req_${Date.now()}`,
@@ -238,22 +276,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
   useEffect(() => {
     if (location.state?.hizliIstekItem) {
       const item = location.state.hizliIstekItem;
-      const nodes: AiAkisDugumu[] = Array.isArray(item.akisDugumleri) && item.akisDugumleri.length > 0
-        ? JSON.parse(JSON.stringify(item.akisDugumleri))
-        : [
-          {
-            id: 'BASLA',
-            tip: 'BASLA',
-            baslik: t('basla', 'Başla'),
-            prompt: item.prompt || '',
-            aracKodu: '',
-            uiAksiyonu: item.uiAksiyonu || 'YOK',
-            hedefRota: '',
-            sonrakiDugumId: '',
-            hizliErisimDugmesi: true,
-            dugmeBasligi: ''
-          }
-        ];
+      const nodes = normalizeFlowNodes(item.akisDugumleri, item);
 
       setFormState({
         id: item.id || `req_${Date.now()}`,
@@ -299,9 +322,17 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     });
   }, [formState.akisDugumleri, t]);
 
-  const handleAddFlowNode = (nodeType: string = 'BASLA', insertAtIndex?: number) => {
+  const handleAddFlowNode = (nodeType: string = 'FORM_AC', insertAtIndex?: number) => {
     setFormState(prev => {
       const existing = [...(prev.akisDugumleri || [])];
+      const hasBasla = existing.some(n => n.id === 'BASLA' || n.tip === 'BASLA');
+
+      // Eğer akışta zaten Başla düğümü varsa mükerrer Başla ekleme, mevcut Başla düğümünü seç
+      if (nodeType === 'BASLA' && hasBasla) {
+        setSelectedFlowNodeId('BASLA');
+        return prev;
+      }
+
       const nextNum = existing.length + 1;
       const newId = nodeType === 'BASLA'
         ? 'BASLA'
@@ -336,46 +367,33 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       };
 
       if (typeof insertAtIndex === 'number' && insertAtIndex >= 0 && insertAtIndex <= existing.length) {
-        const nextNode = existing[insertAtIndex];
-        if (nextNode) {
-          newNode.sonrakiDugumId = nextNode.id;
-        }
-        if (insertAtIndex > 0) {
-          const prevNode = existing[insertAtIndex - 1];
-          if (prevNode && prevNode.tip !== 'KARAR_ONAY') {
-            existing[insertAtIndex - 1] = { ...prevNode, sonrakiDugumId: newId };
-          }
-        }
-        existing.splice(insertAtIndex, 0, newNode);
+        const safeInsertIdx = nodeType !== 'BASLA' && insertAtIndex === 0 && hasBasla ? 1 : insertAtIndex;
+        existing.splice(safeInsertIdx, 0, newNode);
       } else {
-        if (existing.length > 0) {
-          const lastIdx = existing.length - 1;
-          const lastNode = existing[lastIdx];
-          if (lastNode.tip !== 'KARAR_ONAY' && !lastNode.sonrakiDugumId) {
-            existing[lastIdx] = { ...lastNode, sonrakiDugumId: newId };
-          }
-        }
         existing.push(newNode);
       }
 
+      const normalized = normalizeFlowNodes(existing, prev);
       setSelectedFlowNodeId(newId);
       return {
         ...prev,
-        akisDugumleri: existing
+        akisDugumleri: normalized
       };
     });
   };
 
   const handleDeleteFlowNode = (nodeId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    if (nodeId === 'BASLA' || nodeId === START_NODE_ID) return;
     setFormState(prev => {
       const remaining = (prev.akisDugumleri || []).filter(n => n.id !== nodeId);
+      const normalized = normalizeFlowNodes(remaining, prev);
       if (selectedFlowNodeId === nodeId) {
-        setSelectedFlowNodeId(remaining[0]?.id || START_NODE_ID);
+        setSelectedFlowNodeId(normalized[0]?.id || START_NODE_ID);
       }
       return {
         ...prev,
-        akisDugumleri: remaining
+        akisDugumleri: normalized
       };
     });
   };
@@ -384,14 +402,18 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     if (e) e.stopPropagation();
     setFormState(prev => {
       const list = [...(prev.akisDugumleri || [])];
+      if (index <= 0 && direction === 'up') return prev;
+      if (list[index]?.id === 'BASLA' || list[index]?.tip === 'BASLA') return prev;
       const targetIndex = direction === 'up' ? index - 1 : index + 1;
       if (targetIndex < 0 || targetIndex >= list.length) return prev;
+      if (list[targetIndex]?.id === 'BASLA' || list[targetIndex]?.tip === 'BASLA') return prev;
       const temp = list[index];
       list[index] = list[targetIndex];
       list[targetIndex] = temp;
+      const normalized = normalizeFlowNodes(list, prev);
       return {
         ...prev,
-        akisDugumleri: list
+        akisDugumleri: normalized
       };
     });
   };

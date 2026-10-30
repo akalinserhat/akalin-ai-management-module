@@ -135,7 +135,7 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
             }
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [agentData, effectiveAgentId, effectiveIstekId, effectiveOgeId, incomingNodeFromState, defaultFormTitle]);
 
@@ -252,9 +252,9 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
           agentData: agentData || incomingAgentData,
           hizliIstekItem: currentIstek
             ? {
-                ...currentIstek,
-                akisDugumleri: existingNodes
-              }
+              ...currentIstek,
+              akisDugumleri: existingNodes
+            }
             : undefined
         }
       });
@@ -274,30 +274,50 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
         agentToUpdate = res.data;
       }
 
-      let updatedReq: any = null;
+      const activeIstekSource = istekData || incomingIstekData;
+      let updatedReq: any = activeIstekSource ? { ...activeIstekSource } : null;
+
+      if (updatedReq) {
+        const baseNodes = Array.isArray(updatedReq.akisDugumleri)
+          ? [...updatedReq.akisDugumleri]
+          : [];
+        const nIdx = baseNodes.findIndex((x: any) => x.id === payloadNode.id);
+        if (nIdx !== -1) {
+          baseNodes[nIdx] = { ...baseNodes[nIdx], ...payloadNode };
+        } else {
+          baseNodes.push(payloadNode);
+        }
+        updatedReq.akisDugumleri = baseNodes;
+      }
 
       if (effectiveAgentId && agentToUpdate && effectiveIstekId) {
         const currentRequests = Array.isArray(agentToUpdate.hizliIstekler)
           ? [...agentToUpdate.hizliIstekler]
           : [];
-        const reqIdx = currentRequests.findIndex((x: any) => x.id === effectiveIstekId);
+        const targetReqId = updatedReq?.id || effectiveIstekId;
+        const reqIdx = currentRequests.findIndex(
+          (x: any) => x.id === effectiveIstekId || x.id === targetReqId
+        );
 
         if (reqIdx !== -1) {
-          const currentReq = { ...currentRequests[reqIdx] };
-          const currentNodes = Array.isArray(currentReq.akisDugumleri)
-            ? [...currentReq.akisDugumleri]
-            : [];
-          const nodeIdx = currentNodes.findIndex((x: any) => x.id === payloadNode.id);
+          const currentReq = { ...currentRequests[reqIdx], ...(updatedReq || {}) };
+          const sourceNodes = Array.isArray(updatedReq?.akisDugumleri)
+            ? [...updatedReq.akisDugumleri]
+            : Array.isArray(currentReq.akisDugumleri)
+              ? [...currentReq.akisDugumleri]
+              : [];
+          const nodeIdx = sourceNodes.findIndex((x: any) => x.id === payloadNode.id);
 
           if (nodeIdx !== -1) {
-            currentNodes[nodeIdx] = { ...currentNodes[nodeIdx], ...payloadNode };
+            sourceNodes[nodeIdx] = { ...sourceNodes[nodeIdx], ...payloadNode };
           } else {
-            currentNodes.push(payloadNode);
+            sourceNodes.push(payloadNode);
           }
 
-          currentReq.akisDugumleri = currentNodes;
+          currentReq.akisDugumleri = sourceNodes;
           currentRequests[reqIdx] = currentReq;
           updatedReq = currentReq;
+          agentToUpdate = { ...agentToUpdate, hizliIstekler: currentRequests };
 
           const payload = {
             ...agentToUpdate,
@@ -334,8 +354,8 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
     } catch (err: any) {
       toast.error(
         err.response?.data?.mesaj ||
-          err.message ||
-          t('kayit_sirasi_hata', 'Kayıt sırasında hata oluştu.')
+        err.message ||
+        t('kayit_sirasi_hata', 'Kayıt sırasında hata oluştu.')
       );
     } finally {
       setIsSaving(false);
@@ -609,9 +629,8 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
                         key={entity.id}
                         type="button"
                         onClick={() => handleSelectMcpEntity(entity)}
-                        className={`form-ac-entity-card is-${entity.kategori} ${
-                          isSelected ? 'is-selected' : ''
-                        }`}
+                        className={`form-ac-entity-card is-${entity.kategori} ${isSelected ? 'is-selected' : ''
+                          }`}
                       >
                         <div className="form-ac-entity-card-top">
                           <span className={`form-ac-entity-badge is-${entity.kategori}`}>
@@ -663,9 +682,8 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
             <div className="form-ac-wizard-options-grid">
               {/* Seçenek 1: Kayıt Bekle ve Kaydedilen Bilgileri Al */}
               <div
-                className={`form-ac-wizard-option-box ${
-                  formData.kayitBekle !== false ? 'is-active' : ''
-                }`}
+                className={`form-ac-wizard-option-box ${formData.kayitBekle !== false ? 'is-active' : ''
+                  }`}
               >
                 <div className="form-ac-wizard-option-texts">
                   <div className="form-ac-wizard-option-title">
@@ -703,9 +721,8 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
 
               {/* Seçenek 2: Kayıt Sonrası Bilgileri Sun ve Teyit Et */}
               <div
-                className={`form-ac-wizard-option-box ${
-                  formData.kayitSonrasiTeyitEt !== false ? 'is-active' : ''
-                }`}
+                className={`form-ac-wizard-option-box ${formData.kayitSonrasiTeyitEt !== false ? 'is-active' : ''
+                  }`}
               >
                 <div className="form-ac-wizard-option-texts">
                   <div className="form-ac-wizard-option-title">
