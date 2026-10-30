@@ -20,7 +20,9 @@ import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   GitBranch,
-  Power
+  Power,
+  Play,
+  Monitor
 } from 'lucide-react';
 import {
   BaseCardPage,
@@ -29,7 +31,8 @@ import {
   PageLoader,
   useHeaderApi,
   type BaseTabItem,
-  type FlowchartStepItem
+  type FlowchartStepItem,
+  type FlowchartPaletteItem
 } from '@akalin/ui';
 import type { AiAkisDugumu } from '../types';
 import {
@@ -535,6 +538,25 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     };
   }, [subTrail, setHeaderBreadcrumbOptions]);
 
+  const flowchartPaletteItems = useMemo<FlowchartPaletteItem[]>(() => [
+    {
+      id: 'palette_basla',
+      type: 'BASLA',
+      title: t('basla', 'Başla'),
+      subTitle: t('akisi_baslat', 'Akışı Başlat'),
+      shape: 'terminal',
+      icon: <Play size={13} />
+    },
+    {
+      id: 'palette_form_ac',
+      type: 'FORM_AC',
+      title: t('form_ac', 'Form Aç'),
+      subTitle: t('belge_kart_liste_ac', 'Belge, Kart veya Liste Aç'),
+      shape: 'input',
+      icon: <Monitor size={13} />
+    }
+  ], [t]);
+
   const tabs: BaseTabItem[] = useMemo(() => [
     {
       id: 'flowchart',
@@ -544,6 +566,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         <div className="ai-flowchart-full-page">
           <BaseFlowchart
             fit={true}
+            paletteItems={flowchartPaletteItems}
             steps={flowchartSteps}
             selectedStepId={selectedFlowNodeId}
             onSelectStep={(stepId) => setSelectedFlowNodeId(stepId)}
@@ -556,7 +579,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         </div>
       )
     }
-  ], [flowchartSteps, selectedFlowNodeId, t]);
+  ], [flowchartPaletteItems, flowchartSteps, selectedFlowNodeId, t]);
 
   const extraDropdownActions = useMemo(() => [
     {
