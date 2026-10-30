@@ -223,16 +223,21 @@ export const MCPSelectionList: React.FC<MCPSelectionListProps> = ({
   );
 
   const handleSelect = useCallback(
-    (item: McpStageOneItem) => {
+    (item: McpStageOneItem | McpStageOneItem[]) => {
       if (!item) return;
+      if (Array.isArray(item)) {
+        if (onMultiSelect) {
+          onMultiSelect(item);
+        } else if (onSelect && item[0]) {
+          onSelect(item[0]);
+        }
+        return;
+      }
       if (onSelect) {
         onSelect(item);
       }
-      if (onClose) {
-        onClose();
-      }
     },
-    [onSelect, onClose]
+    [onSelect, onMultiSelect]
   );
 
   if (!isOpen) return null;

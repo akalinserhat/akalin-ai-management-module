@@ -58,7 +58,7 @@ export function AiAjanlar({
   // Düzenleme / Alt Sayfa Durumu
   const [editingAgent, setEditingAgent] = useState<any>(null);
 
-  const isNewRoute = params.id === 'yeni' || location.pathname.endsWith('/yeni');
+  const isNewRoute = params.id === 'yeni' || location.pathname.endsWith('/yeni') || location.pathname.includes('/AiAjanlar/yeni/') || location.pathname.includes('/ai-ajanlar/yeni/');
   const activeAgentId = (params.id && params.id !== 'yeni' && !isNaN(Number(params.id))) ? params.id : null;
   const isEditing = isNewRoute || Boolean(activeAgentId) || Boolean(editingAgent);
 
@@ -305,7 +305,7 @@ export function AiAjanlar({
     return (
       <AiAjanForm
         id={isNewRoute ? undefined : activeAgentId}
-        initialData={editingAgent || location.state?.agentData}
+        initialData={location.state?.agentData || editingAgent}
         onClose={() => {
           setEditingAgent(null);
           navigate(baseRoute);

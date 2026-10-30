@@ -668,12 +668,12 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
             <div className="flex items-center gap-10 py-3">
               <span
                 className={`badge text-xs font-semibold px-8 py-2 rounded-full flex items-center gap-4 ${isBelge
-                    ? 'badge-success'
-                    : isKart
-                      ? 'badge-secondary'
-                      : isListe
-                        ? 'badge-primary'
-                        : 'badge-info'
+                  ? 'badge-success'
+                  : isKart
+                    ? 'badge-secondary'
+                    : isListe
+                      ? 'badge-primary'
+                      : 'badge-info'
                   }`}
               >
                 {isBelge ? (

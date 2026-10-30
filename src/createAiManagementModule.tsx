@@ -154,6 +154,26 @@ export function createAiManagementModule(options: CreateAiManagementModuleOption
         title: 'Ajanı Yapılandır'
       },
       {
+        path: '/ai-ajanlar/yeni/mcp-secim',
+        element: withProvider(AiAjanFormComponent),
+        title: 'MCP Modül Seçimi'
+      },
+      {
+        path: '/ai-ajanlar/:id/mcp-secim',
+        element: withProvider(AiAjanFormComponent),
+        title: 'MCP Modül Seçimi'
+      },
+      {
+        path: '/ayarlar/YapayZekaAyarlari/AiAjanlar/yeni/mcp-secim',
+        element: withProvider(AiAjanFormComponent),
+        title: 'MCP Modül Seçimi'
+      },
+      {
+        path: '/ayarlar/YapayZekaAyarlari/AiAjanlar/:id/mcp-secim',
+        element: withProvider(AiAjanFormComponent),
+        title: 'MCP Modül Seçimi'
+      },
+      {
         path: '/ai-ajanlar/:id/hizli-istek/:istekId',
         element: withProvider(AiAjanHizliIstekFormComponent),
         title: 'Görev Akışı (Flowchart)'

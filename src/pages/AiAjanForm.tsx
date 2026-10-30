@@ -8,7 +8,7 @@
  * - BaseCardPage temel bileşeninden türetilerek tüm diğer kart sayfalarıyla %100 görsel ve mimari tutarlılık sağlamak
  */
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -42,6 +42,8 @@ import {
 } from '@akalin/ai-assistants';
 import type { AiAkisDugumu } from '../types';
 import AiAjanHizliIstekForm from './AiAjanHizliIstekForm';
+import MCPSelectionList, { type McpStageOneItem } from './MCPSelectionList';
+import { buildMcpTreeData } from './AiMcpYonetimi';
 
 // ─── UI Aksiyonu Seçenekleri ──────────────────────────────────────────────────
 export const UI_ACTION_OPTIONS = [
@@ -338,8 +340,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
   const effectiveId = (rawId && !isNaN(Number(rawId))) ? rawId : null;
 
   const [localInitialData, setLocalInitialData] = useState<any>(() => {
-    if (propInitialData) return propInitialData;
     if (location.state?.agentData) return location.state.agentData;
+    if (propInitialData) return propInitialData;
     if (location.state?.deriveFromAgent) {
       const src = location.state.deriveFromAgent;
       return {
@@ -521,9 +523,15 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     yanitSenteziModu: localInitialData?.yanitSenteziModu ?? 0,
     aktifMi: localInitialData?.aktifMi ?? true,
     sistemKaydiMi: localInitialData?.sistemKaydiMi ?? false,
-    seciliAracKodlari: localInitialData?.ajanAraclari?.map((a: any) => a.aracKodu) || internalTools.map(t => t.aracKodu),
+    seciliAracKodlari: Array.isArray(localInitialData?.seciliAracKodlari)
+      ? localInitialData.seciliAracKodlari
+      : (localInitialData?.ajanAraclari?.map((a: any) => a.aracKodu) || []),
     hizliIstekler: initialHizliIstekler
   });
+
+  const formDataRef = useRef<any>(formData);
+  formDataRef.current = formData;
+  const [isMcpSelectionOpen, setIsMcpSelectionOpen] = useState<boolean>(false);
 
   // localInitialData yüklendiğinde formData'yı senkronize et
   useEffect(() => {
@@ -560,7 +568,9 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         yanitSenteziModu: localInitialData.yanitSenteziModu ?? prev.yanitSenteziModu,
         aktifMi: localInitialData.aktifMi ?? prev.aktifMi,
         sistemKaydiMi: localInitialData.sistemKaydiMi ?? prev.sistemKaydiMi,
-        seciliAracKodlari: localInitialData.ajanAraclari ? localInitialData.ajanAraclari.map((a: any) => a.aracKodu) : prev.seciliAracKodlari,
+        seciliAracKodlari: Array.isArray(localInitialData.seciliAracKodlari)
+          ? localInitialData.seciliAracKodlari
+          : (localInitialData.ajanAraclari ? localInitialData.ajanAraclari.map((a: any) => a.aracKodu) : prev.seciliAracKodlari),
         kurallar: loadedRules,
         sistemIstemi: localInitialData.sistemIstemi?.trim()
           ? localInitialData.sistemIstemi
@@ -1539,34 +1549,134 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
   ], [t, formData.hizliIstekler, getHizliIstekRowActions]);
 
   // ─── MCP YETKİLERİ TABLO VERİSİ & KOLONLARI ──────────────────────────────────
+  const mcpTreeData = useMemo(() => buildMcpTreeData(t), [t]);
+
+  const handleOpenMcpSelection = useCallback(() => {
+    setIsMcpSelectionOpen(true);
+    const cleanPath = location.pathname.replace(/\/mcp-secim.*$/, '').replace(/\/$/, '');
+    const basePath = effectiveId
+      ? (isUnderAyarlar ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveId}` : `/ai-ajanlar/${effectiveId}`)
+      : cleanPath;
+
+    navigate(`${basePath}/mcp-secim`, {
+      state: {
+        agentData: formDataRef.current,
+        activeTabId: 'mcp'
+      }
+    });
+  }, [effectiveId, isUnderAyarlar, location.pathname, navigate]);
+
+  const handleCloseMcpSelection = useCallback(() => {
+    setIsMcpSelectionOpen(false);
+    if (location.pathname.includes('/mcp-secim')) {
+      const targetParentRoute = effectiveId
+        ? (isUnderAyarlar ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveId}` : `/ai-ajanlar/${effectiveId}`)
+        : location.pathname.replace(/\/mcp-secim.*$/, '');
+
+      navigate(targetParentRoute, {
+        state: {
+          agentData: formDataRef.current,
+          activeTabId: 'mcp'
+        }
+      });
+    }
+  }, [effectiveId, isUnderAyarlar, location.pathname, navigate]);
+
+  const handleAddMcpItems = useCallback((items: McpStageOneItem | McpStageOneItem[]) => {
+    const list = Array.isArray(items) ? items : [items];
+    const validCodes = list
+      .map((m) => m?.kod || m?.id)
+      .filter((k): k is string => Boolean(k));
+
+    if (validCodes.length === 0) return;
+
+    const currentCodes: string[] = Array.isArray(formDataRef.current.seciliAracKodlari)
+      ? formDataRef.current.seciliAracKodlari
+      : [];
+
+    const existingLower = new Set(currentCodes.map((c) => c.toLowerCase()));
+    const addedCodes = validCodes.filter((c) => !existingLower.has(c.toLowerCase()));
+
+    const nextCodes = [...currentCodes, ...addedCodes];
+    const nextFormData = {
+      ...formDataRef.current,
+      seciliAracKodlari: nextCodes
+    };
+
+    formDataRef.current = nextFormData;
+    setFormData(nextFormData);
+
+    if (addedCodes.length > 0) {
+      toast.success(
+        addedCodes.length === 1
+          ? t('mcp_modul_yetkisi_eklendi', `'${list[0]?.ad || addedCodes[0]}' MCP yetkisi eklendi.`)
+          : `${addedCodes.length} ${t('mcp_araci_yetkilendirildi', 'adet MCP yetkisi eklendi')}`
+      );
+    } else {
+      toast.success(t('mcp_modul_zaten_ekli', 'Seçilen MCP modülü zaten listede mevcut.'));
+    }
+  }, [t]);
+
   const selectedMcpTools = useMemo(() => {
     const codes: string[] = Array.isArray(formData.seciliAracKodlari) ? formData.seciliAracKodlari : [];
     return codes.map((code) => {
-      const found = internalTools.find(
-        (tItem: any) => tItem.aracKodu?.toLowerCase() === code.toLowerCase()
+      const codeLower = (code || '').toLowerCase();
+
+      // 1. Önce MCP Ağacındaki 1. Aşama (Modül) kayıtlarında ara
+      const stageOneNode = mcpTreeData.find(
+        (n) => n.kademe === 1 && (n.kod?.toLowerCase() === codeLower || n.id?.toLowerCase() === codeLower)
       );
-      return found || {
+      if (stageOneNode) {
+        const entityCount = stageOneNode.children ? stageOneNode.children.length : 0;
+        let mcpCount = 0;
+        stageOneNode.children?.forEach((c) => {
+          mcpCount += c.children ? c.children.length : 0;
+        });
+        return {
+          id: stageOneNode.id,
+          aracKodu: stageOneNode.kod,
+          aracAdi: stageOneNode.ad,
+          kategoriAdi: `1. ${t('modul', 'Modül')} (${entityCount} ${t('varlik', 'Varlık')} • ${mcpCount} ${t('mcp_araci', 'MCP Aracı')})`,
+          aciklama: stageOneNode.aciklama || stageOneNode.rota || '-',
+          kapsam: formData.kapsam || 1,
+          rawIcon: stageOneNode.rawModule?.icon
+        };
+      }
+
+      // 2. API Araç Kataloğunda ara
+      const found = internalTools.find(
+        (tItem: any) => tItem.aracKodu?.toLowerCase() === codeLower
+      );
+      if (found) {
+        return found;
+      }
+
+      return {
         id: code,
         aracKodu: code,
         aracAdi: code,
-        kategoriAdi: t('genel', 'Genel'),
-        aciklama: '',
-        kapsam: code.toLowerCase().startsWith('admin_') ? 2 : 1
+        kategoriAdi: t('modul', 'Modül'),
+        aciklama: '-',
+        kapsam: codeLower.startsWith('admin_') ? 2 : (formData.kapsam || 1)
       };
     });
-  }, [formData.seciliAracKodlari, internalTools, t]);
+  }, [formData.seciliAracKodlari, formData.kapsam, mcpTreeData, internalTools, t]);
 
   const mcpToolColumns: Column<any>[] = useMemo(() => [
     {
       id: 'aracAdi',
-      header: t('arac_adi', 'Araç Adı'),
+      header: t('arac_adi', 'Modül / Araç Adı'),
       accessor: 'aracAdi',
       render: (tool: any) => {
         const isToolAdmin = tool.kapsam === 2 || tool.aracKodu?.toLowerCase().startsWith('admin_');
         return (
           <div className="ai-hizli-istek-title-cell">
             <div className="ai-hizli-istek-icon-box">
-              {isToolAdmin ? <Shield size={16} /> : getToolIcon(tool.ikon, tool.kategoriAdi)}
+              {tool.rawIcon && React.isValidElement(tool.rawIcon)
+                ? tool.rawIcon
+                : isToolAdmin
+                  ? <Shield size={16} />
+                  : getToolIcon(tool.ikon, tool.kategoriAdi)}
             </div>
             <div className="flex-col">
               <span className="ai-hizli-istek-title-text">
@@ -2205,7 +2315,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
           />
 
           <EkleFloatCircleButton
-            onClick={() => {}}
+            onClick={handleOpenMcpSelection}
             position="absolute-bottom-right"
             title={t('mcp_yetkisi_ekle', 'MCP Yetkisi Ekle')}
           />
@@ -2319,6 +2429,22 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
 
   if (isOpen === false) {
     return null;
+  }
+
+  // ─── ALT SAYFA: MCP YETKİSİ SEÇİM LİSTESİ (MCPSelectionList) ──────────────────
+  const isMcpSecimRoute = location.pathname.includes('/mcp-secim');
+  if (isMcpSecimRoute || isMcpSelectionOpen) {
+    return (
+      <MCPSelectionList
+        inModal={false}
+        isOpen={true}
+        isMultiSelect={true}
+        onClose={handleCloseMcpSelection}
+        onCancel={handleCloseMcpSelection}
+        onSelect={handleAddMcpItems}
+        onMultiSelect={handleAddMcpItems}
+      />
+    );
   }
 
   // ─── ALT SAYFA: GÖREV AKIŞI (FLOWCHART) & HIZLI İSTEK DÜZENLEME ──────────────
