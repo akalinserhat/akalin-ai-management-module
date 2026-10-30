@@ -1810,44 +1810,6 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
             </div>
           )}
 
-          {/* Ajan Kapsamı (ERP / Admin) */}
-          <div className="ai-ajan-section-card">
-            <div className="ai-ajan-section-header">
-              <label className="ai-ajan-section-title">
-                <ShieldAlert size={15} />
-                <span>{t('ajan_kapsami_baslik', 'Ajan Çalışma Kapsamı & Yetki Alanı')} *</span>
-              </label>
-              <span className={`ai-ajan-scope-badge ${formData.kapsam === 2 ? 'scope-admin' : 'scope-erp'}`}>
-                {formData.kapsam === 2 ? t('kapsam_admin_badge', '🛡️ Admin Paneli') : t('kapsam_erp_badge', '🏢 ERP Kullanıcıları')}
-              </span>
-            </div>
-
-            <div className="ai-ajan-segmented-bar">
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, kapsam: 1 })}
-                className={`ai-ajan-segment-btn ${formData.kapsam === 1 ? 'active-erp' : ''}`}
-              >
-                <span>🏢</span>
-                <span>{t('kapsam_erp_btn', 'ERP & Şirket Kullanıcıları')}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, kapsam: 2 })}
-                className={`ai-ajan-segment-btn ${formData.kapsam === 2 ? 'active-admin' : ''}`}
-              >
-                <span>🛡️</span>
-                <span>{t('kapsam_admin_btn', 'Sistem Yönetimi & Admin')}</span>
-              </button>
-            </div>
-            <span className="ai-ajan-hint-text">
-              {formData.kapsam === 2
-                ? t('kapsam_admin_hint', 'Bu ajan yalnızca Admin paneli süper adminlerine özeldir; ERP kullanıcı ekranlarına kapatılır.')
-                : t('kapsam_erp_hint', 'Bu ajan ERP web uygulamasındaki şirket kullanıcıları ve yetkili personeller tarafından kullanılır.')}
-            </span>
-          </div>
-
           {/* Ajan Adı & Kodu */}
           <div className="ai-ajan-two-col-grid">
             <div>
@@ -2382,6 +2344,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
   }, [agentDisplayName, setHeaderBreadcrumbOptions]);
 
   const extraDropdownActions = useMemo(() => {
+    const isSistemYonetimi = formData.kapsam === 2;
     const actions: any[] = [
       {
         custom: (
@@ -2395,6 +2358,28 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                 <span className="font-medium">{t('durum', 'Durum')}:</span>
                 <span className={formData.aktifMi ? 'text-success font-semibold' : 'text-secondary font-semibold'}>
                   {formData.aktifMi ? t('aktif', 'Aktif') : t('pasif', 'Pasif')}
+                </span>
+              </span>
+            }
+            className="action-menu-switch-item"
+          />
+        )
+      },
+      {
+        custom: (
+          <BaseSwitch
+            id="actionMenuAjanSistemYonetimiSwitch"
+            checked={isSistemYonetimi}
+            onChange={(e: any) => {
+              const checked = e.target.checked;
+              setFormData((prev: any) => ({ ...prev, kapsam: checked ? 2 : 1 }));
+            }}
+            label={
+              <span className="flex items-center gap-8">
+                <Shield size={15} className={isSistemYonetimi ? 'text-primary' : 'text-secondary'} />
+                <span className="font-medium">{t('sistem_yonetimi', 'Sistem Yönetimi')}:</span>
+                <span className={isSistemYonetimi ? 'text-primary font-semibold' : 'text-secondary font-semibold'}>
+                  {isSistemYonetimi ? t('kapsam_admin_badge', '🛡️ Admin') : t('kapsam_erp_badge', '🏢 ERP')}
                 </span>
               </span>
             }
