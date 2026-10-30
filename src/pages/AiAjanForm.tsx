@@ -1955,7 +1955,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     },
     {
       id: 'istem',
-      label: t('sabit_sistem_istemi_ve_sinirlar_sekme', 'Sistem İstemi & Sınırlar'),
+      label: t('sistem_istemi', 'Sistem İstemi'),
       icon: <SlidersHorizontal size={16} />,
       content: (
         <div className="ai-system-prompt-tab">
