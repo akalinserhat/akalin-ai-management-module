@@ -60,6 +60,7 @@ export const UI_ACTION_OPTIONS = [
 export const FLOWCHART_NODE_TYPES = [
   { id: 'BASLA', label: '▶️ Başla', shortLabel: 'Başla' },
   { id: 'FORM_AC', label: '🖥️ Form Aç (Belge / Kart / Liste)', shortLabel: 'Form Aç' },
+  { id: 'AI_ISLEM', label: '🤖 AI İşlemi (Analiz / Sorgu / Belge Oluşturma)', shortLabel: 'AI İşlemi' },
   { id: 'BASLANGIC_GIRDI', label: '🏁 Başlangıç & Girdi Al', shortLabel: 'Başlangıç / Girdi' },
   { id: 'MCP_SORGULA', label: '🔍 MCP Veri Sorgulama (Cari / Ürün)', shortLabel: 'MCP Sorgu' },
   { id: 'KARAR_ONAY', label: '⚖️ Kullanıcı Onayı & Seçim (Evet / Hayır)', shortLabel: 'Karar / Onay (E/H)' },

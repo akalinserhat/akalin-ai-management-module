@@ -108,6 +108,7 @@ export type AiAkisDugumuTipi =
   | 'BASLA'
   | 'BASLANGIC_GIRDI'
   | 'FORM_AC'
+  | 'AI_ISLEM'
   | 'MCP_SORGULA'
   | 'KARAR_ONAY'
   | 'EKRAN_AC'

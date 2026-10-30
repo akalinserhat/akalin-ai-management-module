@@ -22,7 +22,8 @@ import {
   GitBranch,
   Power,
   Play,
-  Monitor
+  Monitor,
+  Cpu
 } from 'lucide-react';
 import {
   BaseCardPage,
@@ -301,6 +302,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       const typeInfo = FLOWCHART_NODE_TYPES.find(nt => nt.id === node.tip);
       const uiOpt = UI_ACTION_OPTIONS.find(o => o.id === node.uiAksiyonu || o.value === node.uiAksiyonu);
       const isFormAc = node.tip === 'FORM_AC' || node.tip === 'EKRAN_AC';
+      const isAiIslem = node.tip === 'AI_ISLEM';
       const resolvedUiActionLabel = node.varlikAdi
         ? `${node.varlikAdi}${node.modulAdi ? ` • ${node.modulAdi}` : ''}`
         : (node.uiAksiyonu && node.uiAksiyonu !== 'YOK' ? (uiOpt ? t(uiOpt.badge) : node.uiAksiyonu) : undefined);
@@ -308,8 +310,12 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       return {
         id: node.id,
         type: node.tip,
-        title: node.baslik,
-        shapeBadgeText: isFormAc ? t('form_ac', 'Form Aç') : (typeInfo ? t(typeInfo.shortLabel) : node.tip),
+        title: isAiIslem ? t('ai_islem', 'AI İşlemi') : node.baslik,
+        shapeBadgeText: isFormAc
+          ? t('form_ac', 'Form Aç')
+          : isAiIslem
+            ? t('ai_islem', 'AI İşlemi')
+            : (typeInfo ? t(typeInfo.shortLabel) : node.tip),
         prompt: node.prompt || node.kullaniciMesaji,
         toolCode: node.aracKodu,
         uiAction: node.uiAksiyonu,
@@ -336,7 +342,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       const nextNum = existing.length + 1;
       const newId = nodeType === 'BASLA'
         ? 'BASLA'
-        : `ADIM_${nextNum}_${Date.now().toString(36).slice(-4).toUpperCase()}`;
+        : `${nodeType}_${nextNum}_${Date.now().toString(36).slice(-4).toUpperCase()}`;
       const newNode: AiAkisDugumu = {
         id: newId,
         tip: nodeType,
@@ -344,13 +350,15 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
           ? t('basla', 'Başla')
           : nodeType === 'FORM_AC'
             ? t('form_ac', 'Form Aç')
-            : nodeType === 'KARAR_ONAY'
-              ? `${t('karar_onay_adimi', 'Kullanıcı Onayı')} (${nextNum}. ${t('adim', 'Adım')})`
-              : nodeType === 'BELGE_OLUSTUR'
-                ? `${t('belge_olusturma_adimi', 'Belge Taslağı Oluştur')} (${nextNum}. ${t('adim', 'Adım')})`
-                : nodeType === 'EKRAN_AC'
-                  ? `${t('ekran_acma_adimi', 'ERP Ekranı Aç')} (${nextNum}. ${t('adim', 'Adım')})`
-                  : `${nextNum}. ${t('islem_adimi', 'İşlem Adımı')}`,
+            : nodeType === 'AI_ISLEM'
+              ? t('ai_islem', 'AI İşlemi')
+              : nodeType === 'KARAR_ONAY'
+                ? `${t('karar_onay_adimi', 'Kullanıcı Onayı')} (${nextNum}. ${t('adim', 'Adım')})`
+                : nodeType === 'BELGE_OLUSTUR'
+                  ? `${t('belge_olusturma_adimi', 'Belge Taslağı Oluştur')} (${nextNum}. ${t('adim', 'Adım')})`
+                  : nodeType === 'EKRAN_AC'
+                    ? `${t('ekran_acma_adimi', 'ERP Ekranı Aç')} (${nextNum}. ${t('adim', 'Adım')})`
+                    : `${nextNum}. ${t('islem_adimi', 'İşlem Adımı')}`,
         prompt: '',
         aracKodu: nodeType === 'FORM_AC' || nodeType === 'EKRAN_AC'
           ? 'erp_navigate'
@@ -359,8 +367,8 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
             : (nodeType === 'BELGE_OLUSTUR' ? 'erp_create_document' : (nodeType === 'MCP_SORGULA' ? 'erp_query_data' : '')),
         uiAksiyonu: nodeType === 'FORM_AC' || nodeType === 'EKRAN_AC' ? 'OZEL_ROTA' : 'YOK',
         hedefRota: '',
-        kayitBekle: nodeType === 'FORM_AC' ? true : undefined,
-        kayitSonrasiTeyitEt: nodeType === 'FORM_AC' ? true : undefined,
+        kayitBekle: nodeType === 'FORM_AC' || nodeType === 'AI_ISLEM' ? true : undefined,
+        kayitSonrasiTeyitEt: nodeType === 'FORM_AC' || nodeType === 'AI_ISLEM' ? true : undefined,
         sonrakiDugumId: '',
         evetDugumId: '',
         hayirDugumId: ''
@@ -463,7 +471,13 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     try {
       setIsSaving(true);
       const cleanedNodes = (formState.akisDugumleri || []).filter(
-        n => n.baslik?.trim() || n.prompt?.trim() || n.tip === 'FORM_AC' || n.tip === 'BASLA' || n.id === 'BASLA'
+        n =>
+          n.baslik?.trim() ||
+          n.prompt?.trim() ||
+          n.tip === 'FORM_AC' ||
+          n.tip === 'AI_ISLEM' ||
+          n.tip === 'BASLA' ||
+          n.id === 'BASLA'
       );
       const baslaNode = cleanedNodes.find(n => n.id === 'BASLA' || n.tip === 'BASLA');
       const firstActionNode =
@@ -591,6 +605,14 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       subTitle: t('belge_kart_liste_ac', 'Belge, Kart veya Liste Aç'),
       shape: 'input',
       icon: <Monitor size={13} />
+    },
+    {
+      id: 'palette_ai_islem',
+      type: 'AI_ISLEM',
+      title: t('ai_islem', 'AI İşlemi'),
+      subTitle: t('ai_analiz_sorgu_belge_islem', 'AI Analiz, Sorgu veya Belge İşlemi'),
+      shape: 'process',
+      icon: <Cpu size={13} />
     }
   ], [t]);
 
