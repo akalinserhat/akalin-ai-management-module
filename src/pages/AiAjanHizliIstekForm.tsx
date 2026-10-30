@@ -487,7 +487,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
   const ajanlarListRoute = isUnderAyarlar
     ? '/ayarlar/YapayZekaAyarlari/AiAjanlar'
     : '/ai-ajanlar';
-  const ajanlarListLabel = t('ai_ajanlar_baslik', 'Ajanlar & MCP');
+  const ajanlarListLabel = t('ai_ajanlar_baslik', 'Ajanlar');
 
   const agentTitle = agentData?.ad || (effectiveAgentId ? `#${effectiveAgentId}` : t('ai_ajani', 'AI Ajanı'));
   const agentRoute = isUnderAyarlar

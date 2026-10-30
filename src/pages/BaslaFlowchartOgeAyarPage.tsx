@@ -237,7 +237,7 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
   const ajanlarListRoute = isUnderAyarlar
     ? '/ayarlar/YapayZekaAyarlari/AiAjanlar'
     : '/ai-ajanlar';
-  const ajanlarListLabel = t('ai_ajanlar_baslik', 'Ajanlar & MCP');
+  const ajanlarListLabel = t('ai_ajanlar_baslik', 'Ajanlar');
 
   const agentTitle = agentData?.ad || incomingAgentData?.ad || (effectiveAgentId ? `#${effectiveAgentId}` : t('ai_ajani', 'AI Ajanı'));
   const istekTitle = istekData?.baslik || incomingIstekData?.baslik || t('gorev_akisi', 'Görev Akışı');
