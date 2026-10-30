@@ -1099,7 +1099,10 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
   }, [internalProviders]);
 
   const selectedProvider = localProviders.find(p => p.id === parseInt(formData.aiSaglayiciId, 10));
-  const selectedCount = formData.seciliAracKodlari.length;
+  const selectedCount = useMemo(() => {
+    const codes: string[] = Array.isArray(formData.seciliAracKodlari) ? formData.seciliAracKodlari : [];
+    return codes.filter(c => typeof c === 'string' && !c.startsWith('!')).length;
+  }, [formData.seciliAracKodlari]);
 
   useEffect(() => {
     const prov = selectedProvider;
@@ -1640,9 +1643,121 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     }
   }, [t]);
 
+  const handleToggleMcpNodeActive = useCallback((targetNode: McpTreeNode, explicitNextVal?: boolean) => {
+    const currentCodes: string[] = Array.isArray(formDataRef.current.seciliAracKodlari)
+      ? formDataRef.current.seciliAracKodlari
+      : [];
+
+    const disabledSet = new Set(
+      currentCodes
+        .filter((c) => typeof c === 'string' && c.startsWith('!'))
+        .map((c) => c.slice(1).toLowerCase())
+    );
+
+    const targetIdLower = (targetNode.id || '').toLowerCase();
+    const oldVal = !disabledSet.has(targetIdLower);
+    const newVal = typeof explicitNextVal === 'boolean' ? explicitNextVal : !oldVal;
+
+    if (oldVal === newVal) return;
+
+    // Üst aşamada "Aktif" değerinde değişiklik yapıldığında, alt seçeneklerde aynı değere sahip kayıtları yeni değere eşitle
+    const applyCascade = (n: McpTreeNode) => {
+      const nIdLower = (n.id || '').toLowerCase();
+      const nCurrentVal = !disabledSet.has(nIdLower);
+
+      if (n.id === targetNode.id || nCurrentVal === oldVal) {
+        if (newVal) {
+          disabledSet.delete(nIdLower);
+        } else {
+          disabledSet.add(nIdLower);
+        }
+      }
+
+      if (n.children && n.children.length > 0) {
+        n.children.forEach(applyCascade);
+      }
+    };
+
+    applyCascade(targetNode);
+
+    const positiveCodes = currentCodes.filter((c) => typeof c === 'string' && !c.startsWith('!'));
+    const nextDisabledCodes = Array.from(disabledSet).map((id) => `!${id}`);
+    const nextCodes = [...positiveCodes, ...nextDisabledCodes];
+
+    const nextFormData = {
+      ...formDataRef.current,
+      seciliAracKodlari: nextCodes
+    };
+
+    formDataRef.current = nextFormData;
+    setFormData(nextFormData);
+  }, []);
+
+  const handleRemoveMcpModule = useCallback((targetNode: McpTreeNode) => {
+    const currentCodes: string[] = Array.isArray(formDataRef.current.seciliAracKodlari)
+      ? formDataRef.current.seciliAracKodlari
+      : [];
+
+    const subtreeIds = new Set<string>();
+    const removablePositiveCodes = new Set<string>();
+
+    const collectSubtree = (n: McpTreeNode) => {
+      if (n.id) {
+        subtreeIds.add(n.id.toLowerCase());
+        removablePositiveCodes.add(n.id.toLowerCase());
+      }
+      if (n.kod && n.kategori !== 'mcp' && n.kategori !== 'klasor') {
+        removablePositiveCodes.add(n.kod.toLowerCase());
+      }
+      if (n.children && n.children.length > 0) {
+        n.children.forEach(collectSubtree);
+      }
+    };
+
+    collectSubtree(targetNode);
+    if (targetNode.kod) {
+      removablePositiveCodes.add(targetNode.kod.toLowerCase());
+    }
+
+    const nextCodes = currentCodes.filter((c) => {
+      if (typeof c !== 'string') return false;
+      if (c.startsWith('!')) {
+        const disabledId = c.slice(1).toLowerCase();
+        return !subtreeIds.has(disabledId);
+      }
+      return !removablePositiveCodes.has(c.toLowerCase());
+    });
+
+    const nextFormData = {
+      ...formDataRef.current,
+      seciliAracKodlari: nextCodes
+    };
+
+    formDataRef.current = nextFormData;
+    setFormData(nextFormData);
+    toast.success(
+      t('mcp_modul_yetkisi_kaldirildi', `'${targetNode.ad || targetNode.kod}' MCP yetkisi kaldırıldı.`)
+    );
+  }, [t]);
+
   const selectedMcpTools = useMemo(() => {
-    const codes: string[] = Array.isArray(formData.seciliAracKodlari) ? formData.seciliAracKodlari : [];
-    const lowerCodes = new Set(codes.map(c => (c || '').toLowerCase()));
+    const rawCodes: string[] = Array.isArray(formData.seciliAracKodlari) ? formData.seciliAracKodlari : [];
+    const positiveCodes = rawCodes.filter(c => typeof c === 'string' && !c.startsWith('!'));
+    const lowerCodes = new Set(positiveCodes.map(c => (c || '').toLowerCase()));
+    const disabledSet = new Set(
+      rawCodes
+        .filter(c => typeof c === 'string' && c.startsWith('!'))
+        .map(c => c.slice(1).toLowerCase())
+    );
+
+    const decorateWithActiveState = (node: McpTreeNode): McpTreeNode => {
+      const nodeIdLower = (node.id || '').toLowerCase();
+      return {
+        ...node,
+        aktifMi: !disabledSet.has(nodeIdLower),
+        children: node.children ? node.children.map(decorateWithActiveState) : undefined
+      };
+    };
 
     const isNodeSelected = (node: McpTreeNode): boolean => {
       const k = (node.kod || '').toLowerCase();
@@ -1657,7 +1772,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       // Durum A: Doğrudan 1. Kademe (Modül) yetkilendirilmiş mi?
       if (isNodeSelected(moduleNode)) {
         // Tüm modül seçilmiş: 4 kademeli alt hiyerarşisi ile birlikte ekle
-        result.push(moduleNode);
+        result.push(decorateWithActiveState(moduleNode));
         return;
       }
 
@@ -1703,10 +1818,12 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       });
 
       if (matchingLists.length > 0) {
-        result.push({
-          ...moduleNode,
-          children: matchingLists
-        });
+        result.push(
+          decorateWithActiveState({
+            ...moduleNode,
+            children: matchingLists
+          })
+        );
       }
     });
 
@@ -1718,7 +1835,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       return Boolean(node.children?.some(c => nodeOrChildrenHasCode(c, codeLower)));
     };
 
-    codes.forEach(code => {
+    positiveCodes.forEach(code => {
       const codeLower = (code || '').toLowerCase();
       const existsInTree = result.some(m => nodeOrChildrenHasCode(m, codeLower));
 
@@ -1726,10 +1843,11 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         const found = internalTools.find((tItem: any) => tItem.aracKodu?.toLowerCase() === codeLower);
         result.push({
           id: code,
-          kademe: 4,
+          kademe: 1,
           kod: code,
           ad: found?.aracAdi || code,
           kategori: 'mcp',
+          aktifMi: !disabledSet.has(codeLower),
           aciklama: found?.aciklama || '-',
           isSistem: true
         });
@@ -1975,29 +2093,75 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       )
     },
     {
+      id: 'aktifMi',
+      header: t('durum', 'Durum'),
+      accessor: 'aktifMi',
+      width: '110px',
+      render: (node: McpTreeNode) => {
+        const isActive = node.aktifMi !== false;
+        return (
+          <span
+            className={`badge text-xs font-semibold px-8 py-2 rounded-full inline-flex items-center gap-4 ${
+              isActive ? 'badge-success' : 'badge-neutral'
+            }`}
+          >
+            <Power size={11} />
+            {isActive ? t('aktif', 'Aktif') : t('pasif', 'Pasif')}
+          </span>
+        );
+      }
+    },
+    {
       id: 'actions',
       header: t('islemler', 'İşlemler'),
       align: 'right',
       width: 60,
       render: (node: McpTreeNode) => {
-        if (node.kategori === 'klasor') return null;
+        const isActive = node.aktifMi !== false;
+        const menuActions: ActionMenuItem[] = [
+          {
+            custom: (
+              <BaseSwitch
+                id={`mcpNodeAktifSwitch_${node.id}`}
+                checked={isActive}
+                onChange={(e: any) => {
+                  const nextVal = typeof e === 'boolean' ? e : Boolean(e?.target?.checked);
+                  handleToggleMcpNodeActive(node, nextVal);
+                }}
+                label={
+                  <span className="flex items-center gap-8">
+                    <Power size={15} className={isActive ? 'text-success' : 'text-secondary'} />
+                    <span className={isActive ? 'text-success font-semibold' : 'text-secondary font-medium'}>
+                      {t('aktif', 'Aktif')}
+                    </span>
+                  </span>
+                }
+                className="action-menu-switch-item"
+              />
+            )
+          }
+        ];
+
+        // 1. aşamada (Modül seviyesi) "Aktif" yanında "Sil" seçeneği de bulunur
+        if (node.kademe === 1) {
+          menuActions.push({
+            label: t('sil', 'Sil'),
+            icon: <Trash2 size={14} />,
+            danger: true,
+            variant: 'danger',
+            dividerAbove: true,
+            onClick: () => handleRemoveMcpModule(node)
+          });
+        }
+
         return (
           <div onClick={e => e.stopPropagation()}>
-            <ActionMenu
-              actions={[
-                {
-                  label: t('kaldir', 'Kaldır'),
-                  icon: <Trash2 size={14} />,
-                  variant: 'danger',
-                  onClick: () => handleToggleTool(node.kod || node.id)
-                }
-              ]}
-            />
+            <ActionMenu actions={menuActions} />
           </div>
         );
       }
     }
-  ], [t]);
+  ], [t, handleToggleMcpNodeActive, handleRemoveMcpModule]);
 
   // ─── SEKME TANIMLARI ──────────────────────────────────────────────────────────
   const tabs = [

@@ -50,6 +50,7 @@ export interface McpTreeNode {
   ad: string;
   kod: string;
   kategori: 'modul' | 'liste' | 'kart' | 'belge' | 'klasor' | 'mcp';
+  aktifMi?: boolean;
   aciklama?: string;
   rota?: string;
   isleyici?: string;
@@ -119,7 +120,7 @@ function buildEntityMcpFunctions(
 
   if (entCat === 'belge') {
     mcpFunctions.push({
-      id: `mcp_${entKod}_create_document`,
+      id: `mcp_${modKod}_${entKod}_create_document`,
       kademe,
       ad: `${t('mcp_func_create_doc_title', 'Yeni Belge ve Taslak Hazırlama (BELGE_DOLDUR)')}${suffixText}`,
       kod: 'erp_create_document',
@@ -159,7 +160,7 @@ function buildEntityMcpFunctions(
     });
 
     mcpFunctions.push({
-      id: `mcp_${entKod}_schema`,
+      id: `mcp_${modKod}_${entKod}_schema`,
       kademe,
       ad: `${t('mcp_func_schema_title', 'Belge Şeması & Alan Doğrulama Kuralları')}${suffixText}`,
       kod: 'erp_get_document_schema',
@@ -185,7 +186,7 @@ function buildEntityMcpFunctions(
     });
 
     mcpFunctions.push({
-      id: `mcp_${entKod}_navigate`,
+      id: `mcp_${modKod}_${entKod}_navigate`,
       kademe,
       ad: `${t('mcp_func_navigate_title', 'Belge Ekranına Yönlendirme & Sayfa Açma')}${suffixText}`,
       kod: 'erp_navigate',
@@ -212,7 +213,7 @@ function buildEntityMcpFunctions(
     });
 
     mcpFunctions.push({
-      id: `mcp_${entKod}_context`,
+      id: `mcp_${modKod}_${entKod}_context`,
       kademe,
       ad: `${t('mcp_func_context_title', 'Aktif Form & Belge Bağlamı Okuma')}${suffixText}`,
       kod: 'erp_get_page_context',
@@ -232,7 +233,7 @@ function buildEntityMcpFunctions(
     });
   } else if (entCat === 'kart') {
     mcpFunctions.push({
-      id: `mcp_${entKod}_create_card`,
+      id: `mcp_${modKod}_${entKod}_create_card`,
       kademe,
       ad: `${t('mcp_func_create_card_title', 'Yeni Kart Açma & Alan Doldurma')}${suffixText}`,
       kod: 'erp_create_document',
@@ -260,7 +261,7 @@ function buildEntityMcpFunctions(
     });
 
     mcpFunctions.push({
-      id: `mcp_${entKod}_schema`,
+      id: `mcp_${modKod}_${entKod}_schema`,
       kademe,
       ad: `${t('mcp_func_card_schema_title', 'Kart Şeması & Validasyon Kuralları')}${suffixText}`,
       kod: 'erp_get_document_schema',
@@ -286,7 +287,7 @@ function buildEntityMcpFunctions(
     });
 
     mcpFunctions.push({
-      id: `mcp_${entKod}_navigate`,
+      id: `mcp_${modKod}_${entKod}_navigate`,
       kademe,
       ad: `${t('mcp_func_card_nav_title', 'Kart Formuna Navigasyon')}${suffixText}`,
       kod: 'erp_navigate',
@@ -307,7 +308,7 @@ function buildEntityMcpFunctions(
     });
   } else {
     mcpFunctions.push({
-      id: `mcp_${entKod}_query`,
+      id: `mcp_${modKod}_${entKod}_query`,
       kademe,
       ad: `${t('mcp_func_query_title', 'Canlı Veritabanı & Tablo Kayıt Sorgulama')}${suffixText}`,
       kod: 'erp_query_data',
@@ -335,7 +336,7 @@ function buildEntityMcpFunctions(
     });
 
     mcpFunctions.push({
-      id: `mcp_${entKod}_navigate`,
+      id: `mcp_${modKod}_${entKod}_navigate`,
       kademe,
       ad: `${t('mcp_func_list_nav_title', 'Liste Sayfasına Navigasyon')}${suffixText}`,
       kod: 'erp_navigate',
@@ -356,7 +357,7 @@ function buildEntityMcpFunctions(
     });
 
     mcpFunctions.push({
-      id: `mcp_${entKod}_context`,
+      id: `mcp_${modKod}_${entKod}_context`,
       kademe,
       ad: `${t('mcp_func_list_ctx_title', 'Tablo Filtre & Seçili Satır Bağlamı')}${suffixText}`,
       kod: 'erp_get_page_context',
@@ -379,7 +380,7 @@ function buildEntityMcpFunctions(
   if (ent.customActions && ent.customActions.length > 0) {
     ent.customActions.forEach((ca: any) => {
       mcpFunctions.push({
-        id: `mcp_${entKod}_custom_${ca.action}`,
+        id: `mcp_${modKod}_${entKod}_custom_${ca.action}`,
         kademe,
         ad: `${ca.labelKey ? t(ca.labelKey, ca.action) : ca.action} (${t('ozel_aksiyon', 'Özel Aksiyon')})${suffixText}`,
         kod: `action_${ca.action.replace(/-/g, '_')}`,
@@ -982,9 +983,8 @@ export const AiMcpYonetimi: React.FC<AiMcpYonetimiProps> = ({
           return (
             <div className="flex items-center gap-10 py-3">
               <span
-                className={`badge text-xs font-semibold px-8 py-2 rounded-full flex items-center gap-4 ${
-                  isBelge ? 'badge-success' : 'badge-secondary'
-                }`}
+                className={`badge text-xs font-semibold px-8 py-2 rounded-full flex items-center gap-4 ${isBelge ? 'badge-success' : 'badge-secondary'
+                  }`}
               >
                 {isBelge ? (
                   <>
