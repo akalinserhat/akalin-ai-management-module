@@ -1538,6 +1538,103 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     }
   ], [t, formData.hizliIstekler, getHizliIstekRowActions]);
 
+  // ─── MCP YETKİLERİ TABLO VERİSİ & KOLONLARI ──────────────────────────────────
+  const selectedMcpTools = useMemo(() => {
+    const codes: string[] = Array.isArray(formData.seciliAracKodlari) ? formData.seciliAracKodlari : [];
+    return codes.map((code) => {
+      const found = internalTools.find(
+        (tItem: any) => tItem.aracKodu?.toLowerCase() === code.toLowerCase()
+      );
+      return found || {
+        id: code,
+        aracKodu: code,
+        aracAdi: code,
+        kategoriAdi: t('genel', 'Genel'),
+        aciklama: '',
+        kapsam: code.toLowerCase().startsWith('admin_') ? 2 : 1
+      };
+    });
+  }, [formData.seciliAracKodlari, internalTools, t]);
+
+  const mcpToolColumns: Column<any>[] = useMemo(() => [
+    {
+      id: 'aracAdi',
+      header: t('arac_adi', 'Araç Adı'),
+      accessor: 'aracAdi',
+      render: (tool: any) => {
+        const isToolAdmin = tool.kapsam === 2 || tool.aracKodu?.toLowerCase().startsWith('admin_');
+        return (
+          <div className="ai-hizli-istek-title-cell">
+            <div className="ai-hizli-istek-icon-box">
+              {isToolAdmin ? <Shield size={16} /> : getToolIcon(tool.ikon, tool.kategoriAdi)}
+            </div>
+            <div className="flex-col">
+              <span className="ai-hizli-istek-title-text">
+                {tool.aracAdi || tool.aracKodu}
+              </span>
+              <code className="ai-flowchart-tool-tag">
+                {tool.aracKodu}
+              </code>
+            </div>
+          </div>
+        );
+      }
+    },
+    {
+      id: 'kategoriAdi',
+      header: t('kategori', 'Kategori'),
+      accessor: 'kategoriAdi',
+      render: (tool: any) => (
+        <span className="ai-flowchart-step-num">
+          {tool.kategoriAdi || t('genel', 'Genel')}
+        </span>
+      )
+    },
+    {
+      id: 'kapsam',
+      header: t('kapsam', 'Kapsam'),
+      accessor: 'kapsam',
+      render: (tool: any) => {
+        const isToolAdmin = tool.kapsam === 2 || tool.aracKodu?.toLowerCase().startsWith('admin_');
+        return (
+          <span className={`ai-ajan-scope-badge ${isToolAdmin ? 'scope-admin' : 'scope-erp'}`}>
+            {isToolAdmin ? `🛡️ ${t('admin', 'Admin')}` : `🏢 ${t('erp', 'ERP')}`}
+          </span>
+        );
+      }
+    },
+    {
+      id: 'aciklama',
+      header: t('aciklama', 'Açıklama'),
+      accessor: 'aciklama',
+      render: (tool: any) => (
+        <span className="ai-hizli-istek-prompt-preview" title={tool.aciklama || ''}>
+          {tool.aciklama || '-'}
+        </span>
+      )
+    },
+    {
+      id: 'actions',
+      header: t('islemler', 'İşlemler'),
+      align: 'right',
+      width: 60,
+      render: (tool: any) => (
+        <div onClick={e => e.stopPropagation()}>
+          <ActionMenu
+            actions={[
+              {
+                label: t('kaldir', 'Kaldır'),
+                icon: <Trash2 size={14} />,
+                variant: 'danger',
+                onClick: () => handleToggleTool(tool.aracKodu)
+              }
+            ]}
+          />
+        </div>
+      )
+    }
+  ], [t]);
+
   // ─── SEKME TANIMLARI ──────────────────────────────────────────────────────────
   const tabs = [
     {
@@ -2098,192 +2195,20 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       label: `${t('mcp_yetkileri_sekme', 'MCP Yetkileri')} (${selectedCount})`,
       icon: <Code2 size={16} />,
       content: (
-        <div className="ai-mcp-tab-container">
-          {formData.kapsam === 2 ? (
-            <div className="ai-mcp-scope-alert admin">
-              <Shield size={16} />
-              <span>
-                <strong>{t('admin_ajani_yetki_alani', 'Admin Ajanı Yetki Alanı:')}</strong>{' '}
-                {t('admin_ajani_yetki_aciklama', 'Bu ajan Sistem Yönetimi (Admin) kapsamındadır. Sistem metrikleri, admin navigasyonu ve depolama denetimi gibi Admin MCP araçlarını çalıştırabilir.')}
-              </span>
-            </div>
-          ) : (
-            <div className="ai-mcp-scope-alert erp">
-              <Bot size={16} />
-              <span>
-                <strong>{t('erp_ajani_yetki_alani', 'ERP Ajanı Yetki Alanı:')}</strong>{' '}
-                {t('erp_ajani_yetki_aciklama', 'Ajan, standart taleplerde bu MCP araçlarının açıklamalarını okuyarak kendi zekasıyla işlem yapar; tanımlı görevlerde ise Flowchart adımlarında belirtilen araçları çağırır.')}
-              </span>
-            </div>
-          )}
+        <div className="table-responsive rounded border border-glass">
+          <DataTable
+            data={selectedMcpTools}
+            columns={mcpToolColumns}
+            keyExtractor={(item) => String(item.aracKodu || item.id || '')}
+            showRowIndex={true}
+            emptyMessage={t('mcp_yetkisi_bulunamadi', 'Henüz tanımlanmış MCP yetkisi bulunmuyor.')}
+          />
 
-          <div className="ai-mcp-filter-bar">
-            <div className="ai-mcp-scope-buttons">
-              <button
-                type="button"
-                onClick={() => setToolScopeFilter('ALL')}
-                className={`ai-mcp-scope-filter-btn ${toolScopeFilter === 'ALL' ? 'active-all' : ''}`}
-              >
-                <span>{t('tumu', 'Tümü')} ({internalTools.length})</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setToolScopeFilter('ERP')}
-                className={`ai-mcp-scope-filter-btn ${toolScopeFilter === 'ERP' ? 'active-erp' : ''}`}
-              >
-                <span>🏢 {t('erp_araclari', 'ERP Araçları')} ({erpToolsCount})</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setToolScopeFilter('ADMIN')}
-                className={`ai-mcp-scope-filter-btn ${toolScopeFilter === 'ADMIN' ? 'active-admin' : ''}`}
-              >
-                <Shield size={13} />
-                <span>{t('admin_araclari', 'Admin Araçları')} ({adminToolsCount})</span>
-              </button>
-            </div>
-
-            <div className="ai-mcp-search-group">
-              <div className="ai-mcp-search-box">
-                <Search size={14} className="ai-mcp-search-icon" />
-                <input
-                  type="text"
-                  value={toolSearch}
-                  onChange={e => setToolSearch(e.target.value)}
-                  placeholder={t('arac_ara_placeholder', 'Araç ara...')}
-                  className="ai-mcp-search-input"
-                />
-              </div>
-
-              <select
-                value={selectedCategory}
-                onChange={e => setSelectedCategory(e.target.value)}
-                className="ai-mcp-category-select"
-              >
-                {categories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-
-              <div className="flex-row gap-6">
-                <button
-                  type="button"
-                  onClick={handleSelectAllTools}
-                  className="btn btn-secondary btn-sm"
-                >
-                  {t('listelenenleri_sec', 'Listelenenleri Seç')}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClearAllTools}
-                  className="btn btn-secondary btn-sm"
-                >
-                  {t('temizle', 'Temizle')}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="ai-mcp-tools-grid">
-            {filteredTools.length === 0 ? (
-              <div className="ai-flowchart-empty-state">
-                {t('mcp_araci_bulunamadi', 'Seçili filtreye uygun MCP aracı bulunamadı.')}
-              </div>
-            ) : (
-              filteredTools.map(tool => {
-                const isSelected = formData.seciliAracKodlari.some((k: string) => k.toLowerCase() === tool.aracKodu.toLowerCase());
-                const isExpanded = expandedSchemaTool === tool.aracKodu;
-                const isToolAdmin = tool.kapsam === 2 || tool.aracKodu?.toLowerCase().startsWith('admin_');
-
-                return (
-                  <div
-                    key={tool.id || tool.aracKodu}
-                    onClick={() => handleToggleTool(tool.aracKodu)}
-                    className={`ai-mcp-tool-card ${isSelected ? (isToolAdmin ? 'selected-admin' : 'selected-erp') : ''}`}
-                  >
-                    <div className="ai-ajan-section-header">
-                      <div className="flex-row items-center gap-10">
-                        <div className={`ai-mcp-tool-icon-box ${isSelected ? (isToolAdmin ? 'selected-admin' : 'selected-erp') : (isToolAdmin ? 'admin' : '')}`}>
-                          {isToolAdmin ? <Shield size={16} /> : getToolIcon(tool.ikon, tool.kategoriAdi)}
-                        </div>
-                        <div>
-                          <div className="flex-row items-center gap-6">
-                            <span className="ai-flowchart-node-title">
-                              {tool.aracAdi || tool.aracKodu}
-                            </span>
-                            <span className={`ai-ajan-scope-badge ${isToolAdmin ? 'scope-admin' : 'scope-erp'}`}>
-                              {isToolAdmin ? '🛡️ Admin' : '🏢 ERP'}
-                            </span>
-                          </div>
-                          <code className="ai-flowchart-tool-tag">
-                            {tool.aracKodu}
-                          </code>
-                        </div>
-                      </div>
-
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => { }}
-                        className="ai-synthesis-radio"
-                      />
-                    </div>
-
-                    {tool.aciklama && (
-                      <div className="ai-ajan-hint-text">
-                        {tool.aciklama}
-                      </div>
-                    )}
-
-                    <div className="ai-ajan-section-header">
-                      <span className="ai-flowchart-step-num">
-                        {tool.kategoriAdi || t('genel', 'Genel')}
-                      </span>
-
-                      {tool.parametreSemasi && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setExpandedSchemaTool(isExpanded ? null : tool.aracKodu);
-                          }}
-                          className="ai-guardrail-chip-btn"
-                        >
-                          <Terminal size={12} />
-                          <span>{isExpanded ? t('semayi_gizle', 'Şemayı Gizle') : t('json_semasi', 'JSON Şeması')}</span>
-                        </button>
-                      )}
-                    </div>
-
-                    {isExpanded && tool.parametreSemasi && (
-                      <div
-                        onClick={e => e.stopPropagation()}
-                        className="ai-mcp-schema-box"
-                      >
-                        <div className="ai-ajan-section-header">
-                          <span className="font-bold text-secondary">{t('parametre_json_semasi', 'Parametre JSON Şeması:')}</span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigator.clipboard.writeText(tool.parametreSemasi);
-                              toast.success(t('json_schema_kopyalandi', 'JSON Schema kopyalandı'));
-                            }}
-                            className="ai-flowchart-icon-btn"
-                          >
-                            {t('kopyala', 'Kopyala')}
-                          </button>
-                        </div>
-                        <pre className="ai-mcp-schema-pre">
-                          {JSON.stringify(JSON.parse(tool.parametreSemasi), null, 2)}
-                        </pre>
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
+          <EkleFloatCircleButton
+            onClick={() => {}}
+            position="absolute-bottom-right"
+            title={t('mcp_yetkisi_ekle', 'MCP Yetkisi Ekle')}
+          />
         </div>
       )
     }
