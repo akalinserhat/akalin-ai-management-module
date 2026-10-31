@@ -93,6 +93,14 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
       kullaniciMesaji: baseNode.kullaniciMesaji || '',
       dugmeBasligi: baseNode.dugmeBasligi || '',
       hariciSayfaAyarlari: baseNode.hariciSayfaAyarlari || {},
+      oncekiDugumGirdisi: baseNode.oncekiDugumGirdisi || {
+        aktifMi: true,
+        kaynakDugumId: 'OTOMATIK_ONCEKI',
+        belgeleriAktar: true,
+        formVerileriniAktar: true,
+        aiCiktisiniAktar: true,
+        seciliDegiskenler: []
+      },
       kayitBekle: baseNode.kayitBekle !== false,
       kayitSonrasiTeyitEt: baseNode.kayitSonrasiTeyitEt !== false
     };
@@ -129,6 +137,14 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
                       kullaniciMesaji: foundNode.kullaniciMesaji || '',
                       dugmeBasligi: foundNode.dugmeBasligi || '',
                       hariciSayfaAyarlari: foundNode.hariciSayfaAyarlari || {},
+                      oncekiDugumGirdisi: foundNode.oncekiDugumGirdisi || {
+                        aktifMi: true,
+                        kaynakDugumId: 'OTOMATIK_ONCEKI',
+                        belgeleriAktar: true,
+                        formVerileriniAktar: true,
+                        aiCiktisiniAktar: true,
+                        seciliDegiskenler: []
+                      },
                       kayitBekle: foundNode.kayitBekle !== false,
                       kayitSonrasiTeyitEt: foundNode.kayitSonrasiTeyitEt !== false
                     });
@@ -424,6 +440,12 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
   return (
     <BaseAiAjanFlowchartOgeAyarPage
       id="formAcFlowchartOgeAyarPage"
+      agentId={effectiveAgentId}
+      istekId={effectiveIstekId}
+      nodeId={formData.id}
+      nodeType="FORM_AC"
+      agentData={agentData || incomingAgentData}
+      istekData={istekData || incomingIstekData}
       title={t('form_ac_oge_ayarlari', 'Form Aç Düğümü Ayarları')}
       pageTitle={t('form_ac_oge_ayarlari', 'Form Aç Düğümü Ayarları')}
       recordTitle={nodeTitle}

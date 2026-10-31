@@ -116,6 +116,21 @@ export type AiAkisDugumuTipi =
   | 'SONUC'
   | string;
 
+export interface AiOncekiDugumGirdiAyarlari {
+  /** Önceki düğümden bilgi ve belge aktarımı aktif mi? (Varsayılan: true) */
+  aktifMi?: boolean;
+  /** Hangi önceki düğümden veri alınacağı ('OTOMATIK_ONCEKI' | 'TUM_ONCEKILER' | düğüm ID'si) */
+  kaynakDugumId?: 'OTOMATIK_ONCEKI' | 'TUM_ONCEKILER' | string;
+  /** Önceki düğümde yüklenen/içeri aktarılan belge ve dosya eklerini aktar (Varsayılan: true) */
+  belgeleriAktar?: boolean;
+  /** Önceki düğümde açılan form/kart üzerinde kaydedilen yapısal verileri (JSON) aktar (Varsayılan: true) */
+  formVerileriniAktar?: boolean;
+  /** Önceki düğümün AI analiz çıktısını ve kullanıcı mesaj bağlamını aktar (Varsayılan: true) */
+  aiCiktisiniAktar?: boolean;
+  /** Seçilen / kullanılan n8n tarzı dinamik değişken ifadeleri */
+  seciliDegiskenler?: string[];
+}
+
 export interface AiAkisDugumu {
   id: string;
   tip: AiAkisDugumuTipi;
@@ -140,6 +155,8 @@ export interface AiAkisDugumu {
   kullaniciMesaji?: string;
   /** Seçilen sayfanın [sayfaİsmi]SettingsForExternal.tsx bileşeninden gelen harici düğüm ayarları */
   hariciSayfaAyarlari?: Record<string, any>;
+  /** Kendisinden önce gelen düğümden bilgi, form verisi ve belge alma yapılandırması (n8n Input Binding) */
+  oncekiDugumGirdisi?: AiOncekiDugumGirdiAyarlari;
 }
 
 export interface AiHizliIstek {

@@ -3,7 +3,7 @@
  *
  * Başlıca Sorumlulukları:
  * - BaseAiAjanFlowchartOgeAyarPage temel sınıfından türeyerek "AI İşlemi" (AI_ISLEM - Dikdörtgen Süreç Kutusu) düğümünün ayarlarını yönetmek
- * - Önceki adımdan (örn. Form Aç / Dosya İçeri Aktar) gelen ek dosyalar ve veriler üzerinde çalışacak hedef MCP varlığını (Belge, Kart veya Liste) seçtirmek
+ * - BaseAiAjanFlowchartOgeAyarPage üzerindeki n8n tarzı "Önceki Düğümden Gelen Bilgi ve Belgeler" girdi bağlamı ile önceki adımlardan gelen belge ve verileri işlemek
  * - Bu adımda LLM'e gönderilecek işlem yönergesini (Prompt) ve işlem sonrası davranış seçeneklerini yapılandırmak
  * - Sabit Düğüm Başlığı ("AI İşlemi"), Zero Bottom Button, Zero Inline CSS ve %100 i18n kurallarına uygun çalışmak
  */
@@ -23,19 +23,12 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
   BaseSwitch,
-  NotInput,
-  McpVarlikSeciciInput
+  NotInput
 } from '@akalin/ui';
 import {
   BaseAiAjanFlowchartOgeAyarPage,
   type BaseAiAjanFlowchartOgeAyarPageProps
 } from './BaseAiAjanFlowchartOgeAyarPage';
-import {
-  getAgentActiveMcpEntities,
-  getAllMcpEntities,
-  type AgentActiveMcpEntity
-} from './AiMcpYonetimi';
-import { MCPSelectionList } from './MCPSelectionList';
 
 export interface AiIslemFlowchartOgeAyarPageProps extends Partial<BaseAiAjanFlowchartOgeAyarPageProps> {
   onSuccess?: () => void;
@@ -78,13 +71,14 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
       aracKodu: baseNode.aracKodu || '',
       uiAksiyonu: 'YOK',
       hedefRota: baseNode.hedefRota || '',
-      mcpVarlikId: baseNode.mcpVarlikId || '',
-      modulKodu: baseNode.modulKodu || '',
-      modulAdi: baseNode.modulAdi || '',
-      varlikKodu: baseNode.varlikKodu || '',
-      varlikAdi: baseNode.varlikAdi || '',
-      varlikTuru: baseNode.varlikTuru || '',
-      hariciSayfaAyarlari: baseNode.hariciSayfaAyarlari || {},
+      oncekiDugumGirdisi: baseNode.oncekiDugumGirdisi || {
+        aktifMi: true,
+        kaynakDugumId: 'OTOMATIK_ONCEKI',
+        belgeleriAktar: true,
+        formVerileriniAktar: true,
+        aiCiktisiniAktar: true,
+        seciliDegiskenler: []
+      },
       kayitBekle: baseNode.kayitBekle !== false,
       kayitSonrasiTeyitEt: baseNode.kayitSonrasiTeyitEt !== false
     };
@@ -112,13 +106,14 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
                       aracKodu: foundNode.aracKodu || '',
                       uiAksiyonu: 'YOK',
                       hedefRota: foundNode.hedefRota || '',
-                      mcpVarlikId: foundNode.mcpVarlikId || '',
-                      modulKodu: foundNode.modulKodu || '',
-                      modulAdi: foundNode.modulAdi || '',
-                      varlikKodu: foundNode.varlikKodu || '',
-                      varlikAdi: foundNode.varlikAdi || '',
-                      varlikTuru: foundNode.varlikTuru || '',
-                      hariciSayfaAyarlari: foundNode.hariciSayfaAyarlari || {},
+                      oncekiDugumGirdisi: foundNode.oncekiDugumGirdisi || {
+                        aktifMi: true,
+                        kaynakDugumId: 'OTOMATIK_ONCEKI',
+                        belgeleriAktar: true,
+                        formVerileriniAktar: true,
+                        aiCiktisiniAktar: true,
+                        seciliDegiskenler: []
+                      },
                       kayitBekle: foundNode.kayitBekle !== false,
                       kayitSonrasiTeyitEt: foundNode.kayitSonrasiTeyitEt !== false
                     });
@@ -131,75 +126,6 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
         .catch(() => { });
     }
   }, [agentData, effectiveAgentId, effectiveIstekId, effectiveOgeId, incomingNodeFromState, defaultNodeTitle]);
-
-  // Ajanın kartında kayıtlı ve aktif edilmiş MCP varlıklarını (Liste, Belge, Kart) getir
-  const activeMcpEntities = useMemo<AgentActiveMcpEntity[]>(() => {
-    const codes = agentData?.seciliAracKodlari || incomingAgentData?.seciliAracKodlari || [];
-    return getAgentActiveMcpEntities(codes, t);
-  }, [agentData?.seciliAracKodlari, incomingAgentData?.seciliAracKodlari, t]);
-
-  // Sistemdeki tüm MCP varlıkları (fallback amaçlı)
-  const allMcpEntities = useMemo<AgentActiveMcpEntity[]>(() => {
-    return getAllMcpEntities(t);
-  }, [t]);
-
-  // Seçili MCP varlığını bul
-  const selectedEntity = useMemo<AgentActiveMcpEntity | null>(() => {
-    if (!formData.mcpVarlikId && !formData.varlikKodu) return null;
-    const foundInActive = activeMcpEntities.find(
-      (e) =>
-        e.id === formData.mcpVarlikId ||
-        (formData.varlikKodu && e.kod === formData.varlikKodu)
-    );
-    if (foundInActive) return foundInActive;
-
-    return (
-      allMcpEntities.find(
-        (e) =>
-          e.id === formData.mcpVarlikId ||
-          (formData.varlikKodu && e.kod === formData.varlikKodu)
-      ) || null
-    );
-  }, [activeMcpEntities, allMcpEntities, formData.mcpVarlikId, formData.varlikKodu]);
-
-  // Bir MCP varlığı (Belge / Kart / Liste) seçildiğinde form alanlarını senkronize et (Başlık sabit "AI İşlemi" kalır)
-  const handleSelectMcpEntity = (entity: AgentActiveMcpEntity | any) => {
-    const nextToolCode =
-      entity.kategori === 'belge' || entity.kategori === 'kart'
-        ? 'erp_create_document'
-        : 'erp_query_data';
-
-    setFormData((prev: any) => ({
-      ...prev,
-      baslik: defaultNodeTitle,
-      mcpVarlikId: entity.id,
-      modulKodu: entity.modulKodu,
-      modulAdi: entity.modulAdi,
-      varlikKodu: entity.kod,
-      varlikAdi: entity.ad,
-      varlikTuru: entity.kategori,
-      hedefRota: entity.rota || prev.hedefRota || '',
-      aracKodu: nextToolCode,
-      uiAksiyonu: 'YOK'
-    }));
-  };
-
-  // MCP varlık seçimini temizle
-  const handleClearMcpEntity = () => {
-    setFormData((prev: any) => ({
-      ...prev,
-      baslik: defaultNodeTitle,
-      mcpVarlikId: '',
-      modulKodu: '',
-      modulAdi: '',
-      varlikKodu: '',
-      varlikAdi: '',
-      varlikTuru: '',
-      hedefRota: '',
-      aracKodu: '',
-      hariciSayfaAyarlari: {}
-    }));
-  };
 
   const isUnderAyarlar = location.pathname.startsWith('/ayarlar');
   const effectiveBackRoute = useMemo(() => {
@@ -416,6 +342,12 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
   return (
     <BaseAiAjanFlowchartOgeAyarPage
       id="aiIslemFlowchartOgeAyarPage"
+      agentId={effectiveAgentId}
+      istekId={effectiveIstekId}
+      nodeId={formData.id}
+      nodeType="AI_ISLEM"
+      agentData={agentData || incomingAgentData}
+      istekData={istekData || incomingIstekData}
       title={t('ai_islem_oge_ayarlari', 'AI İşlemi Düğümü Ayarları')}
       pageTitle={t('ai_islem_oge_ayarlari', 'AI İşlemi Düğümü Ayarları')}
       recordTitle={nodeTitle}
@@ -423,7 +355,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
       icon={<Cpu size={24} color="var(--accent-primary)" />}
       subtitleLeft={t(
         'ai_islem_oge_aciklama',
-        'Ajanın aktif MCP yetkilerini kullanarak veri analizi, sorgulama veya belge/kart oluşturma işlemi yapılandırması'
+        'Önceki düğümlerden gelen bilgi ve belgeleri analiz etme, sorgulama veya yapay zeka işlemi yürütme yapılandırması'
       )}
       formData={formData}
       onFormDataChange={setFormData}
@@ -433,57 +365,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
       onBack={handleBackOrClose}
     >
       <div className="basla-ayar-page-container">
-        {/* 1. BÖLÜM: HEDEF FORM VE AKTİF MCP VARLIĞI SEÇİMİ */}
-        <section className="basla-ayar-card">
-          <div className="basla-ayar-card-header">
-            <div className="basla-ayar-card-header-left">
-              <div className="basla-ayar-icon-box primary">
-                <Cpu size={18} />
-              </div>
-              <div className="basla-ayar-header-text">
-                <h3 className="basla-ayar-card-title">
-                  {t('islem_yapilacak_form_ve_mcp_varligi', 'İşlem Yapılacak Form ve Aktif MCP Varlığı')}
-                </h3>
-                <p className="basla-ayar-card-subtitle">
-                  {t(
-                    'islem_yapilacak_form_ve_mcp_varligi_aciklama',
-                    'Bu AI işlemi adımında oluşturulacak, güncellenecek veya sorgulanacak Belge, Kart ya da Listeyi ajanın aktif MCP yetkileri arasından seçin.'
-                  )}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="basla-ayar-card-body">
-            <div className="basla-ayar-field-col">
-              <label className="basla-ayar-field-label">
-                {t(
-                  'islem_yapilacak_form_ve_mcp_varligi',
-                  'İşlem Yapılacak Form ve Aktif MCP Varlığı'
-                )}
-              </label>
-              <McpVarlikSeciciInput
-                id="aiIslemMcpEntitySecici"
-                selectedEntity={selectedEntity}
-                seciliAracKodlari={agentData?.seciliAracKodlari || incomingAgentData?.seciliAracKodlari}
-                selectionList={MCPSelectionList}
-                externalSettingsValue={formData.hariciSayfaAyarlari}
-                onExternalSettingsChange={(val) =>
-                  setFormData((prev: any) => ({ ...prev, hariciSayfaAyarlari: val }))
-                }
-                autoFocus
-                placeholder={t(
-                  'ai_islem_mcp_varlik_secin',
-                  'İşlem yapılacak Belge, Kart veya Listeyi seçin...'
-                )}
-                onSelect={(entity) => handleSelectMcpEntity(entity)}
-                onClear={handleClearMcpEntity}
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* 2. BÖLÜM: YAPAY ZEKA İŞLEM YÖNERGESİ (ADIM PROMPTU) */}
+        {/* 1. BÖLÜM: YAPAY ZEKA İŞLEM YÖNERGESİ (ADIM PROMPTU) */}
         <section className="basla-ayar-card">
           <div className="basla-ayar-card-header">
             <div className="basla-ayar-card-header-left">
@@ -500,7 +382,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
                 <p className="basla-ayar-card-subtitle">
                   {t(
                     'ai_islem_yonergesi_ve_prompt_aciklama',
-                    'Görev akışı bu düğüme ulaştığında (varsa önceki adımdan gelen ek dosyalar veya form verileriyle birlikte) LLM modeline gönderilecek talimatı yazın.'
+                    'Görev akışı bu düğüme ulaştığında (üstteki girdi bağlamından gelen ek belgeler veya form verileriyle birlikte) LLM modeline gönderilecek talimatı yazın.'
                   )}
                 </p>
               </div>
@@ -519,7 +401,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
                   handleAppendPromptSnippet(
                     t(
                       'snippet_kampanya_dosyasindan_belge_olustur',
-                      'Eklenen kampanya bülteni dosyasını analiz et; kampanya adını, geçerlilik tarih aralığını, kampanya koşullarını ve ürün/fiyat kalemlerini çıkararak Kampanya Belgesi oluştur.'
+                      '{{ $onceki.eklenenBelgeler }} içerisindeki kampanya bülteni dosyasını analiz et; kampanya adını, geçerlilik tarih aralığını, kampanya koşullarını ve ürün/fiyat kalemlerini çıkararak Kampanya Belgesi oluştur.'
                     )
                   )
                 }
@@ -533,7 +415,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
                   handleAppendPromptSnippet(
                     t(
                       'snippet_urun_ve_cari_dogrula',
-                      'Metinde veya dosyada yer alan ürün kodlarını ve cari bilgilerini ERP kayıtlarıyla karşılaştırarak doğrula, eşleşen kayıtlarla işlemi gerçekleştir.'
+                      '{{ $onceki.belgeMetinIcerigi }} içerisinde yer alan ürün kodlarını ve cari bilgilerini ERP kayıtlarıyla karşılaştırarak doğrula, eşleşen kayıtlarla işlemi gerçekleştir.'
                     )
                   )
                 }
@@ -547,7 +429,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
                   handleAppendPromptSnippet(
                     t(
                       'snippet_analiz_et_ve_ozetle',
-                      'İçeri aktarılan belgeyi detaylı analiz et, çıkarılan kuralları ve kalemleri tablo halinde özetleyerek kullanıcıya sun.'
+                      '{{ $onceki.eklenenBelgeler }} ile gelen belgeyi detaylı analiz et, çıkarılan kuralları ve kalemleri tablo halinde özetleyerek kullanıcıya sun.'
                     )
                   )
                 }
@@ -557,6 +439,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
             </div>
 
             <NotInput
+              autoFocus
               rows={6}
               value={formData.prompt}
               onChange={(e) =>
@@ -564,7 +447,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
               }
               placeholder={t(
                 'ai_islem_prompt_placeholder',
-                'Örn: Önceki adımda içeri aktarılan kampanya bülteni dosyasını analiz et. Bültendeki kampanya başlığını, başlangıç-bitiş tarihlerini ve ürün/fiyat kurallarını çıkararak Kampanya Belgesi taslağını oluştur.'
+                'Örn: {{ $onceki.eklenenBelgeler }} ile gelen kampanya bülteni dosyasını analiz et. Bültendeki kampanya başlığını, başlangıç-bitiş tarihlerini ve ürün/fiyat kurallarını çıkararak Kampanya Belgesi taslağını oluştur.'
               )}
             />
             <div className="basla-ayar-card-footer">
@@ -573,7 +456,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
                 <span>
                   {t(
                     'ai_islem_prompt_ipucu',
-                    'İpucu: Önceki "Form Aç" adımında içeri aktarılan dosyalar bu adımda otomatik olarak mesaj eki (attachment) şeklinde LLM modeline iletilir.'
+                    'İpucu: Üstteki "Önceki Düğümden Gelen Bilgi ve Belgeler" panelinden değişken etiketlerine tıklayarak doğrudan yönergenize ekleyebilirsiniz.'
                   )}
                 </span>
               </span>
@@ -584,7 +467,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
           </div>
         </section>
 
-        {/* 3. BÖLÜM: İŞLEM SONRASI DAVRANIŞ VE KULLANICI TEYİDİ */}
+        {/* 2. BÖLÜM: İŞLEM SONRASI DAVRANIŞ VE KULLANICI TEYİDİ */}
         <section className="basla-ayar-card">
           <div className="basla-ayar-card-header">
             <div className="basla-ayar-card-header-left">

@@ -678,8 +678,8 @@ export function buildMcpTreeData(t: any): McpTreeNode[] {
           childEnt.externalSettingsComponent ||
           (childKod === 'dosya-ice-aktar-karti'
             ? (mod.components as any)?.FileImportPageSettingsForExternal ||
-              (mod.components as any)?.FileImportPagesettingsForExternal ||
-              (mod.components as any)?.FileImportPage?.externalSettingsComponent
+            (mod.components as any)?.FileImportPagesettingsForExternal ||
+            (mod.components as any)?.FileImportPage?.externalSettingsComponent
             : undefined);
         const resolvedHasExtSettings = Boolean(
           childEnt.hasExternalSettings || resolvedExtSettingsComp || childKod === 'dosya-ice-aktar-karti'
