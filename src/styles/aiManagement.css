@@ -4036,3 +4036,42 @@
   overflow: auto;
   scrollbar-width: thin;
 }
+
+/* AI İşlemi Prompt Alanı Ataç (Belge Eki) İkonu */
+.ai-islem-prompt-input-wrapper {
+  position: relative;
+}
+
+.ai-islem-prompt-input-wrapper .form-input {
+  padding-right: 48px;
+}
+
+.ai-islem-prompt-input-wrapper .dropdown-actions-container {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  transform: none;
+  display: flex;
+  align-items: center;
+  z-index: 2;
+}
+
+.ai-islem-prompt-attach-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border, #cbd5e1);
+  background: var(--bg-secondary, #f8fafc);
+  color: var(--text-secondary, #64748b);
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.ai-islem-prompt-attach-btn:hover {
+  border-color: var(--accent-primary, #6366f1);
+  color: var(--accent-primary, #6366f1);
+  background: rgba(99, 102, 241, 0.08);
+}

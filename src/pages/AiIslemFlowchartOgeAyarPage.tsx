@@ -17,7 +17,8 @@ import {
   Sparkles,
   Info,
   CheckCircle2,
-  ShieldCheck
+  ShieldCheck,
+  Paperclip
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -329,16 +330,6 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
     ]
   );
 
-  const handleAppendPromptSnippet = (snippetText: string) => {
-    setFormData((prev: any) => {
-      const current = (prev.prompt || '').trim();
-      return {
-        ...prev,
-        prompt: current ? `${current}\n${snippetText}` : snippetText
-      };
-    });
-  };
-
   return (
     <BaseAiAjanFlowchartOgeAyarPage
       id="aiIslemFlowchartOgeAyarPage"
@@ -382,7 +373,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
                 <p className="basla-ayar-card-subtitle">
                   {t(
                     'ai_islem_yonergesi_ve_prompt_aciklama',
-                    'Görev akışı bu düğüme ulaştığında (üstteki girdi bağlamından gelen ek belgeler veya form verileriyle birlikte) LLM modeline gönderilecek talimatı yazın.'
+                    'Görev akışı bu düğüme ulaştığında LLM modeline gönderilecek talimatı yazın.'
                   )}
                 </p>
               </div>
@@ -390,64 +381,27 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
           </div>
 
           <div className="basla-ayar-card-body">
-            <div className="form-ac-snippet-bar">
-              <span className="form-ac-snippet-label">
-                {t('hazir_islem_kalibi_ekle', 'Hazır İşlem Kalıbı Ekle:')}
-              </span>
-              <button
-                type="button"
-                className="form-ac-snippet-chip"
-                onClick={() =>
-                  handleAppendPromptSnippet(
-                    t(
-                      'snippet_kampanya_dosyasindan_belge_olustur',
-                      '{{ $onceki.eklenenBelgeler }} içerisindeki kampanya bülteni dosyasını analiz et; kampanya adını, geçerlilik tarih aralığını, kampanya koşullarını ve ürün/fiyat kalemlerini çıkararak Kampanya Belgesi oluştur.'
-                    )
-                  )
-                }
-              >
-                + {t('kampanya_yazisindan_belge_olustur_kalibi', 'Kampanya Yazısından Belge Oluştur')}
-              </button>
-              <button
-                type="button"
-                className="form-ac-snippet-chip"
-                onClick={() =>
-                  handleAppendPromptSnippet(
-                    t(
-                      'snippet_urun_ve_cari_dogrula',
-                      '{{ $onceki.belgeMetinIcerigi }} içerisinde yer alan ürün kodlarını ve cari bilgilerini ERP kayıtlarıyla karşılaştırarak doğrula, eşleşen kayıtlarla işlemi gerçekleştir.'
-                    )
-                  )
-                }
-              >
-                + {t('urun_ve_cari_dogrula_kalibi', 'Ürün ve Cari Bilgilerini Doğrula')}
-              </button>
-              <button
-                type="button"
-                className="form-ac-snippet-chip"
-                onClick={() =>
-                  handleAppendPromptSnippet(
-                    t(
-                      'snippet_analiz_et_ve_ozetle',
-                      '{{ $onceki.eklenenBelgeler }} ile gelen belgeyi detaylı analiz et, çıkarılan kuralları ve kalemleri tablo halinde özetleyerek kullanıcıya sun.'
-                    )
-                  )
-                }
-              >
-                + {t('analiz_et_ve_ozetle_kalibi', 'Analiz Et ve Özet Rapor Sun')}
-              </button>
-            </div>
-
             <NotInput
               autoFocus
               rows={6}
+              className="ai-islem-prompt-input-wrapper"
               value={formData.prompt}
               onChange={(e) =>
                 setFormData((prev: any) => ({ ...prev, prompt: e.target.value }))
               }
+              rightActions={
+                <button
+                  type="button"
+                  className="ai-islem-prompt-attach-btn"
+                  title={t('belge_eki_ekle', 'Belge Eki Ekle')}
+                  aria-label={t('belge_eki_ekle', 'Belge Eki Ekle')}
+                >
+                  <Paperclip size={16} />
+                </button>
+              }
               placeholder={t(
                 'ai_islem_prompt_placeholder',
-                'Örn: {{ $onceki.eklenenBelgeler }} ile gelen kampanya bülteni dosyasını analiz et. Bültendeki kampanya başlığını, başlangıç-bitiş tarihlerini ve ürün/fiyat kurallarını çıkararak Kampanya Belgesi taslağını oluştur.'
+                'Örn: Kampanya bülteni dosyasını analiz et. Bültendeki kampanya başlığını, başlangıç-bitiş tarihlerini ve ürün/fiyat kurallarını çıkararak Kampanya Belgesi taslağını oluştur.'
               )}
             />
             <div className="basla-ayar-card-footer">
@@ -456,7 +410,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
                 <span>
                   {t(
                     'ai_islem_prompt_ipucu',
-                    'İpucu: Üstteki "Önceki Düğümden Gelen Bilgi ve Belgeler" panelinden değişken etiketlerine tıklayarak doğrudan yönergenize ekleyebilirsiniz.'
+                    'İpucu: Yapay zekanın bu adımda gerçekleştireceği analiz ve belge işlemini açıkça belirtin.'
                   )}
                 </span>
               </span>
