@@ -20,7 +20,8 @@ import {
   ShieldCheck,
   MessageSquare,
   Tag,
-  ExternalLink
+  ExternalLink,
+  Braces
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -32,6 +33,7 @@ import {
 } from '@akalin/ui';
 import {
   BaseAiAjanFlowchartOgeAyarPage,
+  getOpenedEntityFixedJsonSchema,
   type BaseAiAjanFlowchartOgeAyarPageProps
 } from './BaseAiAjanFlowchartOgeAyarPage';
 import {
@@ -187,6 +189,18 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
       ) || null
     );
   }, [activeMcpEntities, allMcpEntities, formData.mcpVarlikId, formData.varlikKodu]);
+
+  // Seçilen Belge veya Kartın bu düğümün JSON verisi (belgeVerisi) içine gömülecek sabit JSON Schema'sı
+  const openedEntitySchema = useMemo(() => {
+    const nodeForSchema = {
+      ...formData,
+      varlikKodu: selectedEntity?.kod || formData.varlikKodu || '',
+      varlikAdi: selectedEntity?.ad || formData.varlikAdi || '',
+      varlikTuru: selectedEntity?.kategori || formData.varlikTuru || '',
+      modulAdi: selectedEntity?.modulAdi || formData.modulAdi || ''
+    };
+    return getOpenedEntityFixedJsonSchema(nodeForSchema, '$onceki', t);
+  }, [formData, selectedEntity, t]);
 
   // Bir MCP varlığı (Belge / Kart / Liste) seçildiğinde form alanlarını senkronize et
   const handleSelectMcpEntity = (entity: AgentActiveMcpEntity | any) => {
@@ -510,6 +524,44 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
                 onClear={handleClearMcpEntity}
               />
             </div>
+
+            {openedEntitySchema && (
+              <div className="flowchart-ayar-quick-vars-bar">
+                <div className="flowchart-ayar-quick-vars-top">
+                  <div className="flowchart-ayar-quick-vars-title">
+                    <Braces size={14} />
+                    <span>
+                      {t(
+                        'form_ac_sonraki_dugume_aktarilacak_belge_json_schema',
+                        'Bu Düğümün Sonraki Düğümlere Aktaracağı Belge / Kart JSON Verisi (belgeVerisi)'
+                      )}
+                    </span>
+                    <span className="flowchart-prev-node-schema-entity-tag">
+                      {openedEntitySchema.entityTitle}
+                    </span>
+                  </div>
+                  <span className="flowchart-ayar-quick-vars-hint">
+                    <code>{openedEntitySchema.schemaId}</code>
+                  </span>
+                </div>
+                <div className="flowchart-ayar-quick-vars-chips">
+                  {Object.entries(openedEntitySchema.properties).map(([propKey, propSchema]) => (
+                    <span
+                      key={propKey}
+                      className="flowchart-ayar-quick-var-chip is-entity-field"
+                      title={propSchema.description}
+                    >
+                      <span className="flowchart-ayar-quick-var-chip-label">
+                        {propSchema.title}
+                      </span>
+                      <code className="flowchart-ayar-quick-var-chip-code">
+                        {`{{ $onceki.belgeVerisi.${propKey} }}`}
+                      </code>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </section>
 

@@ -5,6 +5,7 @@
  * - Tüm Flowchart akış düğümü ayar sayfaları (Başla, Form Aç, AI İşlemi, Karar, Belge vb.) için ortak temel kart sayfası iskeletini sunmak
  * - @akalin/ui TabLayout bileşenini kullanarak her düğümde "Ayarlar" ve "Önceki Düğüm" sekmeli mimarisini standartlaştırmak
  * - Her düğüm tipi için vermeyi taahhüt ettiği sabit bir JSON Schema (FlowchartNodeJsonSchema) sözleşmesi tanımlamak
+ * - "Form Aç" (FORM_AC) düğümüne özel olarak, düğümün kendi JSON şeması ve verisi içerisinde açtığı Belgenin veya Kartın kendi JSON Schema'sını ve Kaydet çıktısını (`belgeVerisi`) barındırmak
  * - Bir önceki düğümün taahhüt ettiği sabit JSON Schema yapısını "Önceki Düğüm" sekmesinde detaylı olarak göstermek ve "Ayarlar" sekmesinde bu şema değerlerini kullanabilmeyi sağlamak
  * - @akalin/ui BaseCardPage temel bileşenini sarmalayarak standart form mimarisi, ActionMenu ve Breadcrumb senkronizasyonu sağlamak
  * - Zero Bottom Button, Header-Only Actions, Sıfır Header Rozeti, Sıfır Inline CSS ve %100 i18n kurallarına tam uyum sağlamak
@@ -28,7 +29,6 @@ import {
   Monitor,
   Cpu,
   GitBranch,
-  Info,
   Braces,
   Copy,
   Code2,
@@ -60,10 +60,23 @@ export interface FlowchartPreviousNodeOutputField {
   dataType: 'belge' | 'veri' | 'metin' | 'karar';
   required?: boolean;
   isNested?: boolean;
+  /** "Form Aç" düğümünün açtığı Belge/Kartın kendi JSON şemasından gelen alan mı? */
+  isEntityField?: boolean;
   exampleValue?: any;
   sourceNodeId: string;
   sourceNodeTitle: string;
   sourceNodeType: string;
+}
+
+export interface OpenedEntityFixedJsonSchema {
+  entityCode: string;
+  entityTitle: string;
+  entityCategory: 'belge' | 'kart' | 'liste';
+  schemaId: string;
+  description: string;
+  required: string[];
+  properties: Record<string, FlowchartNodeJsonSchemaProperty>;
+  example: Record<string, any>;
 }
 
 export interface FlowchartOgeAyarContextValue {
@@ -85,8 +98,647 @@ const FlowchartOgeAyarContext = createContext<FlowchartOgeAyarContextValue | nul
 export const useFlowchartOgeAyarContext = () => useContext(FlowchartOgeAyarContext);
 
 /**
+ * "Form Aç" (FORM_AC) düğümünün açtığı Belge veya Kartın Kaydet işleminde ürettiği
+ * kendi sabit JSON Schema (belgeVerisi) sözleşmesini çözümler.
+ */
+export const getOpenedEntityFixedJsonSchema = (
+  node: Partial<AiAkisDugumu> | null | undefined,
+  prefix: string = '$onceki',
+  tFn?: (key: string, defaultText?: string, options?: any) => string
+): OpenedEntityFixedJsonSchema => {
+  const tr = (key: string, fallback: string) => (tFn ? tFn(key, fallback) : fallback);
+  const rawCode = (node?.varlikKodu || node?.mcpVarlikId || '').toLowerCase();
+  const rawRoute = (node?.hedefRota || '').toLowerCase();
+  const rawTitle = (node?.varlikAdi || '').trim();
+  const rawCategory = ((node?.varlikTuru || 'belge').toLowerCase() === 'kart'
+    ? 'kart'
+    : 'belge') as 'belge' | 'kart';
+  const entityExprPrefix = `${prefix}.belgeVerisi`;
+
+  // 1. KAMPANYA BELGESİ (KampanyaForm / KampanyaBelgesiCreateDto)
+  if (
+    rawCode.includes('kampanya') ||
+    rawRoute.includes('kampanya') ||
+    rawTitle.toLowerCase().includes('kampanya')
+  ) {
+    const entityTitle = rawTitle || tr('entity_kampanya_belgesi', 'Kampanya Tanımı Belgesi');
+    const properties: Record<string, FlowchartNodeJsonSchemaProperty> = {
+      id: {
+        type: 'number',
+        title: tr('schema_entity_id', 'Belge Kayıt ID'),
+        description: tr('schema_entity_kampanya_id_desc', 'Kaydedilen kampanya belgesinin veritabanı tekil kimliği'),
+        expression: `{{ ${entityExprPrefix}.id }}`,
+        required: true,
+        example: 1042
+      },
+      belgeNo: {
+        type: 'string',
+        title: tr('schema_entity_belge_no', 'Kampanya Belge No'),
+        description: tr('schema_entity_kampanya_belge_no_desc', 'Kampanya belgesinin sistem numarası'),
+        expression: `{{ ${entityExprPrefix}.belgeNo }}`,
+        required: true,
+        example: 'KMP-2026-0118'
+      },
+      adi: {
+        type: 'string',
+        title: tr('schema_entity_kampanya_adi', 'Kampanya Belgesi Adı'),
+        description: tr('schema_entity_kampanya_adi_desc', 'Kaydedilen kampanya belgesinin ana başlığı'),
+        expression: `{{ ${entityExprPrefix}.adi }}`,
+        required: true,
+        example: 'Kasım 2026 BSH Ankastre & Beyaz Eşya Kampanyası'
+      },
+      baslangicTarihi: {
+        type: 'string',
+        format: 'date',
+        title: tr('schema_prop_baslangic_tarihi', 'Başlangıç Tarihi'),
+        description: tr('schema_entity_kampanya_baslangic_desc', 'Kampanya geçerlilik başlangıç tarihi (YYYY-MM-DD)'),
+        expression: `{{ ${entityExprPrefix}.baslangicTarihi }}`,
+        required: true,
+        example: '2026-11-01'
+      },
+      bitisTarihi: {
+        type: 'string',
+        format: 'date',
+        title: tr('schema_prop_bitis_tarihi', 'Bitiş Tarihi'),
+        description: tr('schema_entity_kampanya_bitis_desc', 'Kampanya geçerlilik bitiş tarihi (YYYY-MM-DD)'),
+        expression: `{{ ${entityExprPrefix}.bitisTarihi }}`,
+        required: true,
+        example: '2026-11-30'
+      },
+      hakedisSonTarihi: {
+        type: 'string',
+        format: 'date',
+        title: tr('schema_entity_hakedis_son_tarihi', 'Hakediş Son Tarihi'),
+        description: tr('schema_entity_hakedis_son_tarihi_desc', 'Üretici firma hakediş başvuru son tarihi'),
+        expression: `{{ ${entityExprPrefix}.hakedisSonTarihi }}`,
+        required: false,
+        example: '2026-12-15'
+      },
+      aktifMi: {
+        type: 'boolean',
+        title: tr('schema_entity_aktif_mi', 'Aktiflik Durumu'),
+        description: tr('schema_entity_aktif_mi_desc', 'Belgenin aktif olup olmadığı bilgisi'),
+        expression: `{{ ${entityExprPrefix}.aktifMi }}`,
+        required: true,
+        example: true
+      },
+      kampanyalar: {
+        type: 'array',
+        format: 'json',
+        title: tr('schema_entity_kampanya_satirlari', 'Kampanya Kuralları ve Ürün Kalemleri'),
+        description: tr(
+          'schema_entity_kampanya_satirlari_desc',
+          'Belge içerisinde kaydedilen kampanya satırları, aksiyon tutarları/oranları ve ürün kısıt kuralları'
+        ),
+        expression: `{{ ${entityExprPrefix}.kampanyalar }}`,
+        required: true,
+        itemsType: 'object',
+        itemsProperties: {
+          kodu: {
+            type: 'string',
+            title: tr('schema_entity_kural_kodu', 'Kampanya Satır Kodu'),
+            description: tr('schema_entity_kural_kodu_desc', 'Kampanya satırının kodu'),
+            expression: `{{ ${entityExprPrefix}.kampanyalar[0].kodu }}`,
+            required: true,
+            example: 'KMP-01'
+          },
+          adi: {
+            type: 'string',
+            title: tr('schema_entity_kural_adi', 'Kampanya Satır Adı'),
+            description: tr('schema_entity_kural_adi_desc', 'Kampanya kuralının adı'),
+            expression: `{{ ${entityExprPrefix}.kampanyalar[0].adi }}`,
+            required: true,
+            example: 'Seçili Buzdolaplarında 3.500 TL Fiyat Farkı Desteği'
+          },
+          aksiyonDegeri: {
+            type: 'number',
+            title: tr('schema_entity_aksiyon_degeri', 'İndirim / Hakediş Tutarı veya Oranı'),
+            description: tr('schema_entity_aksiyon_degeri_desc', 'Uygulanan indirim oranı veya hakediş tutarı'),
+            expression: `{{ ${entityExprPrefix}.kampanyalar[0].aksiyonDegeri }}`,
+            required: true,
+            example: 3500
+          }
+        },
+        example: [
+          {
+            kodu: 'KMP-01',
+            adi: 'Seçili Buzdolaplarında 3.500 TL Fiyat Farkı Desteği',
+            aksiyonTipi: 2,
+            aksiyonDegeri: 3500,
+            firmaHakEdisOrani: 100,
+            kurallar: [{ kuralAlani: 1, kuralOperatoru: 1, kuralDegeri: 'KGN56IWE0N', gerekliMiktar: 1 }]
+          }
+        ]
+      }
+    };
+
+    return {
+      entityCode: 'KampanyaBelgesi',
+      entityTitle,
+      entityCategory: 'belge',
+      schemaId: 'https://webakus.ai/schemas/entities/kampanya-belgesi-output.schema.json',
+      description: tr(
+        'schema_entity_kampanya_desc',
+        'Kampanya Tanımı belgesi kaydedildiğinde üretilen sabit JSON veri şeması (Başlık, Tarih Aralığı ve Kampanya Kural Satırları).'
+      ),
+      required: ['id', 'belgeNo', 'adi', 'baslangicTarihi', 'bitisTarihi', 'aktifMi', 'kampanyalar'],
+      properties,
+      example: {
+        id: 1042,
+        belgeNo: 'KMP-2026-0118',
+        adi: 'Kasım 2026 BSH Ankastre & Beyaz Eşya Kampanyası',
+        baslangicTarihi: '2026-11-01',
+        bitisTarihi: '2026-11-30',
+        hakedisSonTarihi: '2026-12-15',
+        aktifMi: true,
+        kampanyalar: properties.kampanyalar.example
+      }
+    };
+  }
+
+  // 2. DOSYA İÇE AKTAR KARTI / SİHİRBAZI (FileImportPage - /araclar/dosya-al)
+  if (
+    rawCode.includes('dosya-ice-aktar') ||
+    rawCode.includes('fileimport') ||
+    rawRoute.includes('dosya-al') ||
+    rawRoute.includes('file-import')
+  ) {
+    const entityTitle = rawTitle || tr('entity_dosya_ice_aktar', 'Dosya İçeri Aktar');
+    const properties: Record<string, FlowchartNodeJsonSchemaProperty> = {
+      dosyaSayisi: {
+        type: 'number',
+        title: tr('schema_entity_dosya_sayisi', 'İçe Aktarılan Dosya Sayısı'),
+        description: tr('schema_entity_dosya_sayisi_desc', 'Kullanıcının seçip içe aktardığı toplam belge/dosya adedi'),
+        expression: `{{ ${entityExprPrefix}.dosyaSayisi }}`,
+        required: true,
+        example: 1
+      },
+      dosyalar: {
+        type: 'string',
+        title: tr('schema_entity_dosya_isimleri', 'İçe Aktarılan Dosya İsimleri Özeti'),
+        description: tr('schema_entity_dosya_isimleri_desc', 'Seçilen dosyaların virgülle ayrılmış isim listesi'),
+        expression: `{{ ${entityExprPrefix}.dosyalar }}`,
+        required: true,
+        example: 'BSH_Kasim_Kampanya_Bulteni.pdf'
+      },
+      importedFiles: {
+        type: 'array',
+        format: 'file-attachment',
+        title: tr('schema_entity_imported_files', 'İçe Aktarılan Dosyalar ve Metin İçerikleri (Dizi)'),
+        description: tr(
+          'schema_entity_imported_files_desc',
+          'Dosya İçeri Aktar ekranında Kaydet/Aktar düğmesine basıldığında dönen dosya nesneleri ve çözümlenmiş metinleri'
+        ),
+        expression: `{{ ${entityExprPrefix}.importedFiles }}`,
+        required: true,
+        itemsType: 'object',
+        itemsProperties: {
+          dosyaAdi: {
+            type: 'string',
+            title: tr('schema_prop_dosya_adi', 'Dosya Adı'),
+            description: tr('schema_prop_dosya_adi_desc', 'Dosyanın tam adı'),
+            expression: `{{ ${entityExprPrefix}.importedFiles[0].dosyaAdi }}`,
+            required: true,
+            example: 'BSH_Kasim_Kampanya_Bulteni.pdf'
+          },
+          uzanti: {
+            type: 'string',
+            title: tr('schema_prop_dosya_uzantisi', 'Dosya Uzantısı'),
+            description: tr('schema_prop_dosya_uzantisi_desc', 'Dosyanın uzantısı (pdf, docx, xlsx, txt vb.)'),
+            expression: `{{ ${entityExprPrefix}.importedFiles[0].uzanti }}`,
+            required: true,
+            example: 'pdf'
+          },
+          bulutDosyaId: {
+            type: 'string',
+            title: tr('schema_prop_bulut_dosya_id', 'Bulut Dosya ID'),
+            description: tr('schema_prop_bulut_dosya_id_desc', 'Bulut depolamaya kaydedildiyse tekil dosya kimliği'),
+            expression: `{{ ${entityExprPrefix}.importedFiles[0].bulutDosyaId }}`,
+            required: false,
+            example: 'cloud_9941'
+          },
+          metinIcerigi: {
+            type: 'string',
+            format: 'markdown',
+            title: tr('schema_prop_dosya_metin_icerigi', 'Çıkarılan Belge Metin İçeriği'),
+            description: tr('schema_prop_dosya_metin_icerigi_desc', 'Dosyadan okunan ham metin / tablo içeriği'),
+            expression: `{{ ${entityExprPrefix}.importedFiles[0].metinIcerigi }}`,
+            required: true,
+            example: '1-30 Kasım 2026 tarihleri arasında geçerli kampanya ürünleri ve destek tutarları...'
+          }
+        },
+        example: [
+          {
+            dosyaAdi: 'BSH_Kasim_Kampanya_Bulteni.pdf',
+            uzanti: 'pdf',
+            boyut: 248910,
+            kaynak: 'local',
+            bulutDosyaId: 'cloud_9941',
+            metinIcerigi: '1-30 Kasım 2026 tarihleri arasında geçerli kampanya ürünleri ve destek tutarları...'
+          }
+        ]
+      },
+      birlestirilmisMetin: {
+        type: 'string',
+        format: 'markdown',
+        title: tr('schema_entity_birlestirilmis_metin', 'Birleştirilmiş Tam Belge Metni'),
+        description: tr(
+          'schema_entity_birlestirilmis_metin_desc',
+          'İçe aktarılan tüm belgelerin birleştirilmiş tam metin içeriği'
+        ),
+        expression: `{{ ${entityExprPrefix}.birlestirilmisMetin }}`,
+        required: true,
+        example: '--- BSH_Kasim_Kampanya_Bulteni.pdf ---\n1-30 Kasım 2026 tarihleri arasında geçerli kampanya...'
+      }
+    };
+
+    return {
+      entityCode: 'DosyaIceAktar',
+      entityTitle,
+      entityCategory: 'kart',
+      schemaId: 'https://webakus.ai/schemas/entities/dosya-ice-aktar-output.schema.json',
+      description: tr(
+        'schema_entity_dosya_ice_aktar_desc',
+        'Dosya İçeri Aktar ekranında dosya seçilip kaydedildiğinde üretilen sabit JSON veri şeması.'
+      ),
+      required: ['dosyaSayisi', 'dosyalar', 'importedFiles', 'birlestirilmisMetin'],
+      properties,
+      example: {
+        dosyaSayisi: 1,
+        dosyalar: 'BSH_Kasim_Kampanya_Bulteni.pdf',
+        importedFiles: properties.importedFiles.example,
+        birlestirilmisMetin: properties.birlestirilmisMetin.example
+      }
+    };
+  }
+
+  // 3. BSH FİYAT FARKI BELGESİ / KARTI (BshFiyatFarkiForm)
+  if (rawCode.includes('bsh') || rawRoute.includes('bsh-fiyat-farki')) {
+    const entityTitle = rawTitle || tr('entity_bsh_fiyat_farki', 'BSH Fiyat Farkı');
+    const properties: Record<string, FlowchartNodeJsonSchemaProperty> = {
+      id: {
+        type: 'number',
+        title: tr('schema_entity_id', 'Kayıt ID'),
+        description: tr('schema_entity_bsh_id_desc', 'Kaydedilen BSH Fiyat Farkı kaydının kimliği'),
+        expression: `{{ ${entityExprPrefix}.id }}`,
+        required: true,
+        example: 512
+      },
+      belgeNo: {
+        type: 'string',
+        title: tr('schema_entity_belge_no', 'Belge Numarası'),
+        description: tr('schema_entity_bsh_belge_no_desc', 'BSH Fiyat Farkı mutabakat belge numarası'),
+        expression: `{{ ${entityExprPrefix}.belgeNo }}`,
+        required: true,
+        example: 'BSH-2026-1101'
+      },
+      aciklama: {
+        type: 'string',
+        title: tr('schema_entity_aciklama', 'Dönem / Belge Açıklaması'),
+        description: tr('schema_entity_bsh_aciklama_desc', 'Fiyat farkı dönemi ve bülten açıklaması'),
+        expression: `{{ ${entityExprPrefix}.aciklama }}`,
+        required: true,
+        example: 'Kasım 2026 BSH Sell-Out Fiyat Farkı Mutabakatı'
+      },
+      baslangicTarihi: {
+        type: 'string',
+        format: 'date',
+        title: tr('schema_prop_baslangic_tarihi', 'Başlangıç Tarihi'),
+        description: tr('schema_prop_baslangic_tarihi_desc', 'Dönem başlangıç tarihi'),
+        expression: `{{ ${entityExprPrefix}.baslangicTarihi }}`,
+        required: true,
+        example: '2026-11-01'
+      },
+      bitisTarihi: {
+        type: 'string',
+        format: 'date',
+        title: tr('schema_prop_bitis_tarihi', 'Bitiş Tarihi'),
+        description: tr('schema_prop_bitis_tarihi_desc', 'Dönem bitiş tarihi'),
+        expression: `{{ ${entityExprPrefix}.bitisTarihi }}`,
+        required: true,
+        example: '2026-11-30'
+      },
+      toplamTutar: {
+        type: 'number',
+        title: tr('schema_entity_toplam_tutar', 'Toplam Fiyat Farkı Tutarı'),
+        description: tr('schema_entity_toplam_tutar_desc', 'Hesaplanan toplam destek / fiyat farkı tutarı'),
+        expression: `{{ ${entityExprPrefix}.toplamTutar }}`,
+        required: true,
+        example: 42500
+      },
+      kalemler: {
+        type: 'array',
+        format: 'json',
+        title: tr('schema_entity_bsh_kalemler', 'Fiyat Farkı Ürün Satırları (Kalemler)'),
+        description: tr('schema_entity_bsh_kalemler_desc', 'Belgede yer alan ürün kodları, miktarlar ve birim fiyat farkı satırları'),
+        expression: `{{ ${entityExprPrefix}.kalemler }}`,
+        required: true,
+        itemsType: 'object',
+        itemsProperties: {
+          urunKodu: {
+            type: 'string',
+            title: tr('schema_entity_urun_kodu', 'Ürün / Model Kodu'),
+            description: tr('schema_entity_urun_kodu_desc', 'Üretici model veya stok kodu'),
+            expression: `{{ ${entityExprPrefix}.kalemler[0].urunKodu }}`,
+            required: true,
+            example: 'KGN56IWE0N'
+          },
+          birimFiyatFarki: {
+            type: 'number',
+            title: tr('schema_entity_birim_fiyat_farki', 'Birim Fiyat Farkı'),
+            description: tr('schema_entity_birim_fiyat_farki_desc', 'Birim başına destek tutarı'),
+            expression: `{{ ${entityExprPrefix}.kalemler[0].birimFiyatFarki }}`,
+            required: true,
+            example: 3500
+          }
+        },
+        example: [
+          {
+            urunKodu: 'KGN56IWE0N',
+            urunAdi: 'Bosch XXL Buzdolabı',
+            miktar: 5,
+            birimFiyatFarki: 3500,
+            toplamTutar: 17500
+          }
+        ]
+      }
+    };
+
+    return {
+      entityCode: 'BshFiyatFarki',
+      entityTitle,
+      entityCategory: 'belge',
+      schemaId: 'https://webakus.ai/schemas/entities/bsh-fiyat-farki-output.schema.json',
+      description: tr(
+        'schema_entity_bsh_desc',
+        'BSH Fiyat Farkı ekranı kaydedildiğinde üretilen sabit JSON veri şeması.'
+      ),
+      required: ['id', 'belgeNo', 'aciklama', 'baslangicTarihi', 'bitisTarihi', 'toplamTutar', 'kalemler'],
+      properties,
+      example: {
+        id: 512,
+        belgeNo: 'BSH-2026-1101',
+        aciklama: 'Kasım 2026 BSH Sell-Out Fiyat Farkı Mutabakatı',
+        baslangicTarihi: '2026-11-01',
+        bitisTarihi: '2026-11-30',
+        toplamTutar: 42500,
+        kalemler: properties.kalemler.example
+      }
+    };
+  }
+
+  // 4. FİYAT LİSTESİ BELGESİ (FiyatListesiForm)
+  if (rawCode.includes('fiyat-listesi') || rawRoute.includes('fiyat-listeleri')) {
+    const entityTitle = rawTitle || tr('entity_fiyat_listesi', 'Fiyat Listesi Belgesi');
+    const properties: Record<string, FlowchartNodeJsonSchemaProperty> = {
+      id: {
+        type: 'number',
+        title: tr('schema_entity_id', 'Fiyat Listesi ID'),
+        description: tr('schema_entity_fiyat_listesi_id_desc', 'Kaydedilen fiyat listesinin kimliği'),
+        expression: `{{ ${entityExprPrefix}.id }}`,
+        required: true,
+        example: 308
+      },
+      kod: {
+        type: 'string',
+        title: tr('schema_entity_fiyat_listesi_kod', 'Fiyat Listesi Kodu'),
+        description: tr('schema_entity_fiyat_listesi_kod_desc', 'Fiyat listesinin benzersiz kodu'),
+        expression: `{{ ${entityExprPrefix}.kod }}`,
+        required: true,
+        example: 'FL-2026-11'
+      },
+      ad: {
+        type: 'string',
+        title: tr('schema_entity_fiyat_listesi_ad', 'Fiyat Listesi Adı'),
+        description: tr('schema_entity_fiyat_listesi_ad_desc', 'Fiyat listesinin başlığı'),
+        expression: `{{ ${entityExprPrefix}.ad }}`,
+        required: true,
+        example: 'Kasım 2026 Perakende Satış Fiyat Listesi'
+      },
+      paraBirimi: {
+        type: 'string',
+        title: tr('schema_entity_para_birimi', 'Para Birimi'),
+        description: tr('schema_entity_para_birimi_desc', 'Liste döviz cinsi (TRY, USD, EUR)'),
+        expression: `{{ ${entityExprPrefix}.paraBirimi }}`,
+        required: true,
+        example: 'TRY'
+      },
+      kalemler: {
+        type: 'array',
+        format: 'json',
+        title: tr('schema_entity_fiyat_kalemleri', 'Fiyat Listesi Satırları'),
+        description: tr('schema_entity_fiyat_kalemleri_desc', 'Kaydedilen ürün ve birim fiyat satırları'),
+        expression: `{{ ${entityExprPrefix}.kalemler }}`,
+        required: true,
+        itemsType: 'object',
+        example: [{ urunKodu: 'KGN56IWE0N', birimFiyat: 44900, paraBirimi: 'TRY' }]
+      }
+    };
+
+    return {
+      entityCode: 'FiyatListesi',
+      entityTitle,
+      entityCategory: 'belge',
+      schemaId: 'https://webakus.ai/schemas/entities/fiyat-listesi-output.schema.json',
+      description: tr(
+        'schema_entity_fiyat_listesi_desc',
+        'Fiyat Listesi belgesi kaydedildiğinde üretilen sabit JSON veri şeması.'
+      ),
+      required: ['id', 'kod', 'ad', 'paraBirimi', 'kalemler'],
+      properties,
+      example: {
+        id: 308,
+        kod: 'FL-2026-11',
+        ad: 'Kasım 2026 Perakende Satış Fiyat Listesi',
+        paraBirimi: 'TRY',
+        kalemler: properties.kalemler.example
+      }
+    };
+  }
+
+  // 5. GENEL KART ŞEMASI (Cari Kart, Ürün Kartı vb. tüm Kartlar için)
+  if (rawCategory === 'kart' || rawCode.includes('kart') || rawCode.includes('cari') || rawCode.includes('urun')) {
+    const entityTitle = rawTitle || tr('entity_standart_kart', 'ERP Kart Kaydı');
+    const properties: Record<string, FlowchartNodeJsonSchemaProperty> = {
+      id: {
+        type: 'number',
+        title: tr('schema_entity_id', 'Kart Kayıt ID'),
+        description: tr('schema_entity_kart_id_desc', 'Kaydedilen kartın sistem kimliği (ID)'),
+        expression: `{{ ${entityExprPrefix}.id }}`,
+        required: true,
+        example: 2045
+      },
+      kod: {
+        type: 'string',
+        title: tr('schema_entity_kart_kodu', 'Kart Kodu'),
+        description: tr('schema_entity_kart_kodu_desc', 'Kaydedilen kartın benzersiz kodu'),
+        expression: `{{ ${entityExprPrefix}.kod }}`,
+        required: true,
+        example: 'KRT-2026-089'
+      },
+      ad: {
+        type: 'string',
+        title: tr('schema_entity_kart_adi', 'Kart Adı / Unvanı'),
+        description: tr('schema_entity_kart_adi_desc', 'Kaydedilen kartın adı veya cari unvanı'),
+        expression: `{{ ${entityExprPrefix}.ad }}`,
+        required: true,
+        example: entityTitle
+      },
+      aktifMi: {
+        type: 'boolean',
+        title: tr('schema_entity_aktif_mi', 'Aktiflik Durumu'),
+        description: tr('schema_entity_aktif_mi_desc', 'Kartın aktiflik durumu'),
+        expression: `{{ ${entityExprPrefix}.aktifMi }}`,
+        required: true,
+        example: true
+      }
+    };
+
+    return {
+      entityCode: node?.varlikKodu || 'ErpKart',
+      entityTitle,
+      entityCategory: 'kart',
+      schemaId: `https://webakus.ai/schemas/entities/${rawCode || 'erp-kart'}-output.schema.json`,
+      description: tr(
+        'schema_entity_genel_kart_desc',
+        'Açılan kart ekranında Kaydet işleminde üretilen sabit JSON veri şeması.'
+      ),
+      required: ['id', 'kod', 'ad', 'aktifMi'],
+      properties,
+      example: {
+        id: 2045,
+        kod: 'KRT-2026-089',
+        ad: entityTitle,
+        aktifMi: true
+      }
+    };
+  }
+
+  // 6. STANDART ERP BELGESİ ŞEMASI (Fatura, Sipariş, İrsaliye ve diğer tüm Belgeler için)
+  const entityTitle = rawTitle || tr('entity_standart_belge', 'ERP Belge Kaydı');
+  const properties: Record<string, FlowchartNodeJsonSchemaProperty> = {
+    id: {
+      type: 'number',
+      title: tr('schema_entity_id', 'Belge Kayıt ID'),
+      description: tr('schema_entity_belge_id_desc', 'Kaydedilen belgenin veritabanı tekil kimliği (ID)'),
+      expression: `{{ ${entityExprPrefix}.id }}`,
+      required: true,
+      example: 4096
+    },
+    belgeNo: {
+      type: 'string',
+      title: tr('schema_entity_belge_no', 'Belge Numarası'),
+      description: tr('schema_entity_belge_no_desc', 'Kaydedilen belgenin resmi/sistem numarası'),
+      expression: `{{ ${entityExprPrefix}.belgeNo }}`,
+      required: true,
+      example: 'BLG-2026-00492'
+    },
+    belgeTarihi: {
+      type: 'string',
+      format: 'date',
+      title: tr('schema_entity_belge_tarihi', 'Belge Tarihi'),
+      description: tr('schema_entity_belge_tarihi_desc', 'Belgenin düzenlenme tarihi (YYYY-MM-DD)'),
+      expression: `{{ ${entityExprPrefix}.belgeTarihi }}`,
+      required: true,
+      example: '2026-10-31'
+    },
+    cariUnvan: {
+      type: 'string',
+      title: tr('schema_entity_cari_unvan', 'Cari Hesap Unvanı / Başlık'),
+      description: tr('schema_entity_cari_unvan_desc', 'Belgenin ilişkili olduğu cari unvanı veya belge başlığı'),
+      expression: `{{ ${entityExprPrefix}.cariUnvan }}`,
+      required: false,
+      example: 'BSH Ev Aletleri San. ve Tic. A.Ş.'
+    },
+    aciklama: {
+      type: 'string',
+      title: tr('schema_entity_aciklama', 'Belge Açıklaması'),
+      description: tr('schema_entity_aciklama_desc', 'Belge üst bilgi açıklaması ve notu'),
+      expression: `{{ ${entityExprPrefix}.aciklama }}`,
+      required: false,
+      example: `${entityTitle} kaydı`
+    },
+    genelToplam: {
+      type: 'number',
+      title: tr('schema_entity_genel_toplam', 'Belge Genel Toplamı'),
+      description: tr('schema_entity_genel_toplam_desc', 'Belgenin vergiler dahil genel toplam tutarı'),
+      expression: `{{ ${entityExprPrefix}.genelToplam }}`,
+      required: true,
+      example: 125000
+    },
+    kalemler: {
+      type: 'array',
+      format: 'json',
+      title: tr('schema_entity_belge_kalemleri', 'Belge Kalemleri / Satırları (Grid)'),
+      description: tr('schema_entity_belge_kalemleri_desc', 'Belge tablosunda kaydedilen tüm satır/kalem verileri'),
+      expression: `{{ ${entityExprPrefix}.kalemler }}`,
+      required: true,
+      itemsType: 'object',
+      itemsProperties: {
+        stokKodu: {
+          type: 'string',
+          title: tr('schema_entity_urun_kodu', 'Stok / Ürün Kodu'),
+          description: tr('schema_entity_urun_kodu_desc', 'Satırdaki ürünün stok kodu'),
+          expression: `{{ ${entityExprPrefix}.kalemler[0].stokKodu }}`,
+          required: true,
+          example: 'KGN56IWE0N'
+        },
+        miktar: {
+          type: 'number',
+          title: tr('schema_entity_miktar', 'Miktar'),
+          description: tr('schema_entity_miktar_desc', 'Satır miktarı'),
+          expression: `{{ ${entityExprPrefix}.kalemler[0].miktar }}`,
+          required: true,
+          example: 2
+        },
+        birimFiyat: {
+          type: 'number',
+          title: tr('schema_entity_birim_fiyat', 'Birim Fiyat'),
+          description: tr('schema_entity_birim_fiyat_desc', 'Satır birim fiyatı'),
+          expression: `{{ ${entityExprPrefix}.kalemler[0].birimFiyat }}`,
+          required: true,
+          example: 42500
+        }
+      },
+      example: [
+        {
+          stokKodu: 'KGN56IWE0N',
+          miktar: 2,
+          birimFiyat: 42500,
+          tutar: 85000
+        }
+      ]
+    }
+  };
+
+  return {
+    entityCode: node?.varlikKodu || 'ErpBelge',
+    entityTitle,
+    entityCategory: 'belge',
+    schemaId: `https://webakus.ai/schemas/entities/${rawCode || 'erp-belge'}-output.schema.json`,
+    description: tr(
+      'schema_entity_genel_belge_desc',
+      'Açılan belge ekranında Kaydet işleminde üretilen sabit JSON veri şeması (Üst Bilgiler, Kalemler ve Alt Toplamlar).'
+    ),
+    required: ['id', 'belgeNo', 'belgeTarihi', 'genelToplam', 'kalemler'],
+    properties,
+    example: {
+      id: 4096,
+      belgeNo: 'BLG-2026-00492',
+      belgeTarihi: '2026-10-31',
+      cariUnvan: 'BSH Ev Aletleri San. ve Tic. A.Ş.',
+      aciklama: `${entityTitle} kaydı`,
+      genelToplam: 125000,
+      kalemler: properties.kalemler.example
+    }
+  };
+};
+
+/**
  * Her düğüm tipinin (BASLA, FORM_AC, AI_ISLEM, KARAR_ONAY vb.) kendisinden sonraki düğüme
  * vermeyi taahhüt ettiği sabit JSON Schema (Data Contract) sözleşmesini üretir.
+ * "Form Aç" (FORM_AC) düğümünde, düğümün kendi JSON verisi içerisinde açtığı Belgenin veya Kartın
+ * JSON verisi (`belgeVerisi`) iç içe (nested) olarak yer alır.
  */
 export const getNodeFixedOutputJsonSchema = (
   node: Partial<AiAkisDugumu> | null | undefined,
@@ -94,7 +746,7 @@ export const getNodeFixedOutputJsonSchema = (
   isImmediate: boolean = true,
   tFn?: (key: string, defaultText?: string, options?: any) => string
 ): FlowchartNodeJsonSchema => {
-  const tr = (key: string, fallback: string) => (tFn ? tFn(key, fallback) : fallback);
+  const tr = (key: string, fallback: string, options?: any) => (tFn ? tFn(key, fallback, options) : fallback);
   const nType = (node?.tip || 'AI_ISLEM').toUpperCase();
   const nodeId = node?.id || (nType === 'BASLA' ? 'BASLA' : `adim_${stepIndex + 1}`);
   const prefix = nType === 'BASLA' ? '$basla' : isImmediate ? '$onceki' : `$adim_${stepIndex + 1}`;
@@ -126,7 +778,7 @@ export const getNodeFixedOutputJsonSchema = (
         ),
         expression: `{{ ${prefix}.kullaniciIstegi }}`,
         required: true,
-        example: node?.dugmeMetni || 'Kampanya yazısından belge oluştur.'
+        example: node?.dugmeMetni || node?.dugmeBasligi || 'Kampanya yazısından belge oluştur.'
       },
       baslangicTalimati: {
         type: 'string',
@@ -150,7 +802,10 @@ export const getNodeFixedOutputJsonSchema = (
         ),
         expression: `{{ ${prefix}.tetiklenmeTuru }}`,
         required: true,
-        example: node?.hizliErisimAktifMi ? 'HIZLI_ERISIM_DUGMESI' : 'SOHBET_NIYET_ESLESTIRME'
+        example:
+          node?.hizliErisimAktifMi || node?.hizliErisimDugmesi
+            ? 'HIZLI_ERISIM_DUGMESI'
+            : 'SOHBET_NIYET_ESLESTIRME'
       },
       ekDosyalar: {
         type: 'array',
@@ -251,10 +906,11 @@ export const getNodeFixedOutputJsonSchema = (
   }
 
   if (nType === 'FORM_AC' || nType === 'EKRAN_AC') {
-    const varlikAdiOrnek = node?.varlikAdi || 'BSH Fiyat Farkı';
-    const modulKoduOrnek = node?.modulKodu || 'kampanya_modulu';
-    const varlikKoduOrnek = node?.varlikKodu || 'bsh_fiyat_farki';
-    const hedefRotaOrnek = node?.hedefRota || '/kampanya/bsh-fiyat-farki';
+    const openedEntitySchema = getOpenedEntityFixedJsonSchema(node, prefix, tFn);
+    const varlikAdiOrnek = node?.varlikAdi || openedEntitySchema.entityTitle;
+    const modulKoduOrnek = node?.modulKodu || 'product_module';
+    const varlikKoduOrnek = node?.varlikKodu || openedEntitySchema.entityCode;
+    const hedefRotaOrnek = node?.hedefRota || '/kampanyalar/yeni';
 
     const properties: Record<string, FlowchartNodeJsonSchemaProperty> = {
       dugumId: {
@@ -278,52 +934,60 @@ export const getNodeFixedOutputJsonSchema = (
         title: tr('schema_prop_islem_durumu', 'Form İşlem Durumu'),
         description: tr(
           'schema_prop_islem_durumu_desc',
-          'Açılan formda gerçekleştirilen işlemin tamamlanma durumu (KAYDEDILDI | BELGE_AKTARILDI | ACILDI)'
+          'Açılan formda gerçekleştirilen işlemin tamamlanma durumu (KAYDEDILDI | BELGE_AKTARILDI)'
         ),
         expression: `{{ ${prefix}.islemDurumu }}`,
         required: true,
-        example: 'BELGE_AKTARILDI'
+        example: 'KAYDEDILDI'
       },
-      varlikBilgisi: {
+      acilanVarlik: {
         type: 'object',
         format: 'json',
-        title: tr('schema_prop_varlik_bilgisi', 'Açılan Form / MCP Varlık Bilgisi'),
+        title: tr('schema_prop_varlik_bilgisi', 'Açılan Belge / Kart Kimlik Bilgisi'),
         description: tr(
           'schema_prop_varlik_bilgisi_desc',
-          'Bu düğümde açılan ERP formunun, belgenin veya kartın sabit kimlik ve rota bilgileri'
+          'Form Aç düğümünün açtığı ERP belgesinin veya kartının kimlik, tür ve rota bilgileri'
         ),
-        expression: `{{ ${prefix}.varlikBilgisi }}`,
+        expression: `{{ ${prefix}.acilanVarlik }}`,
         required: true,
         properties: {
           modulKodu: {
             type: 'string',
             title: tr('schema_prop_modul_kodu', 'Modül Kodu'),
             description: tr('schema_prop_modul_kodu_desc', 'İlgili ERP modülünün sistem kodu'),
-            expression: `{{ ${prefix}.varlikBilgisi.modulKodu }}`,
+            expression: `{{ ${prefix}.acilanVarlik.modulKodu }}`,
             required: true,
             example: modulKoduOrnek
           },
           varlikKodu: {
             type: 'string',
-            title: tr('schema_prop_varlik_kodu', 'Varlık Kodu'),
+            title: tr('schema_prop_varlik_kodu', 'Belge / Kart Kodu'),
             description: tr('schema_prop_varlik_kodu_desc', 'Açılan belge veya kartın MCP varlık kodu'),
-            expression: `{{ ${prefix}.varlikBilgisi.varlikKodu }}`,
+            expression: `{{ ${prefix}.acilanVarlik.varlikKodu }}`,
             required: true,
             example: varlikKoduOrnek
           },
           varlikAdi: {
             type: 'string',
-            title: tr('schema_prop_varlik_adi', 'Varlık / Ekran Adı'),
+            title: tr('schema_prop_varlik_adi', 'Açılan Belge / Kart Adı'),
             description: tr('schema_prop_varlik_adi_desc', 'Açılan formun veya belgenin görünen adı'),
-            expression: `{{ ${prefix}.varlikBilgisi.varlikAdi }}`,
+            expression: `{{ ${prefix}.acilanVarlik.varlikAdi }}`,
             required: true,
             example: varlikAdiOrnek
+          },
+          varlikTuru: {
+            type: 'string',
+            title: tr('schema_prop_varlik_turu', 'Varlık Türü (Belge / Kart)'),
+            description: tr('schema_prop_varlik_turu_desc', 'Açılan ekranın belge mi yoksa kart mı olduğu'),
+            expression: `{{ ${prefix}.acilanVarlik.varlikTuru }}`,
+            required: true,
+            example: openedEntitySchema.entityCategory
           },
           hedefRota: {
             type: 'string',
             title: tr('schema_prop_hedef_rota', 'Hedef Ekran Rotası (URL)'),
             description: tr('schema_prop_hedef_rota_desc', 'Formun uygulama içi yönlendirme adresi'),
-            expression: `{{ ${prefix}.varlikBilgisi.hedefRota }}`,
+            expression: `{{ ${prefix}.acilanVarlik.hedefRota }}`,
             required: true,
             example: hedefRotaOrnek
           }
@@ -332,8 +996,22 @@ export const getNodeFixedOutputJsonSchema = (
           modulKodu: modulKoduOrnek,
           varlikKodu: varlikKoduOrnek,
           varlikAdi: varlikAdiOrnek,
+          varlikTuru: openedEntitySchema.entityCategory,
           hedefRota: hedefRotaOrnek
         }
+      },
+      belgeVerisi: {
+        type: 'object',
+        format: `entity-schema:${openedEntitySchema.entityCode}`,
+        title: `${tr(
+          'schema_prop_acilan_belge_kart_json',
+          'Açılan Belgenin / Kartın JSON Verisi'
+        )} (${varlikAdiOrnek})`,
+        description: openedEntitySchema.description,
+        expression: `{{ ${prefix}.belgeVerisi }}`,
+        required: true,
+        properties: openedEntitySchema.properties,
+        example: openedEntitySchema.example
       },
       eklenenBelgeler: {
         type: 'array',
@@ -341,7 +1019,7 @@ export const getNodeFixedOutputJsonSchema = (
         title: tr('n8n_var_eklenen_belgeler', 'İçeri Aktarılan Belgeler / Dosyalar'),
         description: tr(
           'n8n_var_eklenen_belgeler_aciklama',
-          'Önceki form/ekranda seçilen veya içeri aktarılan PDF, Word, Excel, görsel ve bulut dosyaları'
+          'Açılan belge/kartta seçilen, ilişkilendirilen veya içeri aktarılan PDF, Word, Excel, görsel ve bulut dosyaları'
         ),
         expression: `{{ ${prefix}.eklenenBelgeler }}`,
         required: true,
@@ -362,14 +1040,6 @@ export const getNodeFixedOutputJsonSchema = (
             expression: `{{ ${prefix}.eklenenBelgeler[0].uzanti }}`,
             required: true,
             example: 'application/pdf'
-          },
-          kaynak: {
-            type: 'string',
-            title: tr('schema_prop_belge_kaynagi', 'Aktarım Kaynağı'),
-            description: tr('schema_prop_belge_kaynagi_desc', 'Bilgisayar, Bulut Depolama veya Form Eki'),
-            expression: `{{ ${prefix}.eklenenBelgeler[0].kaynak }}`,
-            required: true,
-            example: 'BULUT_DEPOLAMA'
           },
           bulutDosyaId: {
             type: 'string',
@@ -393,7 +1063,6 @@ export const getNodeFixedOutputJsonSchema = (
           {
             dosyaAdi: 'BSH_Kasim_Kampanya_Sirkuleri.pdf',
             uzanti: 'application/pdf',
-            kaynak: 'BULUT_DEPOLAMA',
             bulutDosyaId: 'file_bsh_2026_11',
             metinIcerigi:
               'BSH Kasım Ayı Ankastre ve Beyaz Eşya Kampanya Koşulları ve Fiyat Farkı Tablosu...'
@@ -412,44 +1081,17 @@ export const getNodeFixedOutputJsonSchema = (
         required: true,
         example:
           'Kampanya Başlığı: BSH Kasım Fırsatı | Geçerlilik: 01.11.2026 - 30.11.2026 | Model: KGN56IWE0N - Destek Tutarı: 3.500 TL'
-      },
-      kayitId: {
-        type: 'string',
-        title: tr('n8n_var_kayit_id', 'Kaydedilen Kayıt ID ve Özeti'),
-        description: tr(
-          'n8n_var_kayit_id_aciklama',
-          'Oluşturulan veya güncellenen kaydın sistem kimliği (ID) ve başlık bilgisi'
-        ),
-        expression: `{{ ${prefix}.kayitId }}`,
-        required: true,
-        example: 'REC-2026-00482'
-      },
-      kaydedilenVeri: {
-        type: 'object',
-        format: 'json',
-        title: tr('n8n_var_kaydedilen_form_verisi', 'Kaydedilen Form / Kart Verisi (JSON)'),
-        description: tr(
-          'n8n_var_kaydedilen_form_verisi_aciklama',
-          'Açılan form veya kart kaydedildiğinde yakalanan tüm alanlar ve satır verileri'
-        ),
-        expression: `{{ ${prefix}.kaydedilenVeri }}`,
-        required: true,
-        example: {
-          id: 'REC-2026-00482',
-          belgeNo: 'KMP-2026-1104',
-          varlikAdi: varlikAdiOrnek,
-          durum: 'AKTIF'
-        }
       }
     };
 
     return {
       $schema: 'https://json-schema.org/draft/2020-12/schema',
-      schemaId: 'https://webakus.ai/schemas/flowchart/form-ac-output.schema.json',
-      title: tr('schema_title_form_ac', 'Form Aç Düğümü Sabit Çıktı Şeması (FormOpenOutputSchema)'),
+      schemaId: `https://webakus.ai/schemas/flowchart/form-ac-${openedEntitySchema.entityCode.toLowerCase()}.schema.json`,
+      title: `${tr('schema_title_form_ac', 'Form Aç Düğümü Sabit Çıktı Şeması')} • ${varlikAdiOrnek}`,
       description: tr(
-        'schema_desc_form_ac',
-        'Form Aç düğümünün bir sonraki adıma vermeyi taahhüt ettiği içeri aktarılan belgeler, çözümlenmiş belge metni ve kaydedilen form verisi şeması.'
+        'schema_desc_form_ac_with_entity',
+        'Form Aç düğümünün kendi JSON verisi içerisinde açtığı "{{varlikAdi}}" belgesinin/kartının Kaydet çıktısı JSON verisini (belgeVerisi) ve eklenen dosyaları sonraki düğümlere aktaran sabit şema sözleşmesi.',
+        { varlikAdi: varlikAdiOrnek }
       ),
       nodeType: 'FORM_AC',
       type: 'object',
@@ -457,22 +1099,20 @@ export const getNodeFixedOutputJsonSchema = (
         'dugumId',
         'dugumTipi',
         'islemDurumu',
-        'varlikBilgisi',
+        'acilanVarlik',
+        'belgeVerisi',
         'eklenenBelgeler',
-        'belgeMetinIcerigi',
-        'kayitId',
-        'kaydedilenVeri'
+        'belgeMetinIcerigi'
       ],
       properties,
       examplePayload: {
         dugumId: nodeId,
         dugumTipi: 'FORM_AC',
         islemDurumu: properties.islemDurumu.example,
-        varlikBilgisi: properties.varlikBilgisi.example,
+        acilanVarlik: properties.acilanVarlik.example,
+        belgeVerisi: openedEntitySchema.example,
         eklenenBelgeler: properties.eklenenBelgeler.example,
-        belgeMetinIcerigi: properties.belgeMetinIcerigi.example,
-        kayitId: properties.kayitId.example,
-        kaydedilenVeri: properties.kaydedilenVeri.example
+        belgeMetinIcerigi: properties.belgeMetinIcerigi.example
       }
     };
   }
@@ -704,6 +1344,8 @@ export const getNodeFixedOutputJsonSchema = (
 /**
  * Sabit JSON Schema içindeki özellikleri "Ayarlar" ve "Önceki Düğüm" sekmelerinde
  * tıklanabilir değişken listesine dönüştürür.
+ * "Form Aç" düğümünün açtığı Belge/Kartın kendi JSON verisi (`belgeVerisi.*`) birinci sınıf (isNested: false)
+ * şema alanı olarak doğrudan "Ayarlar" sekmesinde de gösterilir.
  */
 export const extractVariablesFromNodeSchema = (
   node: AiAkisDugumu,
@@ -719,15 +1361,15 @@ export const extractVariablesFromNodeSchema = (
   ): 'belge' | 'veri' | 'metin' | 'karar' => {
     if (
       prop.format === 'file-attachment' ||
-      propKey.toLowerCase().includes('belge') ||
-      propKey.toLowerCase().includes('dosya')
+      propKey.toLowerCase().includes('dosya') ||
+      propKey === 'eklenenBelgeler'
     ) {
       return 'belge';
     }
     if (prop.type === 'boolean' || propKey === 'secilenDal') {
       return 'karar';
     }
-    if (prop.type === 'object' || prop.type === 'array' || propKey.toLowerCase().includes('id')) {
+    if (prop.type === 'object' || prop.type === 'array' || prop.type === 'number' || propKey.toLowerCase().includes('id')) {
       return 'veri';
     }
     return 'metin';
@@ -735,6 +1377,8 @@ export const extractVariablesFromNodeSchema = (
 
   Object.entries(schema.properties).forEach(([propKey, prop]) => {
     if (propKey === 'dugumId' || propKey === 'dugumTipi') return;
+
+    const isEmbeddedEntityData = propKey === 'belgeVerisi';
 
     result.push({
       key: `${node.id}_${propKey}`,
@@ -746,6 +1390,7 @@ export const extractVariablesFromNodeSchema = (
       dataType: resolveCategory(propKey, prop),
       required: prop.required,
       isNested: false,
+      isEntityField: isEmbeddedEntityData,
       exampleValue: prop.example,
       sourceNodeId: node.id,
       sourceNodeTitle: nodeLabel,
@@ -758,17 +1403,40 @@ export const extractVariablesFromNodeSchema = (
           key: `${node.id}_${propKey}_${subKey}`,
           propertyPath: `${propKey}.${subKey}`,
           expression: subProp.expression,
-          label: `${prop.title} → ${subProp.title}`,
+          label: isEmbeddedEntityData ? subProp.title : `${prop.title} → ${subProp.title}`,
           description: subProp.description,
           schemaType: subProp.type,
           dataType: resolveCategory(subKey, subProp),
           required: subProp.required,
-          isNested: true,
+          // "Form Aç" düğümünün açtığı Belge/Kartın kendi JSON alanlarını doğrudan "Ayarlar" sekmesinde göster
+          isNested: !isEmbeddedEntityData,
+          isEntityField: isEmbeddedEntityData,
           exampleValue: subProp.example,
           sourceNodeId: node.id,
           sourceNodeTitle: nodeLabel,
           sourceNodeType: nType
         });
+
+        if (isEmbeddedEntityData && subProp.itemsProperties) {
+          Object.entries(subProp.itemsProperties).forEach(([itemKey, itemProp]) => {
+            result.push({
+              key: `${node.id}_${propKey}_${subKey}_item_${itemKey}`,
+              propertyPath: `${propKey}.${subKey}[0].${itemKey}`,
+              expression: itemProp.expression,
+              label: `${subProp.title} → ${itemProp.title}`,
+              description: itemProp.description,
+              schemaType: itemProp.type,
+              dataType: resolveCategory(itemKey, itemProp),
+              required: itemProp.required,
+              isNested: true,
+              isEntityField: true,
+              exampleValue: itemProp.example,
+              sourceNodeId: node.id,
+              sourceNodeTitle: nodeLabel,
+              sourceNodeType: nType
+            });
+          });
+        }
       });
     }
 
@@ -784,6 +1452,7 @@ export const extractVariablesFromNodeSchema = (
           dataType: resolveCategory(subKey, subProp),
           required: subProp.required,
           isNested: true,
+          isEntityField: false,
           exampleValue: subProp.example,
           sourceNodeId: node.id,
           sourceNodeTitle: nodeLabel,
@@ -1243,14 +1912,20 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
     }
     if (!activeSourceNodeInfo.node) return immediatePrevDisplayName;
     return formatNodeDisplayTitle(activeSourceNodeInfo.node, activeSourceNodeInfo.stepIndex);
-  }, [oncekiDugumGirdisi.kaynakDugumId, previousNodes.length, activeSourceNodeInfo, immediatePrevDisplayName, t]);
+  }, [
+    oncekiDugumGirdisi.kaynakDugumId,
+    previousNodes.length,
+    activeSourceNodeInfo,
+    immediatePrevDisplayName,
+    t
+  ]);
 
   const visibleSettingsVariables = useMemo(() => {
     if (showNestedInSettings) return availableInputVariables;
     return availableInputVariables.filter((v) => !v.isNested);
   }, [availableInputVariables, showNestedInSettings]);
 
-  // "Ayarlar" sekmesi içeriği: Önceki düğümün şema değerlerini kullanma çubuğu + düğümün kendi ayarları (children)
+  // "Ayarlar" sekmesi içeriği: Önceki düğümün (ve açtığı Belge/Kartın) şema değerlerini kullanma çubuğu + düğümün kendi ayarları (children)
   const renderAyarlarTabContent = () => (
     <div className="flowchart-ayarlar-tab-pane">
       {!isStartNode && previousNodeJsonSchema && (
@@ -1277,7 +1952,7 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
                   <p className="n8n-settings-schema-subtitle">
                     {t(
                       'onceki_dugum_sema_degerlerini_kullan_aciklama',
-                      'Bir önceki düğümün vermeyi taahhüt ettiği JSON Schema alanlarına tıklayarak bu düğümün ayarlarında (Prompt / Yönerge) doğrudan kullanabilirsiniz.'
+                      'Bir önceki düğümün (ve varsa açtığı Belge/Kartın) vermeyi taahhüt ettiği JSON Schema alanlarına tıklayarak bu düğümün ayarlarında doğrudan kullanabilirsiniz.'
                     )}
                   </p>
                 </div>
@@ -1333,7 +2008,9 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
                     >
                       <div className="n8n-schema-var-top">
                         <span className={`n8n-schema-var-type type-${item.dataType}`}>
-                          {item.schemaType.toUpperCase()}
+                          {item.isEntityField
+                            ? `${t('belge_karti_etiket', 'BELGE/KART')} • ${item.schemaType.toUpperCase()}`
+                            : item.schemaType.toUpperCase()}
                         </span>
                         <code className="n8n-schema-var-code">{item.expression}</code>
                         <span className="n8n-schema-var-action-icon">
@@ -1523,7 +2200,7 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
                     <span className="n8n-input-channel-title">
                       {t(
                         'kaydedilen_form_ve_varlik_verilerini_al',
-                        'Kaydedilen Form ve Kayıt Verileri'
+                        'Açılan Belge / Kartın Kaydedilen JSON Verileri'
                       )}
                     </span>
                     <span className="n8n-input-channel-badge">
@@ -1536,7 +2213,7 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
                 <p className="n8n-input-channel-desc">
                   {t(
                     'kaydedilen_form_ve_varlik_verilerini_al_aciklama',
-                    'Önceki adımda açılan form veya kartta kaydedilen alan bilgilerini (Kayıt ID, JSON alanları, satırlar) bu düğüme aktar.'
+                    'Önceki adımda açılan belge veya kartta Kaydet işleminde üretilen tüm JSON verilerini (belgeVerisi) bu düğüme aktar.'
                   )}
                 </p>
               </div>
@@ -1692,9 +2369,17 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
                             <div className="n8n-schema-subprops-title">
                               <CornerDownRight size={13} />
                               <span>
-                                {prop.type === 'array'
-                                  ? t('dizi_ogesi_alt_semasi', 'Dizi Öğesi Alt Şeması (items.properties)')
-                                  : t('nesne_alt_alanlari', 'Nesne Alt Alanları (properties)')}
+                                {propKey === 'belgeVerisi'
+                                  ? t(
+                                      'acilan_belge_kart_kendi_json_alanlari',
+                                      'Açılan Belgenin / Kartın Kendi JSON Alanları (belgeVerisi.*)'
+                                    )
+                                  : prop.type === 'array'
+                                    ? t(
+                                        'dizi_ogesi_alt_semasi',
+                                        'Dizi Öğesi Alt Şeması (items.properties)'
+                                      )
+                                    : t('nesne_alt_alanlari', 'Nesne Alt Alanları (properties)')}
                               </span>
                             </div>
                             <div className="n8n-schema-subprops-list">
@@ -1712,6 +2397,7 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
                                           className={`n8n-schema-prop-type-badge type-${subProp.type}`}
                                         >
                                           {subProp.type}
+                                          {subProp.itemsType ? `<${subProp.itemsType}>` : ''}
                                         </span>
                                         <span className="n8n-schema-subprop-label">
                                           {subProp.title}

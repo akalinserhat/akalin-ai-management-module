@@ -37,10 +37,12 @@ export {
   BaseAiAjanFlowchartOgeAyarPage as NamedBaseAiAjanFlowchartOgeAyarPage,
   useFlowchartOgeAyarContext,
   getNodeFixedOutputJsonSchema,
+  getOpenedEntityFixedJsonSchema,
   extractVariablesFromNodeSchema,
   type BaseAiAjanFlowchartOgeAyarPageProps,
   type FlowchartOgeAyarContextValue,
-  type FlowchartPreviousNodeOutputField
+  type FlowchartPreviousNodeOutputField,
+  type OpenedEntityFixedJsonSchema
 } from './pages/BaseAiAjanFlowchartOgeAyarPage';
 export { default as BaslaFlowchartOgeAyarPage, BaslaFlowchartOgeAyarPage as NamedBaslaFlowchartOgeAyarPage, type BaslaFlowchartOgeAyarPageProps } from './pages/BaslaFlowchartOgeAyarPage';
 export { default as FormAcFlowchartOgeAyarPage, FormAcFlowchartOgeAyarPage as NamedFormAcFlowchartOgeAyarPage, type FormAcFlowchartOgeAyarPageProps } from './pages/FormAcFlowchartOgeAyarPage';
