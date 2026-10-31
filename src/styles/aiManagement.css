@@ -3025,6 +3025,7 @@
 .form-ac-chat-preview-btn {
   display: inline-flex;
   align-items: center;
+  align-self: center;
   gap: 7px;
   padding: 6px 14px;
   border-radius: 8px;
