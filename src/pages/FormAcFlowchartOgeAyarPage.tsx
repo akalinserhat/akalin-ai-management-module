@@ -13,15 +13,12 @@ import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Monitor,
-  Terminal,
   Sparkles,
-  Info,
   CheckCircle2,
   ShieldCheck,
   MessageSquare,
   Tag,
-  ExternalLink,
-  Braces
+  ExternalLink
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -441,16 +438,6 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
     ]
   );
 
-  const handleAppendPromptSnippet = (snippetText: string) => {
-    setFormData((prev: any) => {
-      const current = (prev.prompt || '').trim();
-      return {
-        ...prev,
-        prompt: current ? `${current}\n${snippetText}` : snippetText
-      };
-    });
-  };
-
   return (
     <BaseAiAjanFlowchartOgeAyarPage
       id="formAcFlowchartOgeAyarPage"
@@ -730,94 +717,6 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
                   }
                 />
               </div>
-            </div>
-          </div>
-        </section>
-
-        {/* 3. BÖLÜM: FORM AÇILIŞ KOŞULU, ÖN DOLDURMA VE AI TALİMATI */}
-        <section className="basla-ayar-card">
-          <div className="basla-ayar-card-header">
-            <div className="basla-ayar-card-header-left">
-              <div className="basla-ayar-icon-box warning">
-                <Terminal size={18} />
-              </div>
-              <div className="basla-ayar-header-text">
-                <h3 className="basla-ayar-card-title">
-                  {t(
-                    'form_acilis_kosulu_ve_ai_talimati',
-                    'Form Açılış Koşulu ve Yapay Zeka Sihirbaz Talimatı'
-                  )}
-                </h3>
-                <p className="basla-ayar-card-subtitle">
-                  {t(
-                    'form_acilis_kosulu_ve_ai_talimati_aciklama',
-                    'Yapay zekanın bu formu hangi durumda açacağını, kullanıcının cümlesindeki hangi bilgileri forma ön-dolduracağını ve kayıt sonrasında neyi teyit edeceğini belirtin.'
-                  )}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="basla-ayar-card-body">
-            <div className="form-ac-snippet-bar">
-              <span className="form-ac-snippet-label">
-                {t('hazir_sihirbaz_kalibi_ekle', 'Hazır Sihirbaz Kalıbı Ekle:')}
-              </span>
-              <button
-                type="button"
-                className="form-ac-snippet-chip"
-                onClick={() =>
-                  handleAppendPromptSnippet(
-                    t(
-                      'snippet_kayit_yoksa_ac_bekle',
-                      'Eğer ilgili kayıt sistemde bulunamazsa bu formu aç, kullanıcının verdiği bilinen alanları forma aktar ve kullanıcının formu doldurup kaydetmesini bekle.'
-                    )
-                  )
-                }
-              >
-                + {t('kayit_yoksa_formu_ac_ve_bekle', 'Kayıt Yoksa Formu Aç & Bekle')}
-              </button>
-              <button
-                type="button"
-                className="form-ac-snippet-chip"
-                onClick={() =>
-                  handleAppendPromptSnippet(
-                    t(
-                      'snippet_kayit_sonrasi_ozetle_teyit_al',
-                      'Kullanıcı formu kaydettiğinde kaydedilen tüm bilgileri (Unvan/Ad, Kod, Tutar vb.) kullanıcıya özetleyerek sun, teyit iste ve onay sonrasında bir sonraki adıma geç.'
-                    )
-                  )
-                }
-              >
-                + {t('kayit_sonrasi_bilgileri_teyit_et', 'Kayıt Sonrası Bilgileri Teyit Et')}
-              </button>
-            </div>
-
-            <FlowchartPromptMentionInput
-              showAttachButton={false}
-              rows={6}
-              value={formData.prompt}
-              onChange={(e) =>
-                setFormData((prev: any) => ({ ...prev, prompt: e.target.value }))
-              }
-              placeholder={t(
-                'form_ac_prompt_placeholder',
-                'Örn: Müşteri sistemde kayıtlı değilse Cari Kart ekranını aç. Kullanıcının belirttiği müşteri adını forma aktar ve kullanıcının kartı doldurup kaydetmesini bekle. Kart kaydedildikten sonra kaydedilen cari bilgilerini kullanıcıya sunup teyit et ve satış adımına geç.'
-              )}
-            />
-            <div className="basla-ayar-card-footer">
-              <span className="basla-ayar-footer-hint">
-                <Info size={13} />
-                <span>
-                  {t(
-                    'form_ac_prompt_ipucu',
-                    'İpucu: Sihirbaz akışında form kaydedildiğinde kaydedilen alanlar otomatik olarak yapay zekaya aktarılır.'
-                  )}
-                </span>
-              </span>
-              <span className="basla-ayar-char-count">
-                {(formData.prompt || '').length} {t('karakter', 'karakter')}
-              </span>
             </div>
           </div>
         </section>
