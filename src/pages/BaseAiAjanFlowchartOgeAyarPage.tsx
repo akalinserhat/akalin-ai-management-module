@@ -1201,6 +1201,17 @@ export const getNodeFixedOutputJsonSchema = (
   }
 
   // AI_ISLEM, MCP_SORGULA, BELGE_OLUSTUR ve diğer işlem düğümleri
+  const hasTargetEntity = Boolean(
+    node?.varlikKodu || node?.mcpVarlikId || node?.hedefRota
+  );
+  const targetEntitySchema = hasTargetEntity
+    ? getOpenedEntityFixedJsonSchema(node, prefix, tFn)
+    : null;
+  const targetEntityTitle =
+    node?.varlikAdi || targetEntitySchema?.entityTitle || 'KAMPANYA_BELGESI';
+  const targetEntityCode =
+    targetEntitySchema?.entityCode || node?.varlikKodu || 'KAMPANYA_BELGESI';
+
   const properties: Record<string, FlowchartNodeJsonSchemaProperty> = {
     dugumId: {
       type: 'string',
@@ -1300,6 +1311,23 @@ export const getNodeFixedOutputJsonSchema = (
         kalemler: [{ stokKodu: 'KGN56IWE0N', destekTutari: 3500, paraBirimi: 'TRY' }]
       }
     },
+    ...(targetEntitySchema
+      ? {
+          belgeVerisi: {
+            type: 'object' as const,
+            format: `entity-schema:${targetEntitySchema.entityCode}`,
+            title: `${tr(
+              'schema_prop_olusturulan_belge_kart_json',
+              'Oluşturulan Belgenin / Kartın JSON Verisi'
+            )} (${targetEntityTitle})`,
+            description: targetEntitySchema.description,
+            expression: `{{ ${prefix}.belgeVerisi }}`,
+            required: true,
+            properties: targetEntitySchema.properties,
+            example: targetEntitySchema.example
+          }
+        }
+      : {}),
     olusturulanBelge: {
       type: 'object',
       format: 'json',
@@ -1317,7 +1345,7 @@ export const getNodeFixedOutputJsonSchema = (
           description: tr('schema_prop_belge_turu_desc', 'Oluşturulan ERP belgesinin türü'),
           expression: `{{ ${prefix}.olusturulanBelge.belgeTuru }}`,
           required: true,
-          example: 'KAMPANYA_BELGESI'
+          example: targetEntityCode
         },
         belgeId: {
           type: 'string',
@@ -1329,7 +1357,7 @@ export const getNodeFixedOutputJsonSchema = (
         }
       },
       example: {
-        belgeTuru: 'KAMPANYA_BELGESI',
+        belgeTuru: targetEntityCode,
         belgeId: 'DOC-2026-881'
       }
     }
@@ -1337,15 +1365,21 @@ export const getNodeFixedOutputJsonSchema = (
 
   return {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
-    schemaId: 'https://webakus.ai/schemas/flowchart/ai-islem-output.schema.json',
-    title: tr('schema_title_ai_islem', 'AI İşlemi Düğümü Sabit Çıktı Şeması (AiProcessOutputSchema)'),
+    schemaId: targetEntitySchema
+      ? `https://webakus.ai/schemas/flowchart/ai-islem-${targetEntitySchema.entityCode.toLowerCase()}.schema.json`
+      : 'https://webakus.ai/schemas/flowchart/ai-islem-output.schema.json',
+    title: targetEntitySchema
+      ? `${tr('schema_title_ai_islem', 'AI İşlemi Düğümü Sabit Çıktı Şeması (AiProcessOutputSchema)')} • ${targetEntityTitle}`
+      : tr('schema_title_ai_islem', 'AI İşlemi Düğümü Sabit Çıktı Şeması (AiProcessOutputSchema)'),
     description: tr(
       'schema_desc_ai_islem',
       'AI İşlemi düğümünün bir sonraki adıma vermeyi taahhüt ettiği analiz sonucu, çıkarılan yapısal JSON verisi ve belge taslağı şeması.'
     ),
     nodeType: 'AI_ISLEM',
     type: 'object',
-    required: ['dugumId', 'dugumTipi', 'basariliMi', 'aiYaniti', 'cikarilanVeri', 'olusturulanBelge'],
+    required: targetEntitySchema
+      ? ['dugumId', 'dugumTipi', 'basariliMi', 'aiYaniti', 'cikarilanVeri', 'belgeVerisi', 'olusturulanBelge']
+      : ['dugumId', 'dugumTipi', 'basariliMi', 'aiYaniti', 'cikarilanVeri', 'olusturulanBelge'],
     properties,
     examplePayload: {
       dugumId: nodeId,
@@ -1353,6 +1387,7 @@ export const getNodeFixedOutputJsonSchema = (
       basariliMi: true,
       aiYaniti: properties.aiYaniti.example,
       cikarilanVeri: properties.cikarilanVeri.example,
+      ...(targetEntitySchema ? { belgeVerisi: targetEntitySchema.example } : {}),
       olusturulanBelge: properties.olusturulanBelge.example
     }
   };
