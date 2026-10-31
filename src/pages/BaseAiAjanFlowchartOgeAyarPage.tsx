@@ -1552,7 +1552,7 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
   const [internalIsSaving, setInternalIsSaving] = useState<boolean>(false);
   const [internalFormData, setInternalFormData] = useState<any>(initialNodeData || {});
   const [fetchedIstekData, setFetchedIstekData] = useState<any>(null);
-  const [internalActiveTab, setInternalActiveTab] = useState<string | number>('ayarlar');
+  const [internalActiveTab, setInternalActiveTab] = useState<string | number>('onceki_dugum');
   const [schemaViewMode, setSchemaViewMode] = useState<'json_schema' | 'example_payload'>(
     'json_schema'
   );
@@ -1587,7 +1587,7 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
             if (found) setFetchedIstekData(found);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [propIstekData, location.state?.istekData, effectiveAgentId, effectiveIstekId]);
 
@@ -1881,14 +1881,14 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
       if (propOnSave) {
         const finalData = isStartNode
           ? {
-              ...effectiveFormData,
-              ciktiJsonSemasi: currentNodeOutputJsonSchema
-            }
+            ...effectiveFormData,
+            ciktiJsonSemasi: currentNodeOutputJsonSchema
+          }
           : {
-              ...effectiveFormData,
-              oncekiDugumGirdisi,
-              ciktiJsonSemasi: currentNodeOutputJsonSchema
-            };
+            ...effectiveFormData,
+            oncekiDugumGirdisi,
+            ciktiJsonSemasi: currentNodeOutputJsonSchema
+          };
         await propOnSave(finalData);
       }
     } finally {
@@ -1993,16 +1993,15 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
                   const isUsedInPrompt = Boolean(
                     (effectiveFormData?.prompt &&
                       String(effectiveFormData.prompt).includes(item.expression)) ||
-                      (effectiveFormData?.kullaniciMesaji &&
-                        String(effectiveFormData.kullaniciMesaji).includes(item.expression))
+                    (effectiveFormData?.kullaniciMesaji &&
+                      String(effectiveFormData.kullaniciMesaji).includes(item.expression))
                   );
                   return (
                     <button
                       key={item.key}
                       type="button"
-                      className={`n8n-schema-var-chip ${isUsedInPrompt ? 'is-used' : ''} ${
-                        item.isNested ? 'is-nested' : ''
-                      }`}
+                      className={`n8n-schema-var-chip ${isUsedInPrompt ? 'is-used' : ''} ${item.isNested ? 'is-nested' : ''
+                        }`}
                       onClick={() => insertVariableIntoPrompt(item.expression)}
                       title={item.description}
                     >
@@ -2036,19 +2035,111 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
 
   // "Önceki Düğüm" sekmesi içeriği: Önceki düğümün vermeyi taahhüt ettiği sabit JSON Schema ve girdi kanalları
   const renderOncekiDugumTabContent = () => {
-    if (isStartNode || !previousNodeJsonSchema) return null;
+    if (isStartNode || !previousNodeJsonSchema) {
+      const startDisplayedJsonObject =
+        schemaViewMode === 'json_schema'
+          ? {
+            $schema: currentNodeOutputJsonSchema.$schema,
+            $id: currentNodeOutputJsonSchema.schemaId,
+            title: currentNodeOutputJsonSchema.title,
+            description: currentNodeOutputJsonSchema.description,
+            type: currentNodeOutputJsonSchema.type,
+            required: currentNodeOutputJsonSchema.required,
+            properties: currentNodeOutputJsonSchema.properties
+          }
+          : currentNodeOutputJsonSchema.examplePayload;
+
+      return (
+        <div className="basla-ayar-page-container n8n-onceki-dugum-tab-container">
+          <section className="basla-ayar-card n8n-json-schema-contract-card">
+            <div className="basla-ayar-card-header">
+              <div className="basla-ayar-card-header-left">
+                <div className="basla-ayar-icon-box emerald">
+                  <Workflow size={18} />
+                </div>
+                <div className="basla-ayar-header-text">
+                  <h3 className="basla-ayar-card-title">
+                    {t(
+                      'basla_dugumu_onceki_dugum_bilgisi_baslik',
+                      'Akış Başlangıç Düğümü (Öncesinde Düğüm Bulunmuyor)'
+                    )}
+                  </h3>
+                  <p className="basla-ayar-card-subtitle">
+                    {t(
+                      'basla_dugumu_onceki_dugum_bilgisi_aciklama',
+                      'Başla düğümü görev akışının ilk adımıdır; kendisinden önce gelen bir düğüm yoktur. Bu düğümün sonraki düğümlere aktaracağı sabit JSON Schema sözleşmesi aşağıda yer almaktadır.'
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="flowchart-ayar-view-schema-btn"
+                onClick={() => handleTabChange('ayarlar')}
+              >
+                <span>{t('ayarlar_sekmesine_gec', 'Ayarlar Sekmesine Geç')}</span>
+                <ArrowRight size={13} />
+              </button>
+            </div>
+
+            <div className="basla-ayar-card-body">
+              <div className="n8n-json-schema-code-column">
+                <div className="n8n-json-schema-code-header">
+                  <div className="n8n-json-schema-mode-tabs">
+                    <button
+                      type="button"
+                      className={`n8n-json-mode-btn ${schemaViewMode === 'json_schema' ? 'active' : ''}`}
+                      onClick={() => setSchemaViewMode('json_schema')}
+                    >
+                      <Braces size={13} />
+                      <span>{t('sabit_json_schema', 'Sabit JSON Schema')}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`n8n-json-mode-btn ${schemaViewMode === 'example_payload' ? 'active' : ''}`}
+                      onClick={() => setSchemaViewMode('example_payload')}
+                    >
+                      <Code2 size={13} />
+                      <span>{t('ornek_cikti_verisi', 'Örnek Çıktı Verisi (JSON)')}</span>
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="n8n-json-copy-btn"
+                    onClick={() => handleCopyJsonSchema(startDisplayedJsonObject)}
+                  >
+                    <Copy size={13} />
+                    <span>{t('kopyala', 'Kopyala')}</span>
+                  </button>
+                </div>
+
+                <div className="n8n-json-schema-code-MetaBar">
+                  <span className="n8n-json-schema-id-text">{currentNodeOutputJsonSchema.schemaId}</span>
+                </div>
+
+                <pre className="n8n-json-schema-pre">
+                  <code>{JSON.stringify(startDisplayedJsonObject, null, 2)}</code>
+                </pre>
+              </div>
+            </div>
+          </section>
+        </div>
+      );
+    }
 
     const displayedJsonObject =
       schemaViewMode === 'json_schema'
         ? {
-            $schema: previousNodeJsonSchema.$schema,
-            $id: previousNodeJsonSchema.schemaId,
-            title: previousNodeJsonSchema.title,
-            description: previousNodeJsonSchema.description,
-            type: previousNodeJsonSchema.type,
-            required: previousNodeJsonSchema.required,
-            properties: previousNodeJsonSchema.properties
-          }
+          $schema: previousNodeJsonSchema.$schema,
+          $id: previousNodeJsonSchema.schemaId,
+          title: previousNodeJsonSchema.title,
+          description: previousNodeJsonSchema.description,
+          type: previousNodeJsonSchema.type,
+          required: previousNodeJsonSchema.required,
+          properties: previousNodeJsonSchema.properties
+        }
         : previousNodeJsonSchema.examplePayload;
 
     return (
@@ -2107,9 +2198,8 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
                 <div className="n8n-input-source-pills">
                   <button
                     type="button"
-                    className={`n8n-source-node-btn ${
-                      oncekiDugumGirdisi.kaynakDugumId === 'OTOMATIK_ONCEKI' ? 'active' : ''
-                    }`}
+                    className={`n8n-source-node-btn ${oncekiDugumGirdisi.kaynakDugumId === 'OTOMATIK_ONCEKI' ? 'active' : ''
+                      }`}
                     onClick={() => updateOncekiDugumGirdisi({ kaynakDugumId: 'OTOMATIK_ONCEKI' })}
                   >
                     {renderNodeSmallIcon(immediatePreviousNode?.tip)}
@@ -2126,9 +2216,8 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
                         <button
                           key={pNode.id || idx}
                           type="button"
-                          className={`n8n-source-node-btn ${
-                            oncekiDugumGirdisi.kaynakDugumId === pNode.id ? 'active' : ''
-                          }`}
+                          className={`n8n-source-node-btn ${oncekiDugumGirdisi.kaynakDugumId === pNode.id ? 'active' : ''
+                            }`}
                           onClick={() => updateOncekiDugumGirdisi({ kaynakDugumId: pNode.id })}
                         >
                           {renderNodeSmallIcon(pNode.tip)}
@@ -2150,9 +2239,8 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
             {/* AKTARILACAK VERİ VE BELGE KANALLARI */}
             <div className="n8n-input-channels-grid">
               <div
-                className={`n8n-input-channel-card ${
-                  oncekiDugumGirdisi.belgeleriAktar ? 'is-active' : ''
-                }`}
+                className={`n8n-input-channel-card ${oncekiDugumGirdisi.belgeleriAktar ? 'is-active' : ''
+                  }`}
                 onClick={() =>
                   updateOncekiDugumGirdisi({
                     belgeleriAktar: !oncekiDugumGirdisi.belgeleriAktar
@@ -2183,9 +2271,8 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
               </div>
 
               <div
-                className={`n8n-input-channel-card ${
-                  oncekiDugumGirdisi.formVerileriniAktar ? 'is-active' : ''
-                }`}
+                className={`n8n-input-channel-card ${oncekiDugumGirdisi.formVerileriniAktar ? 'is-active' : ''
+                  }`}
                 onClick={() =>
                   updateOncekiDugumGirdisi({
                     formVerileriniAktar: !oncekiDugumGirdisi.formVerileriniAktar
@@ -2219,9 +2306,8 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
               </div>
 
               <div
-                className={`n8n-input-channel-card ${
-                  oncekiDugumGirdisi.aiCiktisiniAktar ? 'is-active' : ''
-                }`}
+                className={`n8n-input-channel-card ${oncekiDugumGirdisi.aiCiktisiniAktar ? 'is-active' : ''
+                  }`}
                 onClick={() =>
                   updateOncekiDugumGirdisi({
                     aiCiktisiniAktar: !oncekiDugumGirdisi.aiCiktisiniAktar
@@ -2307,7 +2393,7 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
                   {Object.entries(previousNodeJsonSchema.properties).map(([propKey, prop]) => {
                     const isUsed = Boolean(
                       effectiveFormData?.prompt &&
-                        String(effectiveFormData.prompt).includes(prop.expression)
+                      String(effectiveFormData.prompt).includes(prop.expression)
                     );
                     const subEntries = prop.properties
                       ? Object.entries(prop.properties)
@@ -2337,9 +2423,8 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
 
                             <button
                               type="button"
-                              className={`n8n-schema-use-in-settings-btn ${
-                                isUsed ? 'is-used' : ''
-                              }`}
+                              className={`n8n-schema-use-in-settings-btn ${isUsed ? 'is-used' : ''
+                                }`}
                               onClick={() => {
                                 insertVariableIntoPrompt(prop.expression);
                               }}
@@ -2371,14 +2456,14 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
                               <span>
                                 {propKey === 'belgeVerisi'
                                   ? t(
-                                      'acilan_belge_kart_kendi_json_alanlari',
-                                      'Açılan Belgenin / Kartın Kendi JSON Alanları (belgeVerisi.*)'
-                                    )
+                                    'acilan_belge_kart_kendi_json_alanlari',
+                                    'Açılan Belgenin / Kartın Kendi JSON Alanları (belgeVerisi.*)'
+                                  )
                                   : prop.type === 'array'
                                     ? t(
-                                        'dizi_ogesi_alt_semasi',
-                                        'Dizi Öğesi Alt Şeması (items.properties)'
-                                      )
+                                      'dizi_ogesi_alt_semasi',
+                                      'Dizi Öğesi Alt Şeması (items.properties)'
+                                    )
                                     : t('nesne_alt_alanlari', 'Nesne Alt Alanları (properties)')}
                               </span>
                             </div>
@@ -2386,7 +2471,7 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
                               {subEntries.map(([subKey, subProp]) => {
                                 const isSubUsed = Boolean(
                                   effectiveFormData?.prompt &&
-                                    String(effectiveFormData.prompt).includes(subProp.expression)
+                                  String(effectiveFormData.prompt).includes(subProp.expression)
                                 );
                                 return (
                                   <div key={subKey} className="n8n-schema-subprop-item">
@@ -2409,9 +2494,8 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
                                     </div>
                                     <button
                                       type="button"
-                                      className={`n8n-schema-subprop-use-btn ${
-                                        isSubUsed ? 'is-used' : ''
-                                      }`}
+                                      className={`n8n-schema-subprop-use-btn ${isSubUsed ? 'is-used' : ''
+                                        }`}
                                       onClick={() => insertVariableIntoPrompt(subProp.expression)}
                                     >
                                       {isSubUsed ? <Check size={12} /> : <Plus size={12} />}
@@ -2439,9 +2523,8 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
                   <div className="n8n-json-schema-mode-tabs">
                     <button
                       type="button"
-                      className={`n8n-json-mode-btn ${
-                        schemaViewMode === 'json_schema' ? 'active' : ''
-                      }`}
+                      className={`n8n-json-mode-btn ${schemaViewMode === 'json_schema' ? 'active' : ''
+                        }`}
                       onClick={() => setSchemaViewMode('json_schema')}
                     >
                       <Braces size={13} />
@@ -2449,9 +2532,8 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
                     </button>
                     <button
                       type="button"
-                      className={`n8n-json-mode-btn ${
-                        schemaViewMode === 'example_payload' ? 'active' : ''
-                      }`}
+                      className={`n8n-json-mode-btn ${schemaViewMode === 'example_payload' ? 'active' : ''
+                        }`}
                       onClick={() => setSchemaViewMode('example_payload')}
                     >
                       <Code2 size={13} />
@@ -2492,13 +2574,19 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
     );
   };
 
-  // TabLayout sekmelerini oluştur
+  // TabLayout sekmelerini oluştur ("Önceki Düğüm" her zaman ilk sekme, "Ayarlar" ikinci sekme)
   const layoutTabs = useMemo<BaseTabItem[]>(() => {
     if (customTabs && customTabs.length > 0) {
       return customTabs;
     }
 
-    const baseTabs: BaseTabItem[] = [
+    return [
+      {
+        id: 'onceki_dugum',
+        label: t('onceki_dugum', 'Önceki Düğüm'),
+        icon: <Workflow size={16} />,
+        content: renderOncekiDugumTabContent()
+      },
       {
         id: 'ayarlar',
         label: t('ayarlar', 'Ayarlar'),
@@ -2506,21 +2594,11 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
         content: renderAyarlarTabContent()
       }
     ];
-
-    if (!isStartNode) {
-      baseTabs.push({
-        id: 'onceki_dugum',
-        label: t('onceki_dugum', 'Önceki Düğüm'),
-        icon: <Workflow size={16} />,
-        content: renderOncekiDugumTabContent()
-      });
-    }
-
-    return baseTabs;
   }, [
     customTabs,
     isStartNode,
     previousNodeJsonSchema,
+    currentNodeOutputJsonSchema,
     visibleSettingsVariables,
     showNestedInSettings,
     oncekiDugumGirdisi,
