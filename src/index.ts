@@ -36,6 +36,8 @@ export {
   default as BaseAiAjanFlowchartOgeAyarPage,
   BaseAiAjanFlowchartOgeAyarPage as NamedBaseAiAjanFlowchartOgeAyarPage,
   useFlowchartOgeAyarContext,
+  getNodeFixedOutputJsonSchema,
+  extractVariablesFromNodeSchema,
   type BaseAiAjanFlowchartOgeAyarPageProps,
   type FlowchartOgeAyarContextValue,
   type FlowchartPreviousNodeOutputField

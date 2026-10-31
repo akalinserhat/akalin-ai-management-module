@@ -116,6 +116,33 @@ export type AiAkisDugumuTipi =
   | 'SONUC'
   | string;
 
+export interface FlowchartNodeJsonSchemaProperty {
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array';
+  title: string;
+  description: string;
+  expression: string;
+  format?: string;
+  enum?: string[];
+  required?: boolean;
+  properties?: Record<string, FlowchartNodeJsonSchemaProperty>;
+  itemsType?: 'string' | 'number' | 'boolean' | 'object' | 'array';
+  itemsProperties?: Record<string, FlowchartNodeJsonSchemaProperty>;
+  additionalProperties?: boolean;
+  example?: any;
+}
+
+export interface FlowchartNodeJsonSchema {
+  $schema: string;
+  schemaId: string;
+  title: string;
+  type: 'object';
+  nodeType: AiAkisDugumuTipi;
+  description: string;
+  required: string[];
+  properties: Record<string, FlowchartNodeJsonSchemaProperty>;
+  examplePayload: Record<string, any>;
+}
+
 export interface AiOncekiDugumGirdiAyarlari {
   /** Önceki düğümden bilgi ve belge aktarımı aktif mi? (Varsayılan: true) */
   aktifMi?: boolean;
@@ -151,12 +178,16 @@ export interface AiAkisDugumu {
   evetDugumId?: string;
   hayirDugumId?: string;
   hizliErisimDugmesi?: boolean;
+  hizliErisimAktifMi?: boolean;
   dugmeBasligi?: string;
+  dugmeMetni?: string;
   kullaniciMesaji?: string;
   /** Seçilen sayfanın [sayfaİsmi]SettingsForExternal.tsx bileşeninden gelen harici düğüm ayarları */
   hariciSayfaAyarlari?: Record<string, any>;
   /** Kendisinden önce gelen düğümden bilgi, form verisi ve belge alma yapılandırması (n8n Input Binding) */
   oncekiDugumGirdisi?: AiOncekiDugumGirdiAyarlari;
+  /** Bu düğümün bir sonraki düğüme vermeyi taahhüt ettiği sabit JSON Schema sözleşmesi */
+  ciktiJsonSemasi?: FlowchartNodeJsonSchema;
 }
 
 export interface AiHizliIstek {
