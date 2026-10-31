@@ -18,9 +18,11 @@ export * from './services/firmaAiSettingsService';
 // Adaptörler & Context
 export * from './adapters/AiManagementServiceContext';
 
-// Validatörler
+// Validatörler, Varsayılanlar & Kancalar (Hooks)
 export * from './validators/aiProtokolValidation';
 export * from './validators/aiSaglayiciValidation';
+export * from './defaults/flowchartOgeAyarDefaultValue';
+export * from './hooks/useFlowchartOgeAyarAutoFocus';
 
 // Sayfalar & Bileşenler
 export { default as YapayZekaAyarlari, YapayZekaAyarlari as NamedYapayZekaAyarlari } from './pages/YapayZekaAyarlari';

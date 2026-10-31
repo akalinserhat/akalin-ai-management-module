@@ -59,6 +59,13 @@ import type {
   FlowchartNodeJsonSchema,
   FlowchartNodeJsonSchemaProperty
 } from '../types';
+import {
+  DEFAULT_FLOWCHART_OGE_AYAR_ACTIVE_TAB,
+  DEFAULT_ONCEKI_DUGUM_GIRDISI,
+  getFlowchartOgeAyarDefaultActiveTab,
+  getFlowchartOgeAyarDefaultValues
+} from '../defaults/flowchartOgeAyarDefaultValue';
+import { useFlowchartOgeAyarAutoFocus } from '../hooks/useFlowchartOgeAyarAutoFocus';
 
 export interface FlowchartPreviousNodeOutputField {
   key: string;
@@ -2294,16 +2301,6 @@ export interface BaseAiAjanFlowchartOgeAyarPageProps {
   children?: React.ReactNode;
 }
 
-const DEFAULT_ONCEKI_DUGUM_GIRDISI: Required<AiOncekiDugumGirdiAyarlari> = {
-  aktifMi: true,
-  kaynakDugumId: 'OTOMATIK_ONCEKI',
-  belgeleriAktar: true,
-  formVerileriniAktar: true,
-  aiCiktisiniAktar: true,
-  seciliDegiskenler: [],
-  bagliBelgeEkleri: []
-};
-
 export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyarPageProps> = ({
   id = 'flowchartOgeAyarPage',
   agentId: propAgentId,
@@ -2340,23 +2337,40 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
   const location = useLocation();
   const params = useParams<{ id?: string; istekId?: string; ogeId?: string }>();
   const { setHeaderBreadcrumbOptions } = useHeaderApi() || {};
+  const ayarlarTabContainerRef = useRef<HTMLDivElement>(null);
 
   const effectiveAgentId = propAgentId || params.id;
   const effectiveIstekId = propIstekId || params.istekId;
   const effectiveNodeId =
     propNodeId || controlledFormData?.id || initialNodeData?.id || params.ogeId;
 
+  const initialDefaults = useMemo(
+    () =>
+      getFlowchartOgeAyarDefaultValues({
+        activeTabId: location.state?.activeTabId ?? DEFAULT_FLOWCHART_OGE_AYAR_ACTIVE_TAB,
+        oncekiDugumGirdisi: controlledFormData?.oncekiDugumGirdisi || initialNodeData?.oncekiDugumGirdisi
+      }),
+    []
+  );
+
   const [internalIsSaving, setInternalIsSaving] = useState<boolean>(false);
   const [internalFormData, setInternalFormData] = useState<any>(initialNodeData || {});
   const [fetchedIstekData, setFetchedIstekData] = useState<any>(null);
-  const [internalActiveTab, setInternalActiveTab] = useState<string | number>('onceki_dugum');
-  const [schemaViewMode, setSchemaViewMode] = useState<'json_schema' | 'example_payload'>(
-    'json_schema'
+  const [internalActiveTab, setInternalActiveTab] = useState<string | number>(() =>
+    getFlowchartOgeAyarDefaultActiveTab(location.state?.activeTabId)
   );
-  const [showNestedInSettings, setShowNestedInSettings] = useState<boolean>(false);
+  const [schemaViewMode, setSchemaViewMode] = useState<'json_schema' | 'example_payload'>(
+    initialDefaults.schemaViewMode
+  );
+  const [showNestedInSettings, setShowNestedInSettings] = useState<boolean>(
+    initialDefaults.showNestedInSettings
+  );
 
   const effectiveActiveTab =
     controlledActiveTabId !== undefined ? controlledActiveTabId : internalActiveTab;
+
+  // Sayfa ilk açıldığında ("Ayarlar" sekmesi) veya "Ayarlar" sekmesine geçildiğinde ilk etkileşimli alana odaklan
+  useFlowchartOgeAyarAutoFocus(ayarlarTabContainerRef, effectiveActiveTab);
 
   const handleTabChange = (nextTabId: string | number) => {
     if (controlledActiveTabId === undefined) {
@@ -2725,7 +2739,7 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
 
   // "Ayarlar" sekmesi içeriği: Düğümün kendi ayarları (children)
   const renderAyarlarTabContent = () => (
-    <div className="flowchart-ayarlar-tab-pane">
+    <div ref={ayarlarTabContainerRef} className="flowchart-ayarlar-tab-pane">
       {children}
     </div>
   );
