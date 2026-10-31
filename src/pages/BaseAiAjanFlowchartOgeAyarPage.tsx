@@ -1972,10 +1972,10 @@ export const FlowchartPromptMentionInput: React.FC<FlowchartPromptMentionInputPr
               type="button"
               disabled={!canAttachFiles}
               className={`ai-islem-prompt-attach-btn ${!canAttachFiles
-                  ? 'is-disabled'
-                  : isAttachPickerOpen || attachedFiles.length > 0
-                    ? 'is-active'
-                    : ''
+                ? 'is-disabled'
+                : isAttachPickerOpen || attachedFiles.length > 0
+                  ? 'is-active'
+                  : ''
                 }`.trim()}
               onClick={handleToggleAttachMenu}
               title={
@@ -2011,130 +2011,8 @@ export const FlowchartPromptMentionInput: React.FC<FlowchartPromptMentionInputPr
         {...rest}
       />
 
-      {/* PROMPT ALTINDA BAĞLI BELGE EKLERİ VEYA AKILLI FILE IMPORT ÖNERİ BARI */}
-      {showAttachButton && (
-        <div className="flowchart-attached-files-bar">
-          {canAttachFiles && smartFileSource ? (
-            attachedFiles.length > 0 ? (
-              <div className="flowchart-attached-files-list">
-                {attachedFiles.map((item) => (
-                  <div key={item.id} className="flowchart-attached-file-chip">
-                    <div className="flowchart-attached-file-chip-icon">
-                      {item.selectionMode === 'multiple' ? <Files size={15} /> : <FileText size={15} />}
-                    </div>
-                    <div className="flowchart-attached-file-chip-info">
-                      <div className="flowchart-attached-file-chip-top">
-                        <span className="flowchart-attached-file-source">{item.sourceNodeTitle}</span>
-                        <ArrowRight size={11} className="flowchart-mention-arrow" />
-                        <span className="flowchart-attached-file-label">{item.label}</span>
-                      </div>
-                      <div className="flowchart-attached-file-chip-meta">
-                        {item.fileFilterSummary && (
-                          <span className="flowchart-attached-file-filter-badge">
-                            {item.fileFilterSummary}
-                          </span>
-                        )}
-                        <code className="flowchart-attached-file-expr">{item.expressionPath}</code>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="flowchart-attached-file-remove-btn"
-                      onClick={() => handleRemoveFileAttachment(item.id)}
-                      title={t('belge_ekini_kaldir', 'Belge Ekini Kaldır')}
-                      aria-label={t('belge_ekini_kaldir', 'Belge Ekini Kaldır')}
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  className="flowchart-attached-file-manage-btn"
-                  onClick={() => setIsAttachPickerOpen(true)}
-                >
-                  <Paperclip size={13} />
-                  <span>{t('belge_eklerini_duzenle', 'Belge Seçimini Düzenle')}</span>
-                </button>
-              </div>
-            ) : (
-              <div className="flowchart-smart-file-suggestion-bar">
-                <div className="flowchart-smart-file-suggestion-left">
-                  <span className="flowchart-smart-file-suggestion-icon">
-                    <Paperclip size={14} />
-                  </span>
-                  <span className="flowchart-smart-file-suggestion-text">
-                    <strong>{smartFileSource.sourceNodeTitle}</strong>{' '}
-                    {t(
-                      'onceki_dugum_file_import_belge_algilandi',
-                      'düğümünden ({{mod}} • {{format}}) gelecek belge/belgeler algılandı.',
-                      {
-                        mod: smartFileSource.selectionModeLabel,
-                        format: smartFileSource.fileFilterSummary
-                      }
-                    )}
-                  </span>
-                </div>
-                <div className="flowchart-smart-file-suggestion-actions">
-                  <button
-                    type="button"
-                    className="flowchart-smart-file-quick-attach-btn"
-                    onClick={() => handleToggleFileAttachment(smartFileSource.options[0])}
-                  >
-                    <Plus size={13} />
-                    <span>
-                      {smartFileSource.selectionMode === 'multiple'
-                        ? t('gelecek_belgeleri_bagla', 'Gelecek Belgeleri Bağla')
-                        : t('gelecek_belgeyi_bagla', 'Gelecek Belgeyi Bağla')}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    className="flowchart-smart-file-open-picker-btn"
-                    onClick={() => setIsAttachPickerOpen(true)}
-                  >
-                    <span>{t('secenekleri_gor', 'Seçenekler')}</span>
-                  </button>
-                </div>
-              </div>
-            )
-          ) : (
-            <div className="flowchart-smart-file-suggestion-bar is-disabled" aria-disabled="true">
-              <div className="flowchart-smart-file-suggestion-left">
-                <span className="flowchart-smart-file-suggestion-icon">
-                  <Paperclip size={14} />
-                </span>
-                <span className="flowchart-smart-file-suggestion-text">
-                  {t(
-                    'onceki_dugum_belge_kaynagi_yok_pasif_mesaj',
-                    'Önceki düğümde belge/dosya çıktısı veren bir adım (Örn: Dosya İçeri Aktar) bulunmadığı için belge bağlama pasif.'
-                  )}
-                </span>
-              </div>
-              <div className="flowchart-smart-file-suggestion-actions">
-                <button
-                  type="button"
-                  disabled
-                  className="flowchart-smart-file-quick-attach-btn is-disabled"
-                >
-                  <Plus size={13} />
-                  <span>{t('gelecek_belgeyi_bagla', 'Gelecek Belgeyi Bağla')}</span>
-                </button>
-                <button
-                  type="button"
-                  disabled
-                  className="flowchart-smart-file-open-picker-btn is-disabled"
-                >
-                  <span>{t('secenekleri_gor', 'Seçenekler')}</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* AKILLI BELGE / DOSYA EKİ SEÇİCİ POPOVER (ATAÇ İKONUNA TIKLANDIĞINDA AÇILIR) */}
-      {isAttachPickerOpen && smartFileSource && (
+      {isAttachPickerOpen && canAttachFiles && smartFileSource && (
         <div
           className="flowchart-attach-picker-popover"
           role="dialog"
