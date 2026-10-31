@@ -382,6 +382,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
           <div className="basla-ayar-card-body">
             <FlowchartPromptMentionInput
               autoFocus
+              showAttachButton={true}
               rows={6}
               value={formData.prompt}
               onChange={(e) =>

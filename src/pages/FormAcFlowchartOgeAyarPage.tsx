@@ -595,6 +595,7 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
                 </button>
               </div>
               <FlowchartPromptMentionInput
+                showAttachButton={false}
                 rows={3}
                 value={formData.kullaniciMesaji || ''}
                 onChange={(e) =>
@@ -828,6 +829,7 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
             </div>
 
             <FlowchartPromptMentionInput
+              showAttachButton={false}
               rows={6}
               value={formData.prompt}
               onChange={(e) =>

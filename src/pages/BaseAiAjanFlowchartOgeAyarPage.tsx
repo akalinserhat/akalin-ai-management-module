@@ -1512,7 +1512,7 @@ export const FlowchartPromptMentionInput: React.FC<FlowchartPromptMentionInputPr
   value = '',
   onChange,
   onValueChange,
-  showAttachButton = true,
+  showAttachButton = false,
   className = '',
   onKeyDown,
   onClick,
@@ -1537,30 +1537,43 @@ export const FlowchartPromptMentionInput: React.FC<FlowchartPromptMentionInputPr
   const [mentionRange, setMentionRange] = useState<{ start: number; end: number } | null>(null);
   const [highlightedIndex, setHighlightedIndex] = useState<number>(0);
 
-  // Önceki düğümü ("Form Aç -> Dosya İçeri Aktar" vb.) akıllıca analiz ederek seçilebilir belge eklerini oluştur
+  // Bir düğümün gerçekten belge/dosya eki (Örn: Form Aç -> Dosya İçeri Aktar) verip vermediğini kontrol et
+  const isNodeFileProvider = (node?: AiAkisDugumu | null): boolean => {
+    if (!node) return false;
+    const nType = (node.tip || '').toUpperCase();
+    if (nType !== 'FORM_AC' && nType !== 'EKRAN_AC') return false;
+
+    const rawCode = (node.varlikKodu || node.mcpVarlikId || '').toLowerCase();
+    const rawRoute = (node.hedefRota || '').toLowerCase();
+    const rawTitleLower = (node.varlikAdi || '').trim().toLowerCase();
+
+    return (
+      rawCode.includes('dosya-ice-aktar') ||
+      rawCode.includes('fileimport') ||
+      rawCode.includes('file-import') ||
+      rawCode.includes('dosya-al') ||
+      rawRoute.includes('dosya-al') ||
+      rawRoute.includes('file-import') ||
+      rawTitleLower.includes('dosya içeri aktar') ||
+      rawTitleLower.includes('dosya içe aktar') ||
+      rawTitleLower.includes('file import')
+    );
+  };
+
+  // Önceki düğümde belge/dosya çıktısı verecek bir düğüm ("Form Aç -> Dosya İçeri Aktar" vb.) varsa analiz et, yoksa null döndür
   const smartFileSource = useMemo<SmartFileSourceMetadata | null>(() => {
     const candidateNode =
-      activeSourceNode ||
-      [...previousNodes]
-        .reverse()
-        .find((n) => (n.tip || '').toUpperCase() === 'FORM_AC' || (n.tip || '').toUpperCase() === 'BASLA') ||
-      null;
+      oncekiDugumGirdisi?.kaynakDugumId === 'TUM_ONCEKILER'
+        ? [...previousNodes].reverse().find((n) => isNodeFileProvider(n)) || null
+        : isNodeFileProvider(activeSourceNode)
+          ? activeSourceNode
+          : null;
 
     if (!candidateNode) return null;
 
     const nType = (candidateNode.tip || '').toUpperCase();
-    const rawCode = (candidateNode.varlikKodu || candidateNode.mcpVarlikId || '').toLowerCase();
-    const rawRoute = (candidateNode.hedefRota || '').toLowerCase();
-    const rawTitle = (candidateNode.varlikAdi || '').trim();
-    const rawTitleLower = rawTitle.toLowerCase();
-
-    const isFileImportNode =
-      rawCode.includes('dosya-ice-aktar') ||
-      rawCode.includes('fileimport') ||
-      rawRoute.includes('dosya-al') ||
-      rawRoute.includes('file-import') ||
-      rawTitleLower.includes('dosya içeri aktar') ||
-      rawTitleLower.includes('file import');
+    const isFileImportNode = isNodeFileProvider(candidateNode);
+    if (!isFileImportNode) return null;
 
     const nodeDisplayTitle = candidateNode.varlikAdi?.trim()
       ? `${candidateNode.baslik || t('form_ac', 'Form Aç')} (${candidateNode.varlikAdi.trim()})`
@@ -1603,126 +1616,88 @@ export const FlowchartPromptMentionInput: React.FC<FlowchartPromptMentionInputPr
 
     const options: FlowchartAttachedFileBinding[] = [];
 
-    if (isFileImportNode) {
-      if (selectionMode === 'single') {
-        options.push({
-          id: `${candidateNode.id}_file_import_single`,
-          sourceNodeId: candidateNode.id,
-          sourceNodeTitle: nodeDisplayTitle,
-          label: t('file_import_tekli_belge_eki', 'İçe Aktarılan Belge (Dosya Eki)'),
-          description: t(
-            'file_import_tekli_belge_eki_aciklama',
-            'Dosya İçeri Aktar ekranında seçilen belgeyi bu AI adımının Prompt\'una doğrudan ekli dosya (Attachment) olarak bağlar.'
-          ),
-          expressionPath: `${exprPrefix}.belgeVerisi.importedFiles`,
-          attachmentMode: 'all_files',
-          fileFilterSummary: `${selectionModeLabel} • ${fileFilterSummary}`,
-          selectionMode: 'single'
-        });
-      } else {
-        options.push({
-          id: `${candidateNode.id}_file_import_all`,
-          sourceNodeId: candidateNode.id,
-          sourceNodeTitle: nodeDisplayTitle,
-          label: t('file_import_tum_belgeler_eki', 'İçe Aktarılan Tüm Belgeler (Çoklu Dosya Eki)'),
-          description: t(
-            'file_import_tum_belgeler_eki_aciklama',
-            'Dosya İçeri Aktar ekranında seçilen tüm belgeleri bu AI adımının Prompt\'una çoklu dosya eki (Attachments) olarak bağlar.'
-          ),
-          expressionPath: `${exprPrefix}.belgeVerisi.importedFiles`,
-          attachmentMode: 'all_files',
-          fileFilterSummary: `${selectionModeLabel} • ${fileFilterSummary}`,
-          selectionMode: 'multiple'
-        });
-
-        options.push({
-          id: `${candidateNode.id}_file_import_first`,
-          sourceNodeId: candidateNode.id,
-          sourceNodeTitle: nodeDisplayTitle,
-          label: t('file_import_ilk_ana_belge_eki', '1. İçe Aktarılan Ana Belge (Tekil Dosya Eki)'),
-          description: t(
-            'file_import_ilk_ana_belge_eki_aciklama',
-            'Çoklu belge seçilse bile yalnızca birinci sıradaki ana belgeyi Prompt\'a dosya eki olarak bağlar.'
-          ),
-          expressionPath: `${exprPrefix}.belgeVerisi.importedFiles[0]`,
-          attachmentMode: 'first_file',
-          fileFilterSummary: `${t('FileImport_modeSingleBadge', 'Tekli Belge Seçimi')} • ${fileFilterSummary}`,
-          selectionMode: 'single'
-        });
-      }
-
+    if (selectionMode === 'single') {
       options.push({
-        id: `${candidateNode.id}_file_import_text`,
+        id: `${candidateNode.id}_file_import_single`,
         sourceNodeId: candidateNode.id,
         sourceNodeTitle: nodeDisplayTitle,
-        label: t('file_import_birlestirilmis_metin_eki', 'Belgelerden Çıkarılan Birleştirilmiş Tam Metin'),
+        label: t('file_import_tekli_belge_eki', 'İçe Aktarılan Belge (Dosya Eki)'),
         description: t(
-          'file_import_birlestirilmis_metin_eki_aciklama',
-          'İçe aktarılan PDF, Word ve Excel belgelerinden çözümlenen tüm metin ve tablo içeriğini Prompt bağlamına ekler.'
+          'file_import_tekli_belge_eki_aciklama',
+          'Dosya İçeri Aktar ekranında seçilen belgeyi bu AI adımının Prompt\'una doğrudan ekli dosya (Attachment) olarak bağlar.'
         ),
-        expressionPath: `${exprPrefix}.belgeVerisi.birlestirilmisMetin`,
-        attachmentMode: 'extracted_text',
-        fileFilterSummary: `${t('cozumlenmis_metin', 'Çözümlenmiş Metin')} • ${fileFilterSummary}`,
-        selectionMode
-      });
-    } else if (nType === 'FORM_AC' || nType === 'EKRAN_AC') {
-      options.push({
-        id: `${candidateNode.id}_form_eklenen_belgeler`,
-        sourceNodeId: candidateNode.id,
-        sourceNodeTitle: nodeDisplayTitle,
-        label: t('n8n_var_eklenen_belgeler', 'İçeri Aktarılan Belgeler / Dosyalar'),
-        description: t(
-          'n8n_var_eklenen_belgeler_aciklama',
-          'Açılan belge/kartta seçilen, ilişkilendirilen veya içeri aktarılan PDF, Word, Excel ve görsel dosyalarını Prompt\'a bağlar.'
-        ),
-        expressionPath: `${exprPrefix}.eklenenBelgeler`,
+        expressionPath: `${exprPrefix}.belgeVerisi.importedFiles`,
         attachmentMode: 'all_files',
-        fileFilterSummary,
-        selectionMode: 'multiple'
-      });
-
-      options.push({
-        id: `${candidateNode.id}_form_belge_metin`,
-        sourceNodeId: candidateNode.id,
-        sourceNodeTitle: nodeDisplayTitle,
-        label: t('n8n_var_belge_metin_icerigi', 'Belgeden Çıkarılan Metin İçeriği'),
-        description: t(
-          'n8n_var_belge_metin_icerigi_aciklama',
-          'İçeri aktarılan belgenin/dosyanın çözümlenmiş ham metin içeriğini Prompt bağlamına bağlar.'
-        ),
-        expressionPath: `${exprPrefix}.belgeMetinIcerigi`,
-        attachmentMode: 'extracted_text',
-        fileFilterSummary: t('cozumlenmis_metin', 'Çözümlenmiş Metin'),
+        fileFilterSummary: `${selectionModeLabel} • ${fileFilterSummary}`,
         selectionMode: 'single'
       });
-    } else if (nType === 'BASLA') {
+    } else {
       options.push({
-        id: `${candidateNode.id}_basla_ek_dosyalar`,
+        id: `${candidateNode.id}_file_import_all`,
         sourceNodeId: candidateNode.id,
         sourceNodeTitle: nodeDisplayTitle,
-        label: t('n8n_var_baslangic_belgeleri', 'Başlangıçta Eklenen Belgeler'),
+        label: t('file_import_tum_belgeler_eki', 'İçe Aktarılan Tüm Belgeler (Çoklu Dosya Eki)'),
         description: t(
-          'n8n_var_baslangic_belgeleri_aciklama',
-          'Sohbet başlatılırken eklenen dosya veya belgeleri bu adıma dosya eki olarak bağlar.'
+          'file_import_tum_belgeler_eki_aciklama',
+          'Dosya İçeri Aktar ekranında seçilen tüm belgeleri bu AI adımının Prompt\'una çoklu dosya eki (Attachments) olarak bağlar.'
         ),
-        expressionPath: '$basla.ekDosyalar',
+        expressionPath: `${exprPrefix}.belgeVerisi.importedFiles`,
         attachmentMode: 'all_files',
-        fileFilterSummary: filterLabelMap.all,
+        fileFilterSummary: `${selectionModeLabel} • ${fileFilterSummary}`,
         selectionMode: 'multiple'
       });
+
+      options.push({
+        id: `${candidateNode.id}_file_import_first`,
+        sourceNodeId: candidateNode.id,
+        sourceNodeTitle: nodeDisplayTitle,
+        label: t('file_import_ilk_ana_belge_eki', '1. İçe Aktarılan Ana Belge (Tekil Dosya Eki)'),
+        description: t(
+          'file_import_ilk_ana_belge_eki_aciklama',
+          'Çoklu belge seçilse bile yalnızca birinci sıradaki ana belgeyi Prompt\'a dosya eki olarak bağlar.'
+        ),
+        expressionPath: `${exprPrefix}.belgeVerisi.importedFiles[0]`,
+        attachmentMode: 'first_file',
+        fileFilterSummary: `${t('FileImport_modeSingleBadge', 'Tekli Belge Seçimi')} • ${fileFilterSummary}`,
+        selectionMode: 'single'
+      });
     }
+
+    options.push({
+      id: `${candidateNode.id}_file_import_text`,
+      sourceNodeId: candidateNode.id,
+      sourceNodeTitle: nodeDisplayTitle,
+      label: t('file_import_birlestirilmis_metin_eki', 'Belgelerden Çıkarılan Birleştirilmiş Tam Metin'),
+      description: t(
+        'file_import_birlestirilmis_metin_eki_aciklama',
+        'İçe aktarılan PDF, Word ve Excel belgelerinden çözümlenen tüm metin ve tablo içeriğini Prompt bağlamına ekler.'
+      ),
+      expressionPath: `${exprPrefix}.belgeVerisi.birlestirilmisMetin`,
+      attachmentMode: 'extracted_text',
+      fileFilterSummary: `${t('cozumlenmis_metin', 'Çözümlenmiş Metin')} • ${fileFilterSummary}`,
+      selectionMode
+    });
 
     return {
       sourceNodeId: candidateNode.id,
       sourceNodeTitle: nodeDisplayTitle,
-      isFileImportNode,
+      isFileImportNode: true,
       selectionMode,
       selectionModeLabel,
       fileFilterSummary,
       defaultSendToCloud,
       options
     };
-  }, [activeSourceNode, previousNodes, t]);
+  }, [activeSourceNode, oncekiDugumGirdisi?.kaynakDugumId, previousNodes, t]);
+
+  const canAttachFiles = Boolean(smartFileSource && smartFileSource.options.length > 0);
+
+  // Önceki düğüm artık belge sağlamıyorsa açık olan ataç menüsünü kapat
+  useEffect(() => {
+    if (!canAttachFiles && isAttachPickerOpen) {
+      setIsAttachPickerOpen(false);
+    }
+  }, [canAttachFiles, isAttachPickerOpen]);
 
   // Mevcut düğüme bağlanmış belge ekleri listesi
   const attachedFiles = useMemo<FlowchartAttachedFileBinding[]>(() => {
@@ -1961,6 +1936,7 @@ export const FlowchartPromptMentionInput: React.FC<FlowchartPromptMentionInputPr
   };
 
   const handleToggleAttachMenu = () => {
+    if (!canAttachFiles) return;
     setIsMenuOpen(false);
     setMentionQuery('');
     setMentionRange(null);
@@ -1994,20 +1970,39 @@ export const FlowchartPromptMentionInput: React.FC<FlowchartPromptMentionInputPr
           ) : showAttachButton ? (
             <button
               type="button"
-              className={`ai-islem-prompt-attach-btn ${isAttachPickerOpen || attachedFiles.length > 0 ? 'is-active' : ''
-                }`}
+              disabled={!canAttachFiles}
+              className={`ai-islem-prompt-attach-btn ${!canAttachFiles
+                  ? 'is-disabled'
+                  : isAttachPickerOpen || attachedFiles.length > 0
+                    ? 'is-active'
+                    : ''
+                }`.trim()}
               onClick={handleToggleAttachMenu}
-              title={t(
-                'onceki_dugumden_belge_eki_sec',
-                'Önceki Düğümden Gelecek Belge / Dosya Ekini Seç'
-              )}
-              aria-label={t(
-                'onceki_dugumden_belge_eki_sec',
-                'Önceki Düğümden Gelecek Belge / Dosya Ekini Seç'
-              )}
+              title={
+                canAttachFiles
+                  ? t(
+                    'onceki_dugumden_belge_eki_sec',
+                    'Önceki Düğümden Gelecek Belge / Dosya Ekini Seç'
+                  )
+                  : t(
+                    'onceki_dugumde_belge_kaynagi_yok_ipucu',
+                    'Önceki düğümde belge/dosya çıktısı veren bir adım (Örn: Dosya İçeri Aktar) bulunmadığı için pasif'
+                  )
+              }
+              aria-label={
+                canAttachFiles
+                  ? t(
+                    'onceki_dugumden_belge_eki_sec',
+                    'Önceki Düğümden Gelecek Belge / Dosya Ekini Seç'
+                  )
+                  : t(
+                    'onceki_dugumde_belge_kaynagi_yok_ipucu',
+                    'Önceki düğümde belge/dosya çıktısı veren bir adım (Örn: Dosya İçeri Aktar) bulunmadığı için pasif'
+                  )
+              }
             >
               <Paperclip size={16} />
-              {attachedFiles.length > 0 && (
+              {canAttachFiles && attachedFiles.length > 0 && (
                 <span className="ai-islem-prompt-attach-count">{attachedFiles.length}</span>
               )}
             </button>
@@ -2017,90 +2012,118 @@ export const FlowchartPromptMentionInput: React.FC<FlowchartPromptMentionInputPr
       />
 
       {/* PROMPT ALTINDA BAĞLI BELGE EKLERİ VEYA AKILLI FILE IMPORT ÖNERİ BARI */}
-      {showAttachButton && smartFileSource && smartFileSource.options.length > 0 && (
+      {showAttachButton && (
         <div className="flowchart-attached-files-bar">
-          {attachedFiles.length > 0 ? (
-            <div className="flowchart-attached-files-list">
-              {attachedFiles.map((item) => (
-                <div key={item.id} className="flowchart-attached-file-chip">
-                  <div className="flowchart-attached-file-chip-icon">
-                    {item.selectionMode === 'multiple' ? <Files size={15} /> : <FileText size={15} />}
-                  </div>
-                  <div className="flowchart-attached-file-chip-info">
-                    <div className="flowchart-attached-file-chip-top">
-                      <span className="flowchart-attached-file-source">{item.sourceNodeTitle}</span>
-                      <ArrowRight size={11} className="flowchart-mention-arrow" />
-                      <span className="flowchart-attached-file-label">{item.label}</span>
+          {canAttachFiles && smartFileSource ? (
+            attachedFiles.length > 0 ? (
+              <div className="flowchart-attached-files-list">
+                {attachedFiles.map((item) => (
+                  <div key={item.id} className="flowchart-attached-file-chip">
+                    <div className="flowchart-attached-file-chip-icon">
+                      {item.selectionMode === 'multiple' ? <Files size={15} /> : <FileText size={15} />}
                     </div>
-                    <div className="flowchart-attached-file-chip-meta">
-                      {item.fileFilterSummary && (
-                        <span className="flowchart-attached-file-filter-badge">
-                          {item.fileFilterSummary}
-                        </span>
-                      )}
-                      <code className="flowchart-attached-file-expr">{item.expressionPath}</code>
+                    <div className="flowchart-attached-file-chip-info">
+                      <div className="flowchart-attached-file-chip-top">
+                        <span className="flowchart-attached-file-source">{item.sourceNodeTitle}</span>
+                        <ArrowRight size={11} className="flowchart-mention-arrow" />
+                        <span className="flowchart-attached-file-label">{item.label}</span>
+                      </div>
+                      <div className="flowchart-attached-file-chip-meta">
+                        {item.fileFilterSummary && (
+                          <span className="flowchart-attached-file-filter-badge">
+                            {item.fileFilterSummary}
+                          </span>
+                        )}
+                        <code className="flowchart-attached-file-expr">{item.expressionPath}</code>
+                      </div>
                     </div>
+                    <button
+                      type="button"
+                      className="flowchart-attached-file-remove-btn"
+                      onClick={() => handleRemoveFileAttachment(item.id)}
+                      title={t('belge_ekini_kaldir', 'Belge Ekini Kaldır')}
+                      aria-label={t('belge_ekini_kaldir', 'Belge Ekini Kaldır')}
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="flowchart-attached-file-remove-btn"
-                    onClick={() => handleRemoveFileAttachment(item.id)}
-                    title={t('belge_ekini_kaldir', 'Belge Ekini Kaldır')}
-                    aria-label={t('belge_ekini_kaldir', 'Belge Ekini Kaldır')}
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                className="flowchart-attached-file-manage-btn"
-                onClick={() => setIsAttachPickerOpen(true)}
-              >
-                <Paperclip size={13} />
-                <span>{t('belge_eklerini_duzenle', 'Belge Seçimini Düzenle')}</span>
-              </button>
-            </div>
-          ) : (
-            <div className="flowchart-smart-file-suggestion-bar">
-              <div className="flowchart-smart-file-suggestion-left">
-                <span className="flowchart-smart-file-suggestion-icon">
-                  <Paperclip size={14} />
-                </span>
-                <span className="flowchart-smart-file-suggestion-text">
-                  <strong>{smartFileSource.sourceNodeTitle}</strong>{' '}
-                  {smartFileSource.isFileImportNode
-                    ? t(
+                ))}
+                <button
+                  type="button"
+                  className="flowchart-attached-file-manage-btn"
+                  onClick={() => setIsAttachPickerOpen(true)}
+                >
+                  <Paperclip size={13} />
+                  <span>{t('belge_eklerini_duzenle', 'Belge Seçimini Düzenle')}</span>
+                </button>
+              </div>
+            ) : (
+              <div className="flowchart-smart-file-suggestion-bar">
+                <div className="flowchart-smart-file-suggestion-left">
+                  <span className="flowchart-smart-file-suggestion-icon">
+                    <Paperclip size={14} />
+                  </span>
+                  <span className="flowchart-smart-file-suggestion-text">
+                    <strong>{smartFileSource.sourceNodeTitle}</strong>{' '}
+                    {t(
                       'onceki_dugum_file_import_belge_algilandi',
                       'düğümünden ({{mod}} • {{format}}) gelecek belge/belgeler algılandı.',
                       {
                         mod: smartFileSource.selectionModeLabel,
                         format: smartFileSource.fileFilterSummary
                       }
-                    )
-                    : t(
-                      'onceki_dugum_belge_eki_algilandi',
-                      'düğümünden gelebilecek belge ekleri algılandı.'
                     )}
+                  </span>
+                </div>
+                <div className="flowchart-smart-file-suggestion-actions">
+                  <button
+                    type="button"
+                    className="flowchart-smart-file-quick-attach-btn"
+                    onClick={() => handleToggleFileAttachment(smartFileSource.options[0])}
+                  >
+                    <Plus size={13} />
+                    <span>
+                      {smartFileSource.selectionMode === 'multiple'
+                        ? t('gelecek_belgeleri_bagla', 'Gelecek Belgeleri Bağla')
+                        : t('gelecek_belgeyi_bagla', 'Gelecek Belgeyi Bağla')}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="flowchart-smart-file-open-picker-btn"
+                    onClick={() => setIsAttachPickerOpen(true)}
+                  >
+                    <span>{t('secenekleri_gor', 'Seçenekler')}</span>
+                  </button>
+                </div>
+              </div>
+            )
+          ) : (
+            <div className="flowchart-smart-file-suggestion-bar is-disabled" aria-disabled="true">
+              <div className="flowchart-smart-file-suggestion-left">
+                <span className="flowchart-smart-file-suggestion-icon">
+                  <Paperclip size={14} />
+                </span>
+                <span className="flowchart-smart-file-suggestion-text">
+                  {t(
+                    'onceki_dugum_belge_kaynagi_yok_pasif_mesaj',
+                    'Önceki düğümde belge/dosya çıktısı veren bir adım (Örn: Dosya İçeri Aktar) bulunmadığı için belge bağlama pasif.'
+                  )}
                 </span>
               </div>
               <div className="flowchart-smart-file-suggestion-actions">
                 <button
                   type="button"
-                  className="flowchart-smart-file-quick-attach-btn"
-                  onClick={() => handleToggleFileAttachment(smartFileSource.options[0])}
+                  disabled
+                  className="flowchart-smart-file-quick-attach-btn is-disabled"
                 >
                   <Plus size={13} />
-                  <span>
-                    {smartFileSource.selectionMode === 'multiple'
-                      ? t('gelecek_belgeleri_bagla', 'Gelecek Belgeleri Bağla')
-                      : t('gelecek_belgeyi_bagla', 'Gelecek Belgeyi Bağla')}
-                  </span>
+                  <span>{t('gelecek_belgeyi_bagla', 'Gelecek Belgeyi Bağla')}</span>
                 </button>
                 <button
                   type="button"
-                  className="flowchart-smart-file-open-picker-btn"
-                  onClick={() => setIsAttachPickerOpen(true)}
+                  disabled
+                  className="flowchart-smart-file-open-picker-btn is-disabled"
                 >
                   <span>{t('secenekleri_gor', 'Seçenekler')}</span>
                 </button>

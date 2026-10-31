@@ -4074,11 +4074,20 @@
   transition: all 0.16s ease;
 }
 
-.ai-islem-prompt-attach-btn:hover,
-.ai-islem-prompt-attach-btn.is-active {
+.ai-islem-prompt-attach-btn:hover:not(:disabled),
+.ai-islem-prompt-attach-btn.is-active:not(:disabled) {
   border-color: var(--accent-primary, #6366f1);
   color: var(--accent-primary, #6366f1);
   background: rgba(99, 102, 241, 0.1);
+}
+
+.ai-islem-prompt-attach-btn.is-disabled,
+.ai-islem-prompt-attach-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-color: var(--glass-border, #cbd5e1);
+  background: var(--bg-secondary, #f8fafc);
+  color: var(--text-secondary, #94a3b8);
 }
 
 .ai-islem-prompt-attach-count {
@@ -4295,9 +4304,29 @@
   transition: all 0.15s ease;
 }
 
-.flowchart-smart-file-quick-attach-btn:hover {
+.flowchart-smart-file-suggestion-bar.is-disabled {
+  border-color: var(--glass-border, #cbd5e1);
+  background: var(--bg-secondary, #f8fafc);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.flowchart-smart-file-suggestion-bar.is-disabled .flowchart-smart-file-suggestion-icon {
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--text-secondary, #64748b);
+}
+
+.flowchart-smart-file-quick-attach-btn:hover:not(:disabled) {
   background: #06b6d4;
   color: #ffffff;
+}
+
+.flowchart-smart-file-quick-attach-btn.is-disabled,
+.flowchart-smart-file-quick-attach-btn:disabled {
+  border-color: var(--glass-border, #cbd5e1);
+  background: var(--bg-primary, #f1f5f9);
+  color: var(--text-secondary, #94a3b8);
+  cursor: not-allowed;
 }
 
 .flowchart-smart-file-open-picker-btn {
@@ -4315,9 +4344,16 @@
   transition: all 0.15s ease;
 }
 
-.flowchart-smart-file-open-picker-btn:hover {
+.flowchart-smart-file-open-picker-btn:hover:not(:disabled) {
   border-color: var(--accent-primary, #6366f1);
   color: var(--accent-primary, #6366f1);
+}
+
+.flowchart-smart-file-open-picker-btn.is-disabled,
+.flowchart-smart-file-open-picker-btn:disabled {
+  background: var(--bg-primary, #f1f5f9);
+  color: var(--text-secondary, #94a3b8);
+  cursor: not-allowed;
 }
 
 /* Ataç Popover (Akıllı Belge / Dosya Eki Seçici) */
