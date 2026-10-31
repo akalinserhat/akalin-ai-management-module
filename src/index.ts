@@ -35,11 +35,13 @@ export { default as AiAjanHizliIstekForm, AiAjanHizliIstekForm as NamedAiAjanHiz
 export {
   default as BaseAiAjanFlowchartOgeAyarPage,
   BaseAiAjanFlowchartOgeAyarPage as NamedBaseAiAjanFlowchartOgeAyarPage,
+  FlowchartPromptMentionInput,
   useFlowchartOgeAyarContext,
   getNodeFixedOutputJsonSchema,
   getOpenedEntityFixedJsonSchema,
   extractVariablesFromNodeSchema,
   type BaseAiAjanFlowchartOgeAyarPageProps,
+  type FlowchartPromptMentionInputProps,
   type FlowchartOgeAyarContextValue,
   type FlowchartPreviousNodeOutputField,
   type OpenedEntityFixedJsonSchema

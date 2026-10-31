@@ -11,7 +11,7 @@
  * - Zero Bottom Button, Header-Only Actions, Sıfır Header Rozeti, Sıfır Inline CSS ve %100 i18n kurallarına tam uyum sağlamak
  */
 
-import React, { useState, useMemo, useEffect, createContext, useContext } from 'react';
+import React, { useState, useMemo, useEffect, useRef, createContext, useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
@@ -34,15 +34,19 @@ import {
   Code2,
   Layers,
   CheckCircle2,
-  CornerDownRight
+  CornerDownRight,
+  Paperclip,
+  AtSign
 } from 'lucide-react';
 import {
   BaseCardPage,
   BaseSwitch,
   JsonView,
+  NotInput,
   TabLayout,
   useHeaderApi,
-  type BaseTabItem
+  type BaseTabItem,
+  type NotInputProps
 } from '@akalin/ui';
 import type {
   AiAkisDugumu,
@@ -1464,6 +1468,358 @@ export const extractVariablesFromNodeSchema = (
   });
 
   return result;
+};
+
+export interface FlowchartPromptMentionInputProps extends Omit<NotInputProps, 'value' | 'onChange'> {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  onValueChange?: (nextValue: string) => void;
+  showAttachButton?: boolean;
+}
+
+/**
+ * Flowchart düğümü ayar sayfalarındaki Prompt / Yönerge alanlarında `@` karakteri yazıldığında
+ * veya ataç (Paperclip) düğmesine tıklandığında "Önceki Düğüm" JSON verisindeki alanları
+ * tamamlama menüsü (autocomplete) olarak sunan ve seçilen veriyi ismiyle birlikte
+ * `@[Önceki Düğüm -> Veri İsmi ($onceki.alanAdi)]` formatında ekleyen bileşen.
+ */
+export const FlowchartPromptMentionInput: React.FC<FlowchartPromptMentionInputProps> = ({
+  value = '',
+  onChange,
+  onValueChange,
+  showAttachButton = true,
+  className = '',
+  onKeyDown,
+  onClick,
+  rightActions,
+  ...rest
+}) => {
+  const { t } = useTranslation();
+  const flowchartContext = useFlowchartOgeAyarContext();
+  const availableInputVariables = flowchartContext?.availableInputVariables || [];
+  const oncekiDugumGirdisi = flowchartContext?.oncekiDugumGirdisi;
+  const updateOncekiDugumGirdisi = flowchartContext?.updateOncekiDugumGirdisi;
+
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const menuListRef = useRef<HTMLDivElement | null>(null);
+
+  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
+  const [mentionQuery, setMentionQuery] = useState<string>('');
+  const [mentionRange, setMentionRange] = useState<{ start: number; end: number } | null>(null);
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(0);
+
+  const filteredVariables = useMemo<FlowchartPreviousNodeOutputField[]>(() => {
+    const query = mentionQuery.trim().toLocaleLowerCase('tr-TR');
+    if (!query) return availableInputVariables;
+
+    return availableInputVariables.filter((item) => {
+      const labelMatch = item.label.toLocaleLowerCase('tr-TR').includes(query);
+      const pathMatch = item.propertyPath.toLocaleLowerCase('tr-TR').includes(query);
+      const sourceMatch = item.sourceNodeTitle.toLocaleLowerCase('tr-TR').includes(query);
+      const descMatch = item.description.toLocaleLowerCase('tr-TR').includes(query);
+      return labelMatch || pathMatch || sourceMatch || descMatch;
+    });
+  }, [availableInputVariables, mentionQuery]);
+
+  // Menü dışına tıklandığında tamamlama menüsünü kapat
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+        setMentionQuery('');
+        setMentionRange(null);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [isMenuOpen]);
+
+  // Aktif satırı görünür alanda tut
+  useEffect(() => {
+    if (!isMenuOpen || !menuListRef.current) return;
+    const activeEl = menuListRef.current.querySelector<HTMLElement>(
+      `[data-mention-idx="${highlightedIndex}"]`
+    );
+    if (activeEl && typeof activeEl.scrollIntoView === 'function') {
+      activeEl.scrollIntoView({ block: 'nearest' });
+    }
+  }, [highlightedIndex, isMenuOpen]);
+
+  const formatCleanExpressionPath = (field: FlowchartPreviousNodeOutputField): string => {
+    const raw = (field.expression || '').replace(/^\{\{\s*|\s*\}\}$/g, '').trim();
+    return raw || `$onceki.${field.propertyPath}`;
+  };
+
+  /**
+   * Seçilen önceki düğüm verisini, düğüm adı + veri ismi + JSON anahtar yolu ile birlikte yazar:
+   * Örn: @[Form Aç (Dosya İçeri Aktar) -> Belgeden Çıkarılan Metin İçeriği ($onceki.belgeMetinIcerigi)]
+   */
+  const formatNamedMentionToken = (field: FlowchartPreviousNodeOutputField): string => {
+    const cleanExpr = formatCleanExpressionPath(field);
+    return `@[${field.sourceNodeTitle} -> ${field.label} (${cleanExpr})]`;
+  };
+
+  const detectMentionAtCursor = (text: string, cursorIndex: number) => {
+    const beforeCursor = text.slice(0, cursorIndex);
+    const match = beforeCursor.match(/(?:^|[\s(\n])@([^\s@\[\]\n]*)$/);
+    if (match) {
+      const query = match[1] || '';
+      const atStart = cursorIndex - query.length - 1;
+      setIsMenuOpen(true);
+      setMentionQuery(query);
+      setMentionRange({ start: atStart, end: cursorIndex });
+      setHighlightedIndex(0);
+    } else {
+      setIsMenuOpen(false);
+      setMentionQuery('');
+      setMentionRange(null);
+    }
+  };
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const nextText = e.target.value;
+    const cursorPos = e.target.selectionStart ?? nextText.length;
+    onChange(e);
+    if (onValueChange) {
+      onValueChange(nextText);
+    }
+    detectMentionAtCursor(nextText, cursorPos);
+  };
+
+  const handleSelectField = (field: FlowchartPreviousNodeOutputField) => {
+    const currentText = value || '';
+    const token = formatNamedMentionToken(field);
+
+    let replaceStart = currentText.length;
+    let replaceEnd = currentText.length;
+
+    if (mentionRange) {
+      replaceStart = mentionRange.start;
+      replaceEnd = mentionRange.end;
+    } else if (textareaRef.current) {
+      replaceStart = textareaRef.current.selectionStart ?? currentText.length;
+      replaceEnd = textareaRef.current.selectionEnd ?? currentText.length;
+    }
+
+    const before = currentText.slice(0, replaceStart);
+    const after = currentText.slice(replaceEnd);
+    const needsLeadingSpace = before.length > 0 && !/[\s(\n]$/.test(before);
+    const needsTrailingSpace = !after.startsWith(' ');
+
+    const prefix = needsLeadingSpace ? ' ' : '';
+    const suffix = needsTrailingSpace ? ' ' : '';
+    const nextText = `${before}${prefix}${token}${suffix}${after}`;
+    const nextCursorPos = before.length + prefix.length + token.length + suffix.length;
+
+    const syntheticEvent = {
+      target: { value: nextText },
+      currentTarget: { value: nextText }
+    } as React.ChangeEvent<HTMLTextAreaElement>;
+
+    onChange(syntheticEvent);
+    if (onValueChange) {
+      onValueChange(nextText);
+    }
+
+    if (updateOncekiDugumGirdisi) {
+      const existingVars = Array.isArray(oncekiDugumGirdisi?.seciliDegiskenler)
+        ? oncekiDugumGirdisi!.seciliDegiskenler
+        : [];
+      if (!existingVars.includes(field.expression)) {
+        updateOncekiDugumGirdisi({
+          aktifMi: true,
+          seciliDegiskenler: [...existingVars, field.expression]
+        });
+      }
+    }
+
+    setIsMenuOpen(false);
+    setMentionQuery('');
+    setMentionRange(null);
+
+    requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(nextCursorPos, nextCursorPos);
+      }
+    });
+  };
+
+  const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (isMenuOpen && filteredVariables.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHighlightedIndex((prev) => (prev + 1) % filteredVariables.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHighlightedIndex(
+          (prev) => (prev - 1 + filteredVariables.length) % filteredVariables.length
+        );
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        const selected = filteredVariables[highlightedIndex] || filteredVariables[0];
+        if (selected) {
+          handleSelectField(selected);
+        }
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setIsMenuOpen(false);
+        setMentionQuery('');
+        setMentionRange(null);
+        return;
+      }
+    } else if (isMenuOpen && e.key === 'Escape') {
+      e.preventDefault();
+      setIsMenuOpen(false);
+      setMentionQuery('');
+      setMentionRange(null);
+      return;
+    }
+
+    if (onKeyDown) {
+      onKeyDown(e as any);
+    }
+  };
+
+  const handleToggleAttachMenu = () => {
+    if (isMenuOpen) {
+      setIsMenuOpen(false);
+      setMentionQuery('');
+      setMentionRange(null);
+      return;
+    }
+
+    const currentText = value || '';
+    const cursorPos = textareaRef.current?.selectionStart ?? currentText.length;
+    setMentionRange({ start: cursorPos, end: cursorPos });
+    setMentionQuery('');
+    setHighlightedIndex(0);
+    setIsMenuOpen(true);
+
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+    });
+  };
+
+  const renderCategoryIcon = (category: FlowchartPreviousNodeOutputField['dataType']) => {
+    if (category === 'belge') return <FileText size={14} />;
+    if (category === 'karar') return <GitBranch size={14} />;
+    if (category === 'veri') return <Database size={14} />;
+    return <Sparkles size={14} />;
+  };
+
+  const sourceTitleSummary =
+    availableInputVariables[0]?.sourceNodeTitle || t('onceki_dugum', 'Önceki Düğüm');
+
+  return (
+    <div ref={wrapperRef} className="flowchart-prompt-mention-container">
+      <NotInput
+        ref={textareaRef}
+        className={`ai-islem-prompt-input-wrapper ${className}`.trim()}
+        value={value}
+        onChange={handleTextareaChange as any}
+        onKeyDown={handleTextareaKeyDown as any}
+        onClick={(e: any) => {
+          if (onClick) onClick(e);
+        }}
+        rightActions={
+          rightActions !== undefined ? (
+            rightActions
+          ) : showAttachButton ? (
+            <button
+              type="button"
+              className={`ai-islem-prompt-attach-btn ${isMenuOpen ? 'is-active' : ''}`}
+              onClick={handleToggleAttachMenu}
+              title={t('onceki_dugumden_veri_veya_belge_ekle', 'Önceki Düğümden Veri / Belge Eki Ekle (@)')}
+              aria-label={t('onceki_dugumden_veri_veya_belge_ekle', 'Önceki Düğümden Veri / Belge Eki Ekle (@)')}
+            >
+              <Paperclip size={16} />
+            </button>
+          ) : undefined
+        }
+        {...rest}
+      />
+
+      {isMenuOpen && (
+        <div
+          className="flowchart-mention-dropdown"
+          role="listbox"
+          aria-label={t('onceki_dugum_veri_secim_menusu', 'Önceki Düğüm Veri Tamamlama Menüsü')}
+        >
+          <div className="flowchart-mention-dropdown-header">
+            <div className="flowchart-mention-dropdown-title">
+              <AtSign size={14} />
+              <span>
+                {t('onceki_dugum_verileri', 'Önceki Düğüm Verileri')} • {sourceTitleSummary}
+              </span>
+            </div>
+            <span className="flowchart-mention-dropdown-kbd">
+              {t('mention_klavye_ipucu', '↑↓ Seç • Enter Ekle • Esc Kapat')}
+            </span>
+          </div>
+
+          <div ref={menuListRef} className="flowchart-mention-dropdown-list">
+            {filteredVariables.length === 0 ? (
+              <div className="flowchart-mention-empty">
+                {t(
+                  'eslesen_onceki_dugum_verisi_bulunamadi',
+                  'Eşleşen önceki düğüm verisi bulunamadı.'
+                )}
+              </div>
+            ) : (
+              filteredVariables.map((field, idx) => {
+                const isHighlighted = idx === highlightedIndex;
+                const cleanExpr = formatCleanExpressionPath(field);
+                return (
+                  <button
+                    key={field.key}
+                    type="button"
+                    role="option"
+                    aria-selected={isHighlighted}
+                    data-mention-idx={idx}
+                    className={`flowchart-mention-item ${isHighlighted ? 'is-highlighted' : ''}`}
+                    onMouseEnter={() => setHighlightedIndex(idx)}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      handleSelectField(field);
+                    }}
+                  >
+                    <span className={`flowchart-mention-item-icon is-${field.dataType}`}>
+                      {renderCategoryIcon(field.dataType)}
+                    </span>
+                    <span className="flowchart-mention-item-main">
+                      <span className="flowchart-mention-item-top">
+                        <span className="flowchart-mention-source-badge">
+                          {field.sourceNodeTitle}
+                        </span>
+                        <ArrowRight size={11} className="flowchart-mention-arrow" />
+                        <span className="flowchart-mention-field-label">{field.label}</span>
+                      </span>
+                      <span className="flowchart-mention-item-bottom">
+                        <code className="flowchart-mention-prop-code">{cleanExpr}</code>
+                        <span className="flowchart-mention-field-desc">{field.description}</span>
+                      </span>
+                    </span>
+                    <span className="flowchart-mention-type-badge">{field.schemaType}</span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export interface BaseAiAjanFlowchartOgeAyarPageProps {

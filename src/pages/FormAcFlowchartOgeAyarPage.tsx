@@ -28,11 +28,11 @@ import toast from 'react-hot-toast';
 import {
   BaseInput,
   BaseSwitch,
-  NotInput,
   McpVarlikSeciciInput
 } from '@akalin/ui';
 import {
   BaseAiAjanFlowchartOgeAyarPage,
+  FlowchartPromptMentionInput,
   getOpenedEntityFixedJsonSchema,
   type BaseAiAjanFlowchartOgeAyarPageProps
 } from './BaseAiAjanFlowchartOgeAyarPage';
@@ -594,7 +594,7 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
                   + {t('genel_form_acilis_mesaji', 'Genel Form Açılış Yönergesi')}
                 </button>
               </div>
-              <NotInput
+              <FlowchartPromptMentionInput
                 rows={3}
                 value={formData.kullaniciMesaji || ''}
                 onChange={(e) =>
@@ -827,7 +827,7 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
               </button>
             </div>
 
-            <NotInput
+            <FlowchartPromptMentionInput
               rows={6}
               value={formData.prompt}
               onChange={(e) =>

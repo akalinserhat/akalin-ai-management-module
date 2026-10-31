@@ -17,17 +17,16 @@ import {
   Sparkles,
   Info,
   CheckCircle2,
-  ShieldCheck,
-  Paperclip
+  ShieldCheck
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
-  BaseSwitch,
-  NotInput
+  BaseSwitch
 } from '@akalin/ui';
 import {
   BaseAiAjanFlowchartOgeAyarPage,
+  FlowchartPromptMentionInput,
   type BaseAiAjanFlowchartOgeAyarPageProps
 } from './BaseAiAjanFlowchartOgeAyarPage';
 
@@ -381,23 +380,12 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
           </div>
 
           <div className="basla-ayar-card-body">
-            <NotInput
+            <FlowchartPromptMentionInput
               autoFocus
               rows={6}
-              className="ai-islem-prompt-input-wrapper"
               value={formData.prompt}
               onChange={(e) =>
                 setFormData((prev: any) => ({ ...prev, prompt: e.target.value }))
-              }
-              rightActions={
-                <button
-                  type="button"
-                  className="ai-islem-prompt-attach-btn"
-                  title={t('belge_eki_ekle', 'Belge Eki Ekle')}
-                  aria-label={t('belge_eki_ekle', 'Belge Eki Ekle')}
-                >
-                  <Paperclip size={16} />
-                </button>
               }
               placeholder={t(
                 'ai_islem_prompt_placeholder',
@@ -410,7 +398,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
                 <span>
                   {t(
                     'ai_islem_prompt_ipucu',
-                    'İpucu: Yapay zekanın bu adımda gerçekleştireceği analiz ve belge işlemini açıkça belirtin.'
+                    'İpucu: @ karakteri yazarak önceki düğümdeki verileri ismiyle birlikte yönergeye ekleyebilirsiniz.'
                   )}
                 </span>
               </span>
