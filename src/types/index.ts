@@ -143,6 +143,26 @@ export interface FlowchartNodeJsonSchema {
   examplePayload: Record<string, any>;
 }
 
+export interface FlowchartAttachedFileBinding {
+  /** Tekil bağlama anahtarı (örn: 'importedFiles_all', 'importedFiles_first', 'eklenenBelgeler', 'birlestirilmisMetin') */
+  id: string;
+  /** Kaynak düğüm kimliği */
+  sourceNodeId: string;
+  /** Kaynak düğüm başlığı (örn: 'Form Aç (Dosya İçeri Aktar)') */
+  sourceNodeTitle: string;
+  /** Seçilen belge eki başlığı (örn: 'İçe Aktarılan Belge (Tekli Dosya Eki)') */
+  label: string;
+  /** Seçim açıklaması / kapsamı */
+  description?: string;
+  /** Şema yolu / ifade (örn: '$onceki.belgeVerisi.importedFiles') */
+  expressionPath: string;
+  /** Aktarım modu: 'all_files' | 'first_file' | 'extracted_text' */
+  attachmentMode: 'all_files' | 'first_file' | 'extracted_text';
+  /** Önceki düğümün (FileImportPage) izin verdiği dosya formatları / seçim modu özeti */
+  fileFilterSummary?: string;
+  selectionMode?: 'single' | 'multiple';
+}
+
 export interface AiOncekiDugumGirdiAyarlari {
   /** Önceki düğümden bilgi ve belge aktarımı aktif mi? (Varsayılan: true) */
   aktifMi?: boolean;
@@ -156,6 +176,8 @@ export interface AiOncekiDugumGirdiAyarlari {
   aiCiktisiniAktar?: boolean;
   /** Seçilen / kullanılan n8n tarzı dinamik değişken ifadeleri */
   seciliDegiskenler?: string[];
+  /** Ataç (Paperclip) menüsünden Prompt'a bağlanan önceki düğüm dosya/belge ekleri */
+  bagliBelgeEkleri?: FlowchartAttachedFileBinding[];
 }
 
 export interface AiAkisDugumu {
