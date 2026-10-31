@@ -351,6 +351,9 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
           const savedAgent = putRes.data || payload;
           setAgentData(savedAgent);
           setIstekData(currentReq);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('ai-agents-updated'));
+          }
         }
       }
 
@@ -360,8 +363,8 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
     } catch (err: any) {
       toast.error(
         err.response?.data?.mesaj ||
-          err.message ||
-          t('kayit_sirasi_hata', 'Kayıt sırasında hata oluştu.')
+        err.message ||
+        t('kayit_sirasi_hata', 'Kayıt sırasında hata oluştu.')
       );
     }
   };
@@ -415,6 +418,9 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
           };
 
           await axios.put(`/api/AiAjanlar/${effectiveAgentId}`, payload);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('ai-agents-updated'));
+          }
         }
       }
 
