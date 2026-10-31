@@ -295,6 +295,77 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
     }
   };
 
+  const handleSaveExternalSettings = async (updatedExternalSettings: any) => {
+    const nextFormData = {
+      ...formData,
+      hariciSayfaAyarlari: updatedExternalSettings
+    };
+    setFormData(nextFormData);
+
+    try {
+      const payloadNode = buildUpdatedNodePayload({
+        hariciSayfaAyarlari: updatedExternalSettings
+      });
+
+      let agentToUpdate = agentData || incomingAgentData;
+      if (!agentToUpdate && effectiveAgentId) {
+        const res = await axios.get(`/api/AiAjanlar/${effectiveAgentId}`);
+        agentToUpdate = res.data;
+      }
+
+      if (effectiveAgentId && agentToUpdate && effectiveIstekId) {
+        const currentRequests = Array.isArray(agentToUpdate.hizliIstekler)
+          ? [...agentToUpdate.hizliIstekler]
+          : [];
+        const reqIdx = currentRequests.findIndex((x: any) => x.id === effectiveIstekId);
+
+        if (reqIdx !== -1) {
+          const currentReq = { ...currentRequests[reqIdx] };
+          const currentNodes = Array.isArray(currentReq.akisDugumleri)
+            ? [...currentReq.akisDugumleri]
+            : [];
+          const nodeIdx = currentNodes.findIndex((x: any) => x.id === payloadNode.id);
+
+          if (nodeIdx !== -1) {
+            currentNodes[nodeIdx] = { ...currentNodes[nodeIdx], ...payloadNode };
+          } else {
+            currentNodes.push(payloadNode);
+          }
+
+          currentReq.akisDugumleri = currentNodes;
+          currentRequests[reqIdx] = currentReq;
+
+          const payload = {
+            ...agentToUpdate,
+            kapsam: parseInt(agentToUpdate.kapsam, 10) || 1,
+            aiSaglayiciId: agentToUpdate.aiSaglayiciId
+              ? parseInt(agentToUpdate.aiSaglayiciId, 10)
+              : null,
+            sicaklik: parseFloat(agentToUpdate.sicaklik) || 0.7,
+            maxTokens: parseInt(agentToUpdate.maxTokens, 10) || 2048,
+            yanitSenteziModu: parseInt(agentToUpdate.yanitSenteziModu as any, 10) || 0,
+            hizliIstekler: currentRequests
+          };
+
+          const putRes = await axios.put(`/api/AiAjanlar/${effectiveAgentId}`, payload);
+          const savedAgent = putRes.data || payload;
+          setAgentData(savedAgent);
+          setIstekData(currentReq);
+        }
+      }
+
+      toast.success(
+        t('harici_dugum_ayarlari_kaydedildi', 'Harici düğüm ayarları başarıyla kaydedildi.')
+      );
+    } catch (err: any) {
+      toast.error(
+        err.response?.data?.mesaj ||
+          err.message ||
+          t('kayit_sirasi_hata', 'Kayıt sırasında hata oluştu.')
+      );
+    }
+  };
+
   const handleSave = async (dataToSave: any) => {
     try {
       setIsSaving(true);
@@ -502,6 +573,7 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
                 onExternalSettingsChange={(val) =>
                   setFormData((prev: any) => ({ ...prev, hariciSayfaAyarlari: val }))
                 }
+                onExternalSettingsSave={(val) => handleSaveExternalSettings(val)}
                 autoFocus
                 placeholder={t(
                   'mcp_belge_kart_liste_secin',
