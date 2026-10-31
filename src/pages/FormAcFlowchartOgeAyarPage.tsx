@@ -559,41 +559,6 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
                   'Sohbet Ekranında Gösterilecek Yönerge Mesajı'
                 )}
               </label>
-              <div className="form-ac-snippet-bar">
-                <span className="form-ac-snippet-label">
-                  {t('hazir_mesaj_kalibi_ekle', 'Hazır Mesaj Kalıbı:')}
-                </span>
-                <button
-                  type="button"
-                  className="form-ac-snippet-chip"
-                  onClick={() =>
-                    setFormData((prev: any) => ({
-                      ...prev,
-                      kullaniciMesaji: t(
-                        'snippet_kampanya_yazisi_import_mesaji',
-                        'Kampanya yazısını içeri aktarmak için aşağıdaki düğmeye basın.'
-                      )
-                    }))
-                  }
-                >
-                  + {t('kampanya_yazisi_ice_aktar_mesaji', 'Kampanya Yazısını İçeri Aktar')}
-                </button>
-                <button
-                  type="button"
-                  className="form-ac-snippet-chip"
-                  onClick={() =>
-                    setFormData((prev: any) => ({
-                      ...prev,
-                      kullaniciMesaji: t(
-                        'snippet_ilgili_formu_ac_mesaji',
-                        'İşleme devam etmek için aşağıdaki düğmeye basarak ilgili ekranı açın.'
-                      )
-                    }))
-                  }
-                >
-                  + {t('genel_form_acilis_mesaji', 'Genel Form Açılış Yönergesi')}
-                </button>
-              </div>
               <FlowchartPromptMentionInput
                 showAttachButton={false}
                 rows={3}
