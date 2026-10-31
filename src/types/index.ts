@@ -138,7 +138,7 @@ export interface AiAkisDugumu {
   hizliErisimDugmesi?: boolean;
   dugmeBasligi?: string;
   kullaniciMesaji?: string;
-  /** Seçilen sayfanın [sayfaİsmi]settingsForExternal.tsx bileşeninden gelen harici düğüm ayarları */
+  /** Seçilen sayfanın [sayfaİsmi]SettingsForExternal.tsx bileşeninden gelen harici düğüm ayarları */
   hariciSayfaAyarlari?: Record<string, any>;
 }
 

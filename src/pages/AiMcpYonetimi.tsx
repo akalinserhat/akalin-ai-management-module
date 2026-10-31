@@ -530,6 +530,7 @@ export function buildMcpTreeData(t: any): McpTreeNode[] {
               formRoute: '/araclar/dosya-al',
               hasExternalSettings: true,
               externalSettingsComponent:
+                (mod.components as any)?.FileImportPageSettingsForExternal ||
                 (mod.components as any)?.FileImportPagesettingsForExternal ||
                 (mod.components as any)?.FileImportPage?.externalSettingsComponent
             },
@@ -676,7 +677,8 @@ export function buildMcpTreeData(t: any): McpTreeNode[] {
         const resolvedExtSettingsComp =
           childEnt.externalSettingsComponent ||
           (childKod === 'dosya-ice-aktar-karti'
-            ? (mod.components as any)?.FileImportPagesettingsForExternal ||
+            ? (mod.components as any)?.FileImportPageSettingsForExternal ||
+              (mod.components as any)?.FileImportPagesettingsForExternal ||
               (mod.components as any)?.FileImportPage?.externalSettingsComponent
             : undefined);
         const resolvedHasExtSettings = Boolean(
