@@ -288,13 +288,150 @@ export const getHizliIstekIcon = (iconName?: string) => {
   }
 };
 
-// ─── Canlı Prompt Derleyici ───────────────────────────────────────────────────
+// ─── Başlık Normalleştirici (Türkçe/ASCII Karakter Duyarsız Eşleştirme) ────────
+const normalizeRuleTitleKey = (text: string = '') =>
+  text
+    .trim()
+    .toLocaleUpperCase('tr-TR')
+    .replace(/İ/g, 'I')
+    .replace(/İ/g, 'I')
+    .replace(/Ğ/g, 'G')
+    .replace(/Ü/g, 'U')
+    .replace(/Ş/g, 'S')
+    .replace(/Ö/g, 'O')
+    .replace(/Ç/g, 'C')
+    .replace(/\s+/g, ' ');
+
+// ─── Canlı Prompt Derleyici (Madde Bazlı Kurallar -> Sabit Sistem İstemi) ─────
 const compilePromptPreview = (rules: any[] = []) => {
   return rules
-    .filter(r => r.durum !== 'DevreDisi' && r.icerik?.trim())
+    .filter(r => r.durum !== 'DevreDisi' && (r.icerik?.trim() || r.baslik?.trim()))
     .sort((a, b) => (a.sira || 0) - (b.sira || 0))
-    .map(r => `[${(r.baslik || 'KURAL').toUpperCase()}]:\n${r.icerik.trim()}`)
+    .map(r => `[${(r.baslik || 'KURAL').toLocaleUpperCase('tr-TR')}]:\n${(r.icerik || '').trim()}`)
     .join('\n\n');
+};
+
+// ─── Tersine Ayrıştırıcı (Sabit Sistem İstemi -> Madde Bazlı Kurallar) ─────────
+// "[madde başlığı]:" ile başlayıp bir satır boşluk (veya sonraki "[başlık]:") ile biten
+// blokları Madde Bazlı Kurallar dizisine eşitler; mevcut kural metadata'sını korur.
+const parsePromptToRules = (promptText: string = '', existingRules: any[] = []) => {
+  const raw = (promptText || '').replace(/\r\n/g, '\n');
+  if (!raw.trim()) {
+    return (existingRules || [])
+      .filter(r => r?.durum === 'DevreDisi')
+      .map((r, idx) => ({ ...r, sira: idx + 1 }));
+  }
+
+  const headerRegex = /^\[([^\][\n]+)\]:[ \t]*\n?/gm;
+  const matches: Array<{ title: string; headerStart: number; contentStart: number }> = [];
+  let match: RegExpExecArray | null;
+
+  while ((match = headerRegex.exec(raw)) !== null) {
+    matches.push({
+      title: match[1].trim(),
+      headerStart: match.index,
+      contentStart: match.index + match[0].length
+    });
+  }
+
+  const parsedBlocks: Array<{ baslik: string; icerik: string }> = [];
+
+  if (matches.length === 0) {
+    const firstActive = (existingRules || []).find(r => r?.durum !== 'DevreDisi' && r?.baslik?.trim());
+    parsedBlocks.push({
+      baslik: firstActive?.baslik || 'Ajan Kimliği ve Yetki Sınırları',
+      icerik: raw.trim()
+    });
+  } else {
+    const leadingText = raw.slice(0, matches[0].headerStart).trim();
+    if (leadingText) {
+      const firstActive = (existingRules || []).find(r => r?.durum !== 'DevreDisi' && r?.baslik?.trim());
+      parsedBlocks.push({
+        baslik: firstActive?.baslik || 'Ajan Kimliği ve Yetki Sınırları',
+        icerik: leadingText
+      });
+    }
+
+    for (let i = 0; i < matches.length; i++) {
+      const current = matches[i];
+      const nextHeaderStart = i + 1 < matches.length ? matches[i + 1].headerStart : raw.length;
+      const body = raw.slice(current.contentStart, nextHeaderStart).trim();
+      parsedBlocks.push({
+        baslik: current.title,
+        icerik: body
+      });
+    }
+  }
+
+  const usedExistingIds = new Set<string>();
+  const nextRules: any[] = [];
+
+  parsedBlocks.forEach((block, idx) => {
+    const blockKey = normalizeRuleTitleKey(block.baslik);
+    const matched = (existingRules || []).find(
+      r =>
+        r &&
+        r.id &&
+        !usedExistingIds.has(r.id) &&
+        (normalizeRuleTitleKey(r.baslik) === blockKey || normalizeRuleTitleKey(r.id) === blockKey)
+    );
+
+    if (matched) {
+      usedExistingIds.add(matched.id);
+      const baseContent = (matched.orijinalBaseIcerik || matched.icerik || '').trim();
+      const isModified = Boolean(matched.orijinalBaseIcerik && block.icerik.trim() !== baseContent);
+      const nextDurum =
+        matched.durum === 'MirasAlindi'
+          ? (isModified ? 'Ezildi' : 'MirasAlindi')
+          : matched.durum === 'DevreDisi'
+            ? (isModified ? 'Ezildi' : (matched.orijinalBaseIcerik ? 'MirasAlindi' : 'Yeni'))
+            : (matched.durum || 'Yeni');
+
+      nextRules.push({
+        ...matched,
+        baslik: matched.baslik?.trim() ? matched.baslik : block.baslik,
+        icerik: block.icerik,
+        sira: idx + 1,
+        durum: nextDurum,
+        orijinalBaseIcerik:
+          matched.durum === 'MirasAlindi' && isModified
+            ? (matched.orijinalBaseIcerik || matched.icerik)
+            : matched.orijinalBaseIcerik
+      });
+    } else {
+      nextRules.push({
+        id: `KURAL_${idx + 1}`,
+        baslik: block.baslik,
+        icerik: block.icerik,
+        sira: idx + 1,
+        durum: 'Yeni',
+        kilitliMi: false,
+        orijinalBaseIcerik: null
+      });
+    }
+  });
+
+  // Devre dışı bırakılmış mevcut kuralları listenin sonunda koru
+  (existingRules || []).forEach(r => {
+    if (r && r.durum === 'DevreDisi' && r.id && !usedExistingIds.has(r.id)) {
+      usedExistingIds.add(r.id);
+      nextRules.push({
+        ...r,
+        sira: nextRules.length + 1
+      });
+    }
+  });
+
+  // ID çakışması varsa benzersizleştir
+  const seenIds = new Set<string>();
+  return nextRules.map((r, i) => {
+    let finalId = r.id || `KURAL_${i + 1}`;
+    if (seenIds.has(finalId)) {
+      finalId = `KURAL_${i + 1}_${Date.now().toString().slice(-4)}`;
+    }
+    seenIds.add(finalId);
+    return { ...r, id: finalId, sira: i + 1 };
+  });
 };
 
 // ─── Ana Sayfa Bileşeni (BaseCardPage Tabanlı AiAjanForm) ─────────────────────
@@ -490,30 +627,40 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
 
   // Kural listesini başlat
   const initialRules = useMemo(() => {
+    let baseList: any[] = [];
     if (localInitialData?.kurallar && localInitialData.kurallar.length > 0) {
       if (!localInitialData.ustAjanId) {
-        return localInitialData.kurallar.map((k: any) => ({
+        baseList = localInitialData.kurallar.map((k: any) => ({
           ...k,
           durum: k.durum === 'DevreDisi' ? 'DevreDisi' : (k.durum === 'MirasAlindi' ? 'Yeni' : (k.durum || 'Yeni'))
         }));
+      } else {
+        baseList = localInitialData.kurallar;
       }
-      return localInitialData.kurallar;
-    }
-    if (localInitialData?.ustAjanId) {
+    } else if (localInitialData?.ustAjanId) {
       const parent = internalAllAgents.find(a => a.id === localInitialData.ustAjanId);
       if (parent?.kurallar?.length > 0) {
-        return parent.kurallar.map((k: any) => ({
+        baseList = parent.kurallar.map((k: any) => ({
           ...k,
           durum: 'MirasAlindi',
           orijinalBaseIcerik: k.icerik
         }));
       }
     }
+
+    if (localInitialData?.sistemIstemi?.trim()) {
+      return parsePromptToRules(localInitialData.sistemIstemi, baseList);
+    }
+
+    if (baseList.length > 0) {
+      return baseList;
+    }
+
     return [
       {
         id: 'KIMLIK',
         baslik: 'Ajan Kimliği ve Yetki Sınırları',
-        icerik: localInitialData?.sistemIstemi || 'Sen Webakus ERP sisteminde çalışan yetkili bir yapay zeka asistanısın. Yalnızca ERP kapsamındaki işlemlerde yardımcı ol; konu dışı soruları nazikçe reddet.',
+        icerik: 'Sen Webakus ERP sisteminde çalışan yetkili bir yapay zeka asistanısın. Yalnızca ERP kapsamındaki işlemlerde yardımcı ol; konu dışı soruları nazikçe reddet.',
         sira: 1,
         durum: 'Yeni',
         kilitliMi: false
@@ -563,9 +710,17 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         } catch { }
       }
 
-      const loadedRules = (localInitialData.kurallar && localInitialData.kurallar.length > 0)
+      const rawLoadedRules = (localInitialData.kurallar && localInitialData.kurallar.length > 0)
         ? localInitialData.kurallar
         : formData.kurallar;
+
+      const resolvedSystemPrompt = localInitialData.sistemIstemi?.trim()
+        ? localInitialData.sistemIstemi
+        : (formData.sistemIstemi || compilePromptPreview(rawLoadedRules));
+
+      const syncedLoadedRules = resolvedSystemPrompt?.trim()
+        ? parsePromptToRules(resolvedSystemPrompt, rawLoadedRules)
+        : rawLoadedRules;
 
       setFormData((prev: any) => ({
         ...prev,
@@ -588,10 +743,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         seciliAracKodlari: Array.isArray(localInitialData.seciliAracKodlari)
           ? localInitialData.seciliAracKodlari
           : (localInitialData.ajanAraclari ? localInitialData.ajanAraclari.map((a: any) => a.aracKodu) : prev.seciliAracKodlari),
-        kurallar: loadedRules,
-        sistemIstemi: localInitialData.sistemIstemi?.trim()
-          ? localInitialData.sistemIstemi
-          : (prev.sistemIstemi || compilePromptPreview(loadedRules)),
+        kurallar: syncedLoadedRules,
+        sistemIstemi: resolvedSystemPrompt,
         hizliIstekler: (localInitialData.hizliIstekler && localInitialData.hizliIstekler.length > 0) ? localInitialData.hizliIstekler : prev.hizliIstekler
       }));
       setHizliIsteklerRefreshKey(k => k + 1);
@@ -660,10 +813,13 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
   const handleAppendGuardrailToSystemPrompt = (snippetTitle: string, snippetBody: string) => {
     setFormData((prev: any) => {
       const current = (prev.sistemIstemi || '').trim();
-      const block = `[${snippetTitle.toUpperCase()}]:\n${snippetBody}`;
+      const block = `[${snippetTitle.toLocaleUpperCase('tr-TR')}]:\n${snippetBody}`;
+      const nextSystemPrompt = current ? `${current}\n\n${block}` : block;
+      const syncedRules = parsePromptToRules(nextSystemPrompt, prev.kurallar);
       return {
         ...prev,
-        sistemIstemi: current ? `${current}\n\n${block}` : block
+        sistemIstemi: nextSystemPrompt,
+        kurallar: syncedRules
       };
     });
     toast.success(t('sistem_istemine_eklendi', `'${snippetTitle}' sistem istemine eklendi.`));
@@ -782,11 +938,10 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     setHizliIsteklerRefreshKey(k => k + 1);
   };
 
-  // ─── KURAL OPERASYONLARI ─────────────────────────────────────────────────────
+  // ─── KURAL OPERASYONLARI (ÇİFT YÖNLÜ SENKRONİZASYON) ─────────────────────────
   const handleOverrideRule = (ruleId: string) => {
-    setFormData((prev: any) => ({
-      ...prev,
-      kurallar: prev.kurallar.map((k: any) => {
+    setFormData((prev: any) => {
+      const updatedRules = prev.kurallar.map((k: any) => {
         if (k.id === ruleId) {
           return {
             ...k,
@@ -795,15 +950,19 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
           };
         }
         return k;
-      })
-    }));
+      });
+      return {
+        ...prev,
+        kurallar: updatedRules,
+        sistemIstemi: compilePromptPreview(updatedRules)
+      };
+    });
     toast.success(t('kural_override_alindi', 'Kural düzenleme moduna alındı (Override).'));
   };
 
   const handleResetRule = (ruleId: string) => {
-    setFormData((prev: any) => ({
-      ...prev,
-      kurallar: prev.kurallar.map((k: any) => {
+    setFormData((prev: any) => {
+      const updatedRules = prev.kurallar.map((k: any) => {
         if (k.id === ruleId) {
           return {
             ...k,
@@ -812,15 +971,19 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
           };
         }
         return k;
-      })
-    }));
+      });
+      return {
+        ...prev,
+        kurallar: updatedRules,
+        sistemIstemi: compilePromptPreview(updatedRules)
+      };
+    });
     toast.success(t('kural_base_sifirlandi', 'Kural orijinal Base içeriğine sıfırlandı.'));
   };
 
   const handleToggleRuleStatus = (ruleId: string) => {
-    setFormData((prev: any) => ({
-      ...prev,
-      kurallar: prev.kurallar.map((k: any) => {
+    setFormData((prev: any) => {
+      const updatedRules = prev.kurallar.map((k: any) => {
         if (k.id === ruleId) {
           if (k.durum === 'DevreDisi') {
             const isModified = k.orijinalBaseIcerik && k.icerik !== k.orijinalBaseIcerik;
@@ -830,14 +993,18 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
           }
         }
         return k;
-      })
-    }));
+      });
+      return {
+        ...prev,
+        kurallar: updatedRules,
+        sistemIstemi: compilePromptPreview(updatedRules)
+      };
+    });
   };
 
   const handleUpdateRuleContent = (ruleId: string, newContent: string) => {
-    setFormData((prev: any) => ({
-      ...prev,
-      kurallar: prev.kurallar.map((k: any) => {
+    setFormData((prev: any) => {
+      const updatedRules = prev.kurallar.map((k: any) => {
         if (k.id === ruleId) {
           const isInherited = k.durum === 'MirasAlindi';
           return {
@@ -848,14 +1015,18 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
           };
         }
         return k;
-      })
-    }));
+      });
+      return {
+        ...prev,
+        kurallar: updatedRules,
+        sistemIstemi: compilePromptPreview(updatedRules)
+      };
+    });
   };
 
   const handleUpdateRuleTitle = (ruleId: string, newTitle: string) => {
-    setFormData((prev: any) => ({
-      ...prev,
-      kurallar: prev.kurallar.map((k: any) => {
+    setFormData((prev: any) => {
+      const updatedRules = prev.kurallar.map((k: any) => {
         if (k.id === ruleId) {
           const isInherited = k.durum === 'MirasAlindi';
           return {
@@ -866,8 +1037,13 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
           };
         }
         return k;
-      })
-    }));
+      });
+      return {
+        ...prev,
+        kurallar: updatedRules,
+        sistemIstemi: compilePromptPreview(updatedRules)
+      };
+    });
   };
 
   const handleAddCustomRule = () => {
@@ -882,10 +1058,14 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       orijinalBaseIcerik: null
     };
 
-    setFormData((prev: any) => ({
-      ...prev,
-      kurallar: [...prev.kurallar, newRule]
-    }));
+    setFormData((prev: any) => {
+      const updatedRules = [...prev.kurallar, newRule];
+      return {
+        ...prev,
+        kurallar: updatedRules,
+        sistemIstemi: compilePromptPreview(updatedRules)
+      };
+    });
     setSelectedRuleId(newId);
     toast.success(t('yeni_kural_eklendi', 'Yeni kural maddesi eklendi.'));
   };
@@ -910,7 +1090,11 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     updated.splice(targetIndex + 1, 0, newRule);
     const reordered = updated.map((k, idx) => ({ ...k, sira: idx + 1 }));
 
-    setFormData((prev: any) => ({ ...prev, kurallar: reordered }));
+    setFormData((prev: any) => ({
+      ...prev,
+      kurallar: reordered,
+      sistemIstemi: compilePromptPreview(reordered)
+    }));
     setSelectedRuleId(newId);
     toast.success(t('kural_cogaltildi', 'Kural maddesi çoğaltıldı.'));
   };
@@ -927,10 +1111,14 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       orijinalBaseIcerik: null
     };
 
-    setFormData((prev: any) => ({
-      ...prev,
-      kurallar: [...prev.kurallar, newRule]
-    }));
+    setFormData((prev: any) => {
+      const updatedRules = [...prev.kurallar, newRule];
+      return {
+        ...prev,
+        kurallar: updatedRules,
+        sistemIstemi: compilePromptPreview(updatedRules)
+      };
+    });
     setSelectedRuleId(newId);
     setShowPresetsModal(false);
     toast.success(`'${preset.baslik}' şablonu eklendi.`);
@@ -938,9 +1126,11 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
 
   const handleDeleteRule = (ruleId: string) => {
     const remaining = formData.kurallar.filter((k: any) => k.id !== ruleId);
+    const reordered = remaining.map((k: any, idx: number) => ({ ...k, sira: idx + 1 }));
     setFormData((prev: any) => ({
       ...prev,
-      kurallar: remaining.map((k: any, idx: number) => ({ ...k, sira: idx + 1 }))
+      kurallar: reordered,
+      sistemIstemi: compilePromptPreview(reordered)
     }));
     if (selectedRuleId === ruleId) {
       setSelectedRuleId(remaining[0]?.id || null);
@@ -958,7 +1148,11 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     list.splice(targetIndex, 0, moved);
 
     const reordered = list.map((k, idx) => ({ ...k, sira: idx + 1 }));
-    setFormData((prev: any) => ({ ...prev, kurallar: reordered }));
+    setFormData((prev: any) => ({
+      ...prev,
+      kurallar: reordered,
+      sistemIstemi: compilePromptPreview(reordered)
+    }));
   };
 
   // MCP Araçları Filtreleme & Arama
@@ -1051,12 +1245,17 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         ? currentFormData.sistemIstemi.trim()
         : compilePromptPreview(currentFormData.kurallar);
 
+      const finalKurallar = finalSystemPrompt
+        ? parsePromptToRules(finalSystemPrompt, currentFormData.kurallar)
+        : currentFormData.kurallar;
+
       const seciliAracKodlari = Array.isArray(currentFormData.seciliAracKodlari)
         ? currentFormData.seciliAracKodlari
         : [];
 
       const payload = {
         ...currentFormData,
+        kurallar: finalKurallar,
         seciliAracKodlari,
         kapsam: parseInt(currentFormData.kapsam, 10) || 1,
         aiSaglayiciId: currentFormData.aiSaglayiciId ? parseInt(currentFormData.aiSaglayiciId, 10) : null,
@@ -2323,7 +2522,19 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
               <button
                 type="button"
                 className={`ai-system-mode-btn ${systemPromptViewMode === 'kurallar' ? 'active' : ''}`}
-                onClick={() => setSystemPromptViewMode('kurallar')}
+                onClick={() => {
+                  setFormData((prev: any) => {
+                    const syncedRules = parsePromptToRules(prev.sistemIstemi || '', prev.kurallar);
+                    if (syncedRules.length > 0 && !syncedRules.some((r: any) => r.id === selectedRuleId)) {
+                      setSelectedRuleId(syncedRules[0].id);
+                    }
+                    return {
+                      ...prev,
+                      kurallar: syncedRules
+                    };
+                  });
+                  setSystemPromptViewMode('kurallar');
+                }}
               >
                 <Layers size={14} />
                 <span>{t('madde_bazli_kurallar', 'Madde Bazlı Kurallar')} ({formData.kurallar.length})</span>
@@ -2416,7 +2627,14 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                 <textarea
                   className="ai-system-prompt-textarea"
                   value={formData.sistemIstemi || ''}
-                  onChange={e => setFormData((prev: any) => ({ ...prev, sistemIstemi: e.target.value }))}
+                  onChange={e => {
+                    const nextPrompt = e.target.value;
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      sistemIstemi: nextPrompt,
+                      kurallar: parsePromptToRules(nextPrompt, prev.kurallar)
+                    }));
+                  }}
                   placeholder={t(
                     'sabit_sistem_istemi_placeholder',
                     'Örn: Sen Webakus ERP sisteminde görev yapan uzman Satış ve Fatura Asistanısın. Yalnızca ERP kapsamındaki cari, stok, sipariş ve fatura işlemlerinde yardımcı olabilirsin. Kullanıcı konu dışı bir şey sorduğunda nazikçe yalnızca Webakus ERP işlemleri konusunda yardımcı olabileceğini belirt...'
