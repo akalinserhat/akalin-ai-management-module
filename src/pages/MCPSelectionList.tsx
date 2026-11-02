@@ -120,6 +120,12 @@ export const MCPSelectionList: React.FC<MCPSelectionListProps> = ({
     const isNodeSelected = (node: McpTreeNode): boolean => {
       const k = (node.kod || '').toLowerCase();
       const id = (node.id || '').toLowerCase();
+      if (node.kategori === 'mcp' || node.kategori === 'klasor') {
+        return (
+          Boolean(id) &&
+          (lowerCodes.has(id) || normalizedCodes.has(normalizeCode(id)))
+        );
+      }
       return (
         lowerCodes.has(k) ||
         lowerCodes.has(id) ||

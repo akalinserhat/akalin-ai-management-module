@@ -1300,10 +1300,6 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
   }, [internalProviders]);
 
   const selectedProvider = localProviders.find(p => p.id === parseInt(formData.aiSaglayiciId, 10));
-  const selectedCount = useMemo(() => {
-    const codes: string[] = Array.isArray(formData.seciliAracKodlari) ? formData.seciliAracKodlari : [];
-    return codes.filter(c => typeof c === 'string' && !c.startsWith('!')).length;
-  }, [formData.seciliAracKodlari]);
 
   useEffect(() => {
     const prov = selectedProvider;
@@ -1899,16 +1895,20 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       ? formDataRef.current.seciliAracKodlari
       : [];
 
+    const normalizeCode = (s: string) => (s || '').toLowerCase().replace(/[-_]/g, '');
     const subtreeIds = new Set<string>();
     const removablePositiveCodes = new Set<string>();
+    const removableNormalizedCodes = new Set<string>();
 
     const collectSubtree = (n: McpTreeNode) => {
       if (n.id) {
         subtreeIds.add(n.id.toLowerCase());
         removablePositiveCodes.add(n.id.toLowerCase());
+        removableNormalizedCodes.add(normalizeCode(n.id));
       }
       if (n.kod && n.kategori !== 'mcp' && n.kategori !== 'klasor') {
         removablePositiveCodes.add(n.kod.toLowerCase());
+        removableNormalizedCodes.add(normalizeCode(n.kod));
       }
       if (n.children && n.children.length > 0) {
         n.children.forEach(collectSubtree);
@@ -1918,6 +1918,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     collectSubtree(targetNode);
     if (targetNode.kod) {
       removablePositiveCodes.add(targetNode.kod.toLowerCase());
+      removableNormalizedCodes.add(normalizeCode(targetNode.kod));
     }
 
     const nextCodes = currentCodes.filter((c) => {
@@ -1926,7 +1927,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         const disabledId = c.slice(1).toLowerCase();
         return !subtreeIds.has(disabledId);
       }
-      return !removablePositiveCodes.has(c.toLowerCase());
+      const lower = c.toLowerCase();
+      return !removablePositiveCodes.has(lower) && !removableNormalizedCodes.has(normalizeCode(lower));
     });
 
     const nextFormData = {
@@ -1966,6 +1968,12 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     const isNodeSelected = (node: McpTreeNode): boolean => {
       const k = (node.kod || '').toLowerCase();
       const id = (node.id || '').toLowerCase();
+      if (node.kategori === 'mcp' || node.kategori === 'klasor') {
+        return (
+          Boolean(id) &&
+          (lowerCodes.has(id) || normalizedCodes.has(normalizeCode(id)))
+        );
+      }
       return (
         lowerCodes.has(k) ||
         lowerCodes.has(id) ||
@@ -2036,35 +2044,10 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       }
     });
 
-    // mcpTreeData içinde bulunmayan legacy veya harici araçlar varsa onları da ekle
-    const nodeOrChildrenHasCode = (node: McpTreeNode, codeLower: string): boolean => {
-      if ((node.kod || '').toLowerCase() === codeLower || (node.id || '').toLowerCase() === codeLower) {
-        return true;
-      }
-      return Boolean(node.children?.some(c => nodeOrChildrenHasCode(c, codeLower)));
-    };
-
-    positiveCodes.forEach(code => {
-      const codeLower = (code || '').toLowerCase();
-      const existsInTree = result.some(m => nodeOrChildrenHasCode(m, codeLower));
-
-      if (!existsInTree) {
-        const found = internalTools.find((tItem: any) => tItem.aracKodu?.toLowerCase() === codeLower);
-        result.push({
-          id: code,
-          kademe: 1,
-          kod: code,
-          ad: found?.aracAdi || code,
-          kategori: 'mcp',
-          aktifMi: !disabledSet.has(codeLower),
-          aciklama: found?.aciklama || '-',
-          isSistem: true
-        });
-      }
-    });
-
     return result;
-  }, [formData.seciliAracKodlari, mcpTreeData, internalTools]);
+  }, [formData.seciliAracKodlari, mcpTreeData]);
+
+  const selectedCount = selectedMcpTools.length;
 
   const mcpToolColumns: Column<McpTreeNode>[] = useMemo(() => [
     {

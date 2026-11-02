@@ -818,6 +818,12 @@ export function getAgentActiveMcpEntities(
   const isNodeSelected = (node: McpTreeNode): boolean => {
     const k = (node.kod || '').toLowerCase();
     const id = (node.id || '').toLowerCase();
+    if (node.kategori === 'mcp' || node.kategori === 'klasor') {
+      return (
+        Boolean(id) &&
+        (lowerCodes.has(id) || normalizedCodes.has(normalizeCode(id)))
+      );
+    }
     return (
       lowerCodes.has(k) ||
       lowerCodes.has(id) ||
@@ -829,6 +835,9 @@ export function getAgentActiveMcpEntities(
   const isNodeDisabled = (node: McpTreeNode): boolean => {
     const id = (node.id || '').toLowerCase();
     const k = (node.kod || '').toLowerCase();
+    if (node.kategori === 'mcp' || node.kategori === 'klasor') {
+      return Boolean(id) && disabledSet.has(id);
+    }
     return disabledSet.has(id) || disabledSet.has(k);
   };
 
