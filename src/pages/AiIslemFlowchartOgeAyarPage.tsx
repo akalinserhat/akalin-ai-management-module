@@ -17,26 +17,18 @@ import {
   Sparkles,
   Info,
   CheckCircle2,
-  ShieldCheck,
-  Database
+  ShieldCheck
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
-  BaseSwitch,
-  McpVarlikSeciciInput
+  BaseSwitch
 } from '@akalin/ui';
 import {
   BaseAiAjanFlowchartOgeAyarPage,
   FlowchartPromptMentionInput,
   type BaseAiAjanFlowchartOgeAyarPageProps
 } from './BaseAiAjanFlowchartOgeAyarPage';
-import {
-  getAgentActiveMcpEntities,
-  getAllMcpEntities,
-  type AgentActiveMcpEntity
-} from './AiMcpYonetimi';
-import { MCPSelectionList } from './MCPSelectionList';
 
 export interface AiIslemFlowchartOgeAyarPageProps extends Partial<BaseAiAjanFlowchartOgeAyarPageProps> {
   onSuccess?: () => void;
@@ -79,13 +71,6 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
       aracKodu: baseNode.aracKodu || '',
       uiAksiyonu: 'YOK',
       hedefRota: baseNode.hedefRota || '',
-      mcpVarlikId: baseNode.mcpVarlikId || '',
-      modulKodu: baseNode.modulKodu || '',
-      modulAdi: baseNode.modulAdi || '',
-      varlikKodu: baseNode.varlikKodu || '',
-      varlikAdi: baseNode.varlikAdi || '',
-      varlikTuru: baseNode.varlikTuru || '',
-      hariciSayfaAyarlari: baseNode.hariciSayfaAyarlari || {},
       oncekiDugumGirdisi: baseNode.oncekiDugumGirdisi || {
         aktifMi: true,
         kaynakDugumId: 'OTOMATIK_ONCEKI',
@@ -121,13 +106,6 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
                       aracKodu: foundNode.aracKodu || '',
                       uiAksiyonu: 'YOK',
                       hedefRota: foundNode.hedefRota || '',
-                      mcpVarlikId: foundNode.mcpVarlikId || '',
-                      modulKodu: foundNode.modulKodu || '',
-                      modulAdi: foundNode.modulAdi || '',
-                      varlikKodu: foundNode.varlikKodu || '',
-                      varlikAdi: foundNode.varlikAdi || '',
-                      varlikTuru: foundNode.varlikTuru || '',
-                      hariciSayfaAyarlari: foundNode.hariciSayfaAyarlari || {},
                       oncekiDugumGirdisi: foundNode.oncekiDugumGirdisi || {
                         aktifMi: true,
                         kaynakDugumId: 'OTOMATIK_ONCEKI',
@@ -148,80 +126,6 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
         .catch(() => { });
     }
   }, [agentData, effectiveAgentId, effectiveIstekId, effectiveOgeId, incomingNodeFromState, defaultNodeTitle]);
-
-  // Ajanın kartında kayıtlı ve aktif edilmiş MCP varlıklarını (Liste, Belge, Kart) getir
-  const activeMcpEntities = useMemo<AgentActiveMcpEntity[]>(() => {
-    const codes = agentData?.seciliAracKodlari || incomingAgentData?.seciliAracKodlari || [];
-    return getAgentActiveMcpEntities(codes, t);
-  }, [agentData?.seciliAracKodlari, incomingAgentData?.seciliAracKodlari, t]);
-
-  // Sistemdeki tüm MCP varlıkları (fallback amaçlı)
-  const allMcpEntities = useMemo<AgentActiveMcpEntity[]>(() => {
-    return getAllMcpEntities(t);
-  }, [t]);
-
-  // Seçili MCP varlığını bul (önce ajanın aktif listesinde, bulunamazsa genel listede arar)
-  const selectedEntity = useMemo<AgentActiveMcpEntity | null>(() => {
-    if (!formData.mcpVarlikId && !formData.varlikKodu) return null;
-    const foundInActive = activeMcpEntities.find(
-      (e) =>
-        e.id === formData.mcpVarlikId ||
-        (formData.varlikKodu && e.kod === formData.varlikKodu)
-    );
-    if (foundInActive) return foundInActive;
-
-    return (
-      allMcpEntities.find(
-        (e) =>
-          e.id === formData.mcpVarlikId ||
-          (formData.varlikKodu && e.kod === formData.varlikKodu)
-      ) || null
-    );
-  }, [activeMcpEntities, allMcpEntities, formData.mcpVarlikId, formData.varlikKodu]);
-
-  // Bir MCP varlığı (Belge / Kart / Liste) seçildiğinde form alanlarını senkronize et
-  const handleSelectMcpEntity = (entity: AgentActiveMcpEntity | any) => {
-    const nextToolCode =
-      entity.kategori === 'belge' || entity.kategori === 'kart'
-        ? 'erp_create_document'
-        : 'erp_query_data';
-    const rawRoute = entity.rota || '';
-    const resolvedRoute =
-      entity.kategori === 'belge' || entity.kategori === 'kart'
-        ? rawRoute.includes('/:id')
-          ? rawRoute.replace('/:id', '/yeni')
-          : rawRoute
-        : rawRoute;
-
-    setFormData((prev: any) => ({
-      ...prev,
-      baslik: defaultNodeTitle,
-      mcpVarlikId: entity.id,
-      modulKodu: entity.modulKodu,
-      modulAdi: entity.modulAdi,
-      varlikKodu: entity.kod,
-      varlikAdi: entity.ad,
-      varlikTuru: entity.kategori,
-      hedefRota: resolvedRoute || prev.hedefRota || '',
-      aracKodu: nextToolCode
-    }));
-  };
-
-  // MCP varlık seçimini temizle
-  const handleClearMcpEntity = () => {
-    setFormData((prev: any) => ({
-      ...prev,
-      mcpVarlikId: '',
-      modulKodu: '',
-      modulAdi: '',
-      varlikKodu: '',
-      varlikAdi: '',
-      varlikTuru: '',
-      hedefRota: '',
-      aracKodu: '',
-      hariciSayfaAyarlari: {}
-    }));
-  };
 
   const isUnderAyarlar = location.pathname.startsWith('/ayarlar');
   const effectiveBackRoute = useMemo(() => {
@@ -451,59 +355,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
       onBack={handleBackOrClose}
     >
       <div className="basla-ayar-page-container">
-        {/* 1. BÖLÜM: HEDEFLENEN / OLUŞTURULACAK MCP VARLIĞI (BELGE, KART VEYA LİSTE) */}
-        <section className="basla-ayar-card">
-          <div className="basla-ayar-card-header">
-            <div className="basla-ayar-card-header-left">
-              <div className="basla-ayar-icon-box primary">
-                <Database size={18} />
-              </div>
-              <div className="basla-ayar-header-text">
-                <h3 className="basla-ayar-card-title">
-                  {t(
-                    'ai_islem_hedef_mcp_varligi',
-                    'Hedeflenen / Oluşturulacak MCP Varlığı (Belge, Kart veya Liste)'
-                  )}
-                </h3>
-                <p className="basla-ayar-card-subtitle">
-                  {t(
-                    'ai_islem_hedef_mcp_varligi_aciklama',
-                    'Yapay zekanın bu adımda oluşturacağı, güncelleyeceği veya sorgulayacağı Belge, Kart ya da Listeyi seçin.'
-                  )}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="basla-ayar-card-body">
-            <div className="basla-ayar-field-col">
-              <label className="basla-ayar-field-label">
-                {t(
-                  'ai_islem_hedef_mcp_varligi',
-                  'Hedeflenen / Oluşturulacak MCP Varlığı (Belge, Kart veya Liste)'
-                )}
-              </label>
-              <McpVarlikSeciciInput
-                id="aiIslemMcpEntitySecici"
-                selectedEntity={selectedEntity}
-                seciliAracKodlari={agentData?.seciliAracKodlari || incomingAgentData?.seciliAracKodlari}
-                selectionList={MCPSelectionList}
-                externalSettingsValue={formData.hariciSayfaAyarlari}
-                onExternalSettingsChange={(val) =>
-                  setFormData((prev: any) => ({ ...prev, hariciSayfaAyarlari: val }))
-                }
-                placeholder={t(
-                  'ai_islem_mcp_belge_kart_liste_secin',
-                  'Oluşturulacak veya işlenecek Belge, Kart ya da Listeyi seçin (İsteğe bağlı)...'
-                )}
-                onSelect={(entity) => handleSelectMcpEntity(entity)}
-                onClear={handleClearMcpEntity}
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* 2. BÖLÜM: YAPAY ZEKA İŞLEM YÖNERGESİ (ADIM PROMPTU) */}
+        {/* 1. BÖLÜM: YAPAY ZEKA İŞLEM YÖNERGESİ (ADIM PROMPTU) */}
         <section className="basla-ayar-card">
           <div className="basla-ayar-card-header">
             <div className="basla-ayar-card-header-left">
