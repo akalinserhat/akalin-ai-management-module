@@ -191,9 +191,9 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
       const baseSourceReq =
         (reqIdx !== -1 || incomingIstekData
           ? {
-              ...(reqIdx !== -1 ? currentRequests[reqIdx] : {}),
-              ...(incomingIstekData || {})
-            }
+            ...(reqIdx !== -1 ? currentRequests[reqIdx] : {}),
+            ...(incomingIstekData || {})
+          }
           : null) || {
           id:
             incomingIstekData?.id ||
@@ -234,9 +234,20 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
       currentReq.prompt = payloadNode.prompt ?? currentReq.prompt ?? '';
 
       const updatedReq: any = currentReq;
+      if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined' && effectiveAgentId && currentReq?.id) {
+        try {
+          sessionStorage.setItem(`webakus_flow_draft_${effectiveAgentId}_${currentReq.id}`, JSON.stringify(currentReq));
+        } catch {
+          // ignore
+        }
+      }
 
-      if (effectiveAgentId && agentToUpdate && reqIdx !== -1) {
-        currentRequests[reqIdx] = currentReq;
+      if (effectiveAgentId && agentToUpdate) {
+        if (reqIdx !== -1) {
+          currentRequests[reqIdx] = currentReq;
+        } else {
+          currentRequests.push(currentReq);
+        }
 
         const payload = {
           ...agentToUpdate,
@@ -249,6 +260,13 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
         };
 
         await axios.put(`/api/AiAjanlar/${effectiveAgentId}`, payload);
+        if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined' && currentReq?.id) {
+          try {
+            sessionStorage.removeItem(`webakus_flow_draft_${effectiveAgentId}_${currentReq.id}`);
+          } catch {
+            // ignore
+          }
+        }
       }
 
       toast.success(t('basla_ayarlari_kaydedildi', 'Başla düğümü ayarları başarıyla kaydedildi.'));

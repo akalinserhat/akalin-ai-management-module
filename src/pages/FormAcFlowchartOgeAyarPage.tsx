@@ -326,9 +326,9 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
       const baseSourceReq =
         (reqIdx !== -1 || activeIstekRef
           ? {
-              ...(reqIdx !== -1 ? currentRequests[reqIdx] : {}),
-              ...(activeIstekRef || {})
-            }
+            ...(reqIdx !== -1 ? currentRequests[reqIdx] : {}),
+            ...(activeIstekRef || {})
+          }
           : null) || {
           id:
             activeIstekRef?.id ||
@@ -358,8 +358,12 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
       currentReq.akisDugumleri = currentNodes;
       setIstekData(currentReq);
 
-      if (effectiveAgentId && agentToUpdate && reqIdx !== -1) {
-        currentRequests[reqIdx] = currentReq;
+      if (effectiveAgentId && agentToUpdate) {
+        if (reqIdx !== -1) {
+          currentRequests[reqIdx] = currentReq;
+        } else {
+          currentRequests.push(currentReq);
+        }
 
         const payload = {
           ...agentToUpdate,
@@ -417,9 +421,9 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
       const baseSourceReq =
         (reqIdx !== -1 || activeIstekRef
           ? {
-              ...(reqIdx !== -1 ? currentRequests[reqIdx] : {}),
-              ...(activeIstekRef || {})
-            }
+            ...(reqIdx !== -1 ? currentRequests[reqIdx] : {}),
+            ...(activeIstekRef || {})
+          }
           : null) || {
           id:
             activeIstekRef?.id ||
@@ -457,9 +461,20 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
 
       const updatedReq: any = currentReq;
       setIstekData(currentReq);
+      if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined' && effectiveAgentId && currentReq?.id) {
+        try {
+          sessionStorage.setItem(`webakus_flow_draft_${effectiveAgentId}_${currentReq.id}`, JSON.stringify(currentReq));
+        } catch {
+          // ignore
+        }
+      }
 
-      if (effectiveAgentId && agentToUpdate && reqIdx !== -1) {
-        currentRequests[reqIdx] = currentReq;
+      if (effectiveAgentId && agentToUpdate) {
+        if (reqIdx !== -1) {
+          currentRequests[reqIdx] = currentReq;
+        } else {
+          currentRequests.push(currentReq);
+        }
 
         const payload = {
           ...agentToUpdate,
@@ -475,6 +490,11 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
 
         await axios.put(`/api/AiAjanlar/${effectiveAgentId}`, payload);
         if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.removeItem(`webakus_flow_draft_${effectiveAgentId}_${currentReq.id}`);
+          } catch {
+            // ignore
+          }
           window.dispatchEvent(new CustomEvent('ai-agents-updated'));
         }
       }
