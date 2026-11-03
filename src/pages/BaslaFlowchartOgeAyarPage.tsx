@@ -134,11 +134,19 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
         existingNodes.unshift(activeBaslaNode);
       }
 
+      const resolvedBaslik =
+        incomingIstekData?.baslik?.trim() ||
+        formData.dugmeBasligi?.trim() ||
+        (formData.prompt?.trim()
+          ? formData.prompt.trim().split('\n')[0].slice(0, 60).trim()
+          : '');
+
       navigate(effectiveBackRoute, {
         state: {
           agentData: incomingAgentData,
           hizliIstekItem: incomingIstekData ? {
             ...incomingIstekData,
+            baslik: resolvedBaslik,
             hizliErisimDugmesi: formData.hizliErisimDugmesi !== false,
             dugmeBasligi: formData.dugmeBasligi || '',
             tetiklemeAnahtarlari: formData.tetiklemeAnahtarlari,
@@ -171,44 +179,71 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
         agentToUpdate = res.data;
       }
 
-      let updatedReq: any = null;
+      const currentRequests = Array.isArray(agentToUpdate?.hizliIstekler)
+        ? [...agentToUpdate.hizliIstekler]
+        : [];
+      const reqIdx = currentRequests.findIndex(
+        (x: any) =>
+          x.id === effectiveIstekId ||
+          (incomingIstekData?.id && x.id === incomingIstekData.id)
+      );
 
-      if (effectiveAgentId && agentToUpdate && effectiveIstekId) {
-        const currentRequests = Array.isArray(agentToUpdate.hizliIstekler) ? [...agentToUpdate.hizliIstekler] : [];
-        const reqIdx = currentRequests.findIndex((x: any) => x.id === effectiveIstekId);
+      const baseSourceReq =
+        (reqIdx !== -1 ? currentRequests[reqIdx] : incomingIstekData) || {
+          id:
+            incomingIstekData?.id ||
+            (effectiveIstekId && effectiveIstekId !== 'yeni'
+              ? effectiveIstekId
+              : `req_${Date.now()}`),
+          baslik: '',
+          prompt: '',
+          ikon: 'Sparkles',
+          uiAksiyonu: 'YOK',
+          aktifMi: true,
+          akisDugumleri: []
+        };
 
-        if (reqIdx !== -1) {
-          const currentReq = { ...currentRequests[reqIdx] };
-          const currentNodes = Array.isArray(currentReq.akisDugumleri) ? [...currentReq.akisDugumleri] : [];
-          const nodeIdx = currentNodes.findIndex((x: any) => x.id === 'BASLA' || x.tip === 'BASLA');
+      const currentReq: any = { ...baseSourceReq };
+      const currentNodes = Array.isArray(currentReq.akisDugumleri)
+        ? [...currentReq.akisDugumleri]
+        : [];
+      const nodeIdx = currentNodes.findIndex((x: any) => x.id === 'BASLA' || x.tip === 'BASLA');
 
-          if (nodeIdx !== -1) {
-            currentNodes[nodeIdx] = { ...currentNodes[nodeIdx], ...payloadNode };
-          } else {
-            currentNodes.unshift(payloadNode);
-          }
+      if (nodeIdx !== -1) {
+        currentNodes[nodeIdx] = { ...currentNodes[nodeIdx], ...payloadNode };
+      } else {
+        currentNodes.unshift(payloadNode);
+      }
 
-          currentReq.akisDugumleri = currentNodes;
-          // DİKKAT: İstek başlığı (currentReq.baslik) korunur, ezilmez!
-          currentReq.hizliErisimDugmesi = payloadNode.hizliErisimDugmesi !== false;
-          currentReq.dugmeBasligi = payloadNode.dugmeBasligi || '';
-          currentReq.prompt = payloadNode.prompt ?? currentReq.prompt ?? '';
+      currentReq.akisDugumleri = currentNodes;
+      // DİKKAT: Mevcut istek başlığı (currentReq.baslik) doluysa korunur; yeni akışta boşsa düğme başlığı veya amaçtan türetilir
+      if (!currentReq.baslik?.trim()) {
+        currentReq.baslik =
+          payloadNode.dugmeBasligi?.trim() ||
+          (payloadNode.prompt?.trim()
+            ? payloadNode.prompt.trim().split('\n')[0].slice(0, 60).trim()
+            : '');
+      }
+      currentReq.hizliErisimDugmesi = payloadNode.hizliErisimDugmesi !== false;
+      currentReq.dugmeBasligi = payloadNode.dugmeBasligi || '';
+      currentReq.prompt = payloadNode.prompt ?? currentReq.prompt ?? '';
 
-          currentRequests[reqIdx] = currentReq;
-          updatedReq = currentReq;
+      const updatedReq: any = currentReq;
 
-          const payload = {
-            ...agentToUpdate,
-            kapsam: parseInt(agentToUpdate.kapsam, 10) || 1,
-            aiSaglayiciId: agentToUpdate.aiSaglayiciId ? parseInt(agentToUpdate.aiSaglayiciId, 10) : null,
-            sicaklik: parseFloat(agentToUpdate.sicaklik) || 0.7,
-            maxTokens: parseInt(agentToUpdate.maxTokens, 10) || 2048,
-            yanitSenteziModu: parseInt(agentToUpdate.yanitSenteziModu as any, 10) || 0,
-            hizliIstekler: currentRequests
-          };
+      if (effectiveAgentId && agentToUpdate && reqIdx !== -1) {
+        currentRequests[reqIdx] = currentReq;
 
-          await axios.put(`/api/AiAjanlar/${effectiveAgentId}`, payload);
-        }
+        const payload = {
+          ...agentToUpdate,
+          kapsam: parseInt(agentToUpdate.kapsam, 10) || 1,
+          aiSaglayiciId: agentToUpdate.aiSaglayiciId ? parseInt(agentToUpdate.aiSaglayiciId, 10) : null,
+          sicaklik: parseFloat(agentToUpdate.sicaklik) || 0.7,
+          maxTokens: parseInt(agentToUpdate.maxTokens, 10) || 2048,
+          yanitSenteziModu: parseInt(agentToUpdate.yanitSenteziModu as any, 10) || 0,
+          hizliIstekler: currentRequests
+        };
+
+        await axios.put(`/api/AiAjanlar/${effectiveAgentId}`, payload);
       }
 
       toast.success(t('basla_ayarlari_kaydedildi', 'Başla düğümü ayarları başarıyla kaydedildi.'));

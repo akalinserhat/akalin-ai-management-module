@@ -197,45 +197,67 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
         agentToUpdate = res.data;
       }
 
-      let updatedReq: any = null;
+      const currentRequests = Array.isArray(agentToUpdate?.hizliIstekler)
+        ? [...agentToUpdate.hizliIstekler]
+        : [];
+      const activeIstekRef = istekData || incomingIstekData;
+      const reqIdx = currentRequests.findIndex(
+        (x: any) =>
+          x.id === effectiveIstekId ||
+          (activeIstekRef?.id && x.id === activeIstekRef.id)
+      );
 
-      if (effectiveAgentId && agentToUpdate && effectiveIstekId) {
-        const currentRequests = Array.isArray(agentToUpdate.hizliIstekler)
-          ? [...agentToUpdate.hizliIstekler]
-          : [];
-        const reqIdx = currentRequests.findIndex((x: any) => x.id === effectiveIstekId);
+      const baseSourceReq =
+        (reqIdx !== -1 ? currentRequests[reqIdx] : activeIstekRef) || {
+          id:
+            activeIstekRef?.id ||
+            (effectiveIstekId && effectiveIstekId !== 'yeni'
+              ? effectiveIstekId
+              : `req_${Date.now()}`),
+          baslik: '',
+          prompt: '',
+          ikon: 'Sparkles',
+          uiAksiyonu: 'YOK',
+          aktifMi: true,
+          akisDugumleri: []
+        };
 
-        if (reqIdx !== -1) {
-          const currentReq = { ...currentRequests[reqIdx] };
-          const currentNodes = Array.isArray(currentReq.akisDugumleri)
-            ? [...currentReq.akisDugumleri]
-            : [];
-          const nodeIdx = currentNodes.findIndex((x: any) => x.id === payloadNode.id);
+      const currentReq: any = { ...baseSourceReq };
+      const currentNodes = Array.isArray(currentReq.akisDugumleri)
+        ? [...currentReq.akisDugumleri]
+        : [];
+      const nodeIdx = currentNodes.findIndex((x: any) => x.id === payloadNode.id);
 
-          if (nodeIdx !== -1) {
-            currentNodes[nodeIdx] = { ...currentNodes[nodeIdx], ...payloadNode };
-          } else {
-            currentNodes.push(payloadNode);
-          }
+      if (nodeIdx !== -1) {
+        currentNodes[nodeIdx] = { ...currentNodes[nodeIdx], ...payloadNode };
+      } else {
+        currentNodes.push(payloadNode);
+      }
 
-          currentReq.akisDugumleri = currentNodes;
-          currentRequests[reqIdx] = currentReq;
-          updatedReq = currentReq;
+      currentReq.akisDugumleri = currentNodes;
+      if (!currentReq.baslik?.trim() && payloadNode.prompt?.trim()) {
+        currentReq.baslik = payloadNode.prompt.trim().split('\n')[0].slice(0, 60).trim();
+      }
 
-          const payload = {
-            ...agentToUpdate,
-            kapsam: parseInt(agentToUpdate.kapsam, 10) || 1,
-            aiSaglayiciId: agentToUpdate.aiSaglayiciId
-              ? parseInt(agentToUpdate.aiSaglayiciId, 10)
-              : null,
-            sicaklik: parseFloat(agentToUpdate.sicaklik) || 0.7,
-            maxTokens: parseInt(agentToUpdate.maxTokens, 10) || 2048,
-            yanitSenteziModu: parseInt(agentToUpdate.yanitSenteziModu as any, 10) || 0,
-            hizliIstekler: currentRequests
-          };
+      const updatedReq: any = currentReq;
+      setIstekData(currentReq);
 
-          await axios.put(`/api/AiAjanlar/${effectiveAgentId}`, payload);
-        }
+      if (effectiveAgentId && agentToUpdate && reqIdx !== -1) {
+        currentRequests[reqIdx] = currentReq;
+
+        const payload = {
+          ...agentToUpdate,
+          kapsam: parseInt(agentToUpdate.kapsam, 10) || 1,
+          aiSaglayiciId: agentToUpdate.aiSaglayiciId
+            ? parseInt(agentToUpdate.aiSaglayiciId, 10)
+            : null,
+          sicaklik: parseFloat(agentToUpdate.sicaklik) || 0.7,
+          maxTokens: parseInt(agentToUpdate.maxTokens, 10) || 2048,
+          yanitSenteziModu: parseInt(agentToUpdate.yanitSenteziModu as any, 10) || 0,
+          hizliIstekler: currentRequests
+        };
+
+        await axios.put(`/api/AiAjanlar/${effectiveAgentId}`, payload);
       }
 
       toast.success(

@@ -313,47 +313,66 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
         agentToUpdate = res.data;
       }
 
-      if (effectiveAgentId && agentToUpdate && effectiveIstekId) {
-        const currentRequests = Array.isArray(agentToUpdate.hizliIstekler)
-          ? [...agentToUpdate.hizliIstekler]
-          : [];
-        const reqIdx = currentRequests.findIndex((x: any) => x.id === effectiveIstekId);
+      const currentRequests = Array.isArray(agentToUpdate?.hizliIstekler)
+        ? [...agentToUpdate.hizliIstekler]
+        : [];
+      const activeIstekRef = istekData || incomingIstekData;
+      const reqIdx = currentRequests.findIndex(
+        (x: any) =>
+          x.id === effectiveIstekId ||
+          (activeIstekRef?.id && x.id === activeIstekRef.id)
+      );
 
-        if (reqIdx !== -1) {
-          const currentReq = { ...currentRequests[reqIdx] };
-          const currentNodes = Array.isArray(currentReq.akisDugumleri)
-            ? [...currentReq.akisDugumleri]
-            : [];
-          const nodeIdx = currentNodes.findIndex((x: any) => x.id === payloadNode.id);
+      const baseSourceReq =
+        (reqIdx !== -1 ? currentRequests[reqIdx] : activeIstekRef) || {
+          id:
+            activeIstekRef?.id ||
+            (effectiveIstekId && effectiveIstekId !== 'yeni'
+              ? effectiveIstekId
+              : `req_${Date.now()}`),
+          baslik: '',
+          prompt: '',
+          ikon: 'Sparkles',
+          uiAksiyonu: 'YOK',
+          aktifMi: true,
+          akisDugumleri: []
+        };
 
-          if (nodeIdx !== -1) {
-            currentNodes[nodeIdx] = { ...currentNodes[nodeIdx], ...payloadNode };
-          } else {
-            currentNodes.push(payloadNode);
-          }
+      const currentReq: any = { ...baseSourceReq };
+      const currentNodes = Array.isArray(currentReq.akisDugumleri)
+        ? [...currentReq.akisDugumleri]
+        : [];
+      const nodeIdx = currentNodes.findIndex((x: any) => x.id === payloadNode.id);
 
-          currentReq.akisDugumleri = currentNodes;
-          currentRequests[reqIdx] = currentReq;
+      if (nodeIdx !== -1) {
+        currentNodes[nodeIdx] = { ...currentNodes[nodeIdx], ...payloadNode };
+      } else {
+        currentNodes.push(payloadNode);
+      }
 
-          const payload = {
-            ...agentToUpdate,
-            kapsam: parseInt(agentToUpdate.kapsam, 10) || 1,
-            aiSaglayiciId: agentToUpdate.aiSaglayiciId
-              ? parseInt(agentToUpdate.aiSaglayiciId, 10)
-              : null,
-            sicaklik: parseFloat(agentToUpdate.sicaklik) || 0.7,
-            maxTokens: parseInt(agentToUpdate.maxTokens, 10) || 2048,
-            yanitSenteziModu: parseInt(agentToUpdate.yanitSenteziModu as any, 10) || 0,
-            hizliIstekler: currentRequests
-          };
+      currentReq.akisDugumleri = currentNodes;
+      setIstekData(currentReq);
 
-          const putRes = await axios.put(`/api/AiAjanlar/${effectiveAgentId}`, payload);
-          const savedAgent = putRes.data || payload;
-          setAgentData(savedAgent);
-          setIstekData(currentReq);
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('ai-agents-updated'));
-          }
+      if (effectiveAgentId && agentToUpdate && reqIdx !== -1) {
+        currentRequests[reqIdx] = currentReq;
+
+        const payload = {
+          ...agentToUpdate,
+          kapsam: parseInt(agentToUpdate.kapsam, 10) || 1,
+          aiSaglayiciId: agentToUpdate.aiSaglayiciId
+            ? parseInt(agentToUpdate.aiSaglayiciId, 10)
+            : null,
+          sicaklik: parseFloat(agentToUpdate.sicaklik) || 0.7,
+          maxTokens: parseInt(agentToUpdate.maxTokens, 10) || 2048,
+          yanitSenteziModu: parseInt(agentToUpdate.yanitSenteziModu as any, 10) || 0,
+          hizliIstekler: currentRequests
+        };
+
+        const putRes = await axios.put(`/api/AiAjanlar/${effectiveAgentId}`, payload);
+        const savedAgent = putRes.data || payload;
+        setAgentData(savedAgent);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('ai-agents-updated'));
         }
       }
 
@@ -380,47 +399,73 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
         agentToUpdate = res.data;
       }
 
-      let updatedReq: any = null;
+      const currentRequests = Array.isArray(agentToUpdate?.hizliIstekler)
+        ? [...agentToUpdate.hizliIstekler]
+        : [];
+      const activeIstekRef = istekData || incomingIstekData;
+      const reqIdx = currentRequests.findIndex(
+        (x: any) =>
+          x.id === effectiveIstekId ||
+          (activeIstekRef?.id && x.id === activeIstekRef.id)
+      );
 
-      if (effectiveAgentId && agentToUpdate && effectiveIstekId) {
-        const currentRequests = Array.isArray(agentToUpdate.hizliIstekler)
-          ? [...agentToUpdate.hizliIstekler]
-          : [];
-        const reqIdx = currentRequests.findIndex((x: any) => x.id === effectiveIstekId);
+      const baseSourceReq =
+        (reqIdx !== -1 ? currentRequests[reqIdx] : activeIstekRef) || {
+          id:
+            activeIstekRef?.id ||
+            (effectiveIstekId && effectiveIstekId !== 'yeni'
+              ? effectiveIstekId
+              : `req_${Date.now()}`),
+          baslik: '',
+          prompt: '',
+          ikon: 'Sparkles',
+          uiAksiyonu: 'YOK',
+          aktifMi: true,
+          akisDugumleri: []
+        };
 
-        if (reqIdx !== -1) {
-          const currentReq = { ...currentRequests[reqIdx] };
-          const currentNodes = Array.isArray(currentReq.akisDugumleri)
-            ? [...currentReq.akisDugumleri]
-            : [];
-          const nodeIdx = currentNodes.findIndex((x: any) => x.id === payloadNode.id);
+      const currentReq: any = { ...baseSourceReq };
+      const currentNodes = Array.isArray(currentReq.akisDugumleri)
+        ? [...currentReq.akisDugumleri]
+        : [];
+      const nodeIdx = currentNodes.findIndex((x: any) => x.id === payloadNode.id);
 
-          if (nodeIdx !== -1) {
-            currentNodes[nodeIdx] = { ...currentNodes[nodeIdx], ...payloadNode };
-          } else {
-            currentNodes.push(payloadNode);
-          }
+      if (nodeIdx !== -1) {
+        currentNodes[nodeIdx] = { ...currentNodes[nodeIdx], ...payloadNode };
+      } else {
+        currentNodes.push(payloadNode);
+      }
 
-          currentReq.akisDugumleri = currentNodes;
-          currentRequests[reqIdx] = currentReq;
-          updatedReq = currentReq;
+      currentReq.akisDugumleri = currentNodes;
+      if (!currentReq.baslik?.trim()) {
+        currentReq.baslik =
+          payloadNode.dugmeMetni?.trim() ||
+          payloadNode.dugmeBasligi?.trim() ||
+          payloadNode.varlikAdi?.trim() ||
+          '';
+      }
 
-          const payload = {
-            ...agentToUpdate,
-            kapsam: parseInt(agentToUpdate.kapsam, 10) || 1,
-            aiSaglayiciId: agentToUpdate.aiSaglayiciId
-              ? parseInt(agentToUpdate.aiSaglayiciId, 10)
-              : null,
-            sicaklik: parseFloat(agentToUpdate.sicaklik) || 0.7,
-            maxTokens: parseInt(agentToUpdate.maxTokens, 10) || 2048,
-            yanitSenteziModu: parseInt(agentToUpdate.yanitSenteziModu as any, 10) || 0,
-            hizliIstekler: currentRequests
-          };
+      const updatedReq: any = currentReq;
+      setIstekData(currentReq);
 
-          await axios.put(`/api/AiAjanlar/${effectiveAgentId}`, payload);
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('ai-agents-updated'));
-          }
+      if (effectiveAgentId && agentToUpdate && reqIdx !== -1) {
+        currentRequests[reqIdx] = currentReq;
+
+        const payload = {
+          ...agentToUpdate,
+          kapsam: parseInt(agentToUpdate.kapsam, 10) || 1,
+          aiSaglayiciId: agentToUpdate.aiSaglayiciId
+            ? parseInt(agentToUpdate.aiSaglayiciId, 10)
+            : null,
+          sicaklik: parseFloat(agentToUpdate.sicaklik) || 0.7,
+          maxTokens: parseInt(agentToUpdate.maxTokens, 10) || 2048,
+          yanitSenteziModu: parseInt(agentToUpdate.yanitSenteziModu as any, 10) || 0,
+          hizliIstekler: currentRequests
+        };
+
+        await axios.put(`/api/AiAjanlar/${effectiveAgentId}`, payload);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('ai-agents-updated'));
         }
       }
 

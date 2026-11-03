@@ -251,9 +251,9 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     return formState.akisDugumleri[0]?.id || START_NODE_ID;
   });
 
-  // targetItem sonradan yüklendiğinde formState'i senkronize et
+  // targetItem sonradan API'den yüklendiğinde formState'i senkronize et
   useEffect(() => {
-    if (targetItem && (!formState.baslik || formState.id !== targetItem.id)) {
+    if (!location.state?.hizliIstekItem && targetItem && formState.id !== targetItem.id) {
       const nodes = normalizeFlowNodes(targetItem.akisDugumleri, targetItem);
 
       setFormState({
@@ -271,23 +271,29 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       });
       setSelectedFlowNodeId(nodes[0]?.id || START_NODE_ID);
     }
-  }, [targetItem, t]);
+  }, [targetItem, location.state?.hizliIstekItem, formState.id, t]);
 
   // location.state'ten doğrudan güncel istek öğesi geldiyse (alt ayar sayfasından dönüş)
   useEffect(() => {
     if (location.state?.hizliIstekItem) {
       const item = location.state.hizliIstekItem;
       const nodes = normalizeFlowNodes(item.akisDugumleri, item);
+      const baslaNode = nodes.find(n => n.id === 'BASLA' || n.tip === 'BASLA');
+      const resolvedBaslik =
+        item.baslik?.trim() ||
+        baslaNode?.dugmeBasligi?.trim() ||
+        item.dugmeBasligi?.trim() ||
+        '';
 
       setFormState({
         id: item.id || `req_${Date.now()}`,
-        baslik: item.baslik || '',
-        prompt: item.prompt || '',
+        baslik: resolvedBaslik,
+        prompt: item.prompt || baslaNode?.prompt || '',
         ikon: item.ikon || 'Sparkles',
         uiAksiyonu: item.uiAksiyonu || 'YOK',
         aktifMi: item.aktifMi !== false,
         hizliErisimDugmesi: item.hizliErisimDugmesi !== false,
-        dugmeBasligi: item.dugmeBasligi || '',
+        dugmeBasligi: item.dugmeBasligi || baslaNode?.dugmeBasligi || '',
         sira: item.sira,
         tetiklemeAnahtarlari: item.tetiklemeAnahtarlari || '',
         akisDugumleri: nodes
@@ -462,11 +468,6 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
 
   const handleSave = async (e?: any) => {
     if (e && e.preventDefault) e.preventDefault();
-    if (!formState.baslik?.trim()) {
-      toast.error(t('istek_baslik_zorunlu', 'Lütfen görev / istek başlığını giriniz.'));
-      setSelectedFlowNodeId(START_NODE_ID);
-      return;
-    }
 
     try {
       setIsSaving(true);
@@ -487,9 +488,33 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         cleanedNodes.find(n => n.id !== 'BASLA' && n.tip !== 'BASLA') ||
         cleanedNodes[0];
 
+      const effectiveDugmeBasligi =
+        (baslaNode?.dugmeBasligi !== undefined
+          ? baslaNode.dugmeBasligi
+          : formState.dugmeBasligi) || '';
+
+      const rawPromptForTitle =
+        baslaNode?.prompt?.trim() ||
+        formState.prompt?.trim() ||
+        firstActionNode?.prompt?.trim() ||
+        '';
+      const promptShortTitle = rawPromptForTitle
+        ? rawPromptForTitle.split('\n')[0].slice(0, 60).trim()
+        : '';
+
+      const fallbackIndex = (Array.isArray(agentData?.hizliIstekler) ? agentData.hizliIstekler.length : 0) + 1;
+      const effectiveBaslik =
+        formState.baslik?.trim() ||
+        effectiveDugmeBasligi.trim() ||
+        firstActionNode?.dugmeMetni?.trim() ||
+        firstActionNode?.dugmeBasligi?.trim() ||
+        firstActionNode?.varlikAdi?.trim() ||
+        promptShortTitle ||
+        `${t('gorev_akisi', 'Görev Akışı')} #${fallbackIndex}`;
+
       const effectiveMainPrompt = formState.prompt?.trim()
         ? formState.prompt.trim()
-        : (baslaNode?.prompt?.trim() || cleanedNodes[0]?.prompt || formState.baslik);
+        : (baslaNode?.prompt?.trim() || cleanedNodes[0]?.prompt || effectiveBaslik);
       const effectiveMainUiAction =
         firstActionNode?.tip === 'FORM_AC'
           ? (firstActionNode.uiAksiyonu || 'OZEL_ROTA')
@@ -503,13 +528,16 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
 
       const savedItem = {
         ...formState,
+        baslik: effectiveBaslik,
         prompt: effectiveMainPrompt,
         uiAksiyonu: effectiveMainUiAction,
         uiParametreleriJson: effectiveMainUiParams,
         hizliErisimDugmesi: (baslaNode?.hizliErisimDugmesi !== undefined ? baslaNode.hizliErisimDugmesi : formState.hizliErisimDugmesi) !== false,
-        dugmeBasligi: (baslaNode?.dugmeBasligi !== undefined ? baslaNode.dugmeBasligi : formState.dugmeBasligi) || '',
+        dugmeBasligi: effectiveDugmeBasligi,
         akisDugumleri: cleanedNodes
       };
+
+      setFormState(savedItem);
 
       if (effectiveAgentId) {
         const agentToUpdate = agentData || (await axios.get(`/api/AiAjanlar/${effectiveAgentId}`)).data;
@@ -531,6 +559,9 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         };
 
         await axios.put(`/api/AiAjanlar/${effectiveAgentId}`, payload);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('ai-agents-updated'));
+        }
         toast.success(t('gorev_akisi_kaydedildi', 'Görev akışı başarıyla kaydedildi.'));
       }
 
@@ -548,8 +579,17 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
 
   const pageDisplayName = useMemo(() => {
     if (formState.baslik?.trim()) return formState.baslik.trim();
+    const baslaNode = (formState.akisDugumleri || []).find(n => n.id === 'BASLA' || n.tip === 'BASLA');
+    if (baslaNode?.dugmeBasligi?.trim()) return baslaNode.dugmeBasligi.trim();
+    if (formState.dugmeBasligi?.trim()) return formState.dugmeBasligi.trim();
+    const formAcNode = (formState.akisDugumleri || []).find(
+      n => (n.tip === 'FORM_AC' || n.tip === 'EKRAN_AC') && (n.dugmeMetni?.trim() || n.dugmeBasligi?.trim() || n.varlikAdi?.trim())
+    );
+    if (formAcNode?.dugmeMetni?.trim()) return formAcNode.dugmeMetni.trim();
+    if (formAcNode?.dugmeBasligi?.trim()) return formAcNode.dugmeBasligi.trim();
+    if (formAcNode?.varlikAdi?.trim()) return formAcNode.varlikAdi.trim();
     return t('yeni_gorev_akisi', 'Yeni Görev Akışı (Flowchart)');
-  }, [formState.baslik, t]);
+  }, [formState.baslik, formState.dugmeBasligi, formState.akisDugumleri, t]);
 
   const ajanlarListRoute = isUnderAyarlar
     ? '/ayarlar/YapayZekaAyarlari/AiAjanlar'
