@@ -13,7 +13,7 @@
  * - Sıfır inline CSS ve %100 i18n uyumlu çalışmak
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -251,6 +251,22 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     return formState.akisDugumleri[0]?.id || START_NODE_ID;
   });
 
+  const formStateRef = useRef(formState);
+  useEffect(() => {
+    formStateRef.current = formState;
+  }, [formState]);
+
+  const handleTitleChange = useCallback((newTitle: string) => {
+    formStateRef.current = {
+      ...formStateRef.current,
+      baslik: newTitle
+    };
+    setFormState((prev) => ({
+      ...prev,
+      baslik: newTitle
+    }));
+  }, []);
+
   // targetItem sonradan API'den yüklendiğinde formState'i senkronize et
   useEffect(() => {
     if (!location.state?.hizliIstekItem && targetItem && formState.id !== targetItem.id) {
@@ -443,7 +459,11 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
   };
 
   const handleNodeDoubleClick = (stepId: string) => {
-    const targetNode = (formState.akisDugumleri || []).find(n => n.id === stepId) || {
+    const latestState = {
+      ...formState,
+      baslik: formStateRef.current?.baslik ?? formState.baslik
+    };
+    const targetNode = (latestState.akisDugumleri || []).find(n => n.id === stepId) || {
       id: stepId,
       tip: (stepId === 'BASLA' || stepId === '__START__') ? 'BASLA' : 'MCP_SORGULA',
       baslik: (stepId === 'BASLA' || stepId === '__START__') ? t('basla', 'Başla') : ''
@@ -451,7 +471,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
 
     const isStart = stepId === 'BASLA' || stepId === '__START__' || targetNode.tip === 'BASLA';
     const ogeParam = isStart ? 'BASLA' : stepId;
-    const currentIstekId = effectiveIstekId || formState.id;
+    const currentIstekId = effectiveIstekId || latestState.id;
 
     const targetUrl = isUnderAyarlar
       ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveAgentId}/hizli-istek/${currentIstekId}/adim/${ogeParam}`
@@ -460,7 +480,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     navigate(targetUrl, {
       state: {
         agentData,
-        istekData: formState,
+        istekData: latestState,
         nodeData: targetNode
       }
     });
@@ -471,7 +491,11 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
 
     try {
       setIsSaving(true);
-      const cleanedNodes = (formState.akisDugumleri || []).filter(
+      const currentState = {
+        ...formState,
+        baslik: formStateRef.current?.baslik ?? formState.baslik
+      };
+      const cleanedNodes = (currentState.akisDugumleri || []).filter(
         n =>
           n.baslik?.trim() ||
           n.prompt?.trim() ||
@@ -491,11 +515,11 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       const effectiveDugmeBasligi =
         (baslaNode?.dugmeBasligi !== undefined
           ? baslaNode.dugmeBasligi
-          : formState.dugmeBasligi) || '';
+          : currentState.dugmeBasligi) || '';
 
       const rawPromptForTitle =
         baslaNode?.prompt?.trim() ||
-        formState.prompt?.trim() ||
+        currentState.prompt?.trim() ||
         firstActionNode?.prompt?.trim() ||
         '';
       const promptShortTitle = rawPromptForTitle
@@ -504,7 +528,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
 
       const fallbackIndex = (Array.isArray(agentData?.hizliIstekler) ? agentData.hizliIstekler.length : 0) + 1;
       const effectiveBaslik =
-        formState.baslik?.trim() ||
+        currentState.baslik?.trim() ||
         effectiveDugmeBasligi.trim() ||
         firstActionNode?.dugmeMetni?.trim() ||
         firstActionNode?.dugmeBasligi?.trim() ||
@@ -512,27 +536,27 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         promptShortTitle ||
         `${t('gorev_akisi', 'Görev Akışı')} #${fallbackIndex}`;
 
-      const effectiveMainPrompt = formState.prompt?.trim()
-        ? formState.prompt.trim()
+      const effectiveMainPrompt = currentState.prompt?.trim()
+        ? currentState.prompt.trim()
         : (baslaNode?.prompt?.trim() || cleanedNodes[0]?.prompt || effectiveBaslik);
       const effectiveMainUiAction =
         firstActionNode?.tip === 'FORM_AC'
           ? (firstActionNode.uiAksiyonu || 'OZEL_ROTA')
-          : (formState.uiAksiyonu && formState.uiAksiyonu !== 'YOK')
-            ? formState.uiAksiyonu
+          : (currentState.uiAksiyonu && currentState.uiAksiyonu !== 'YOK')
+            ? currentState.uiAksiyonu
             : (firstActionNode?.uiAksiyonu || cleanedNodes[0]?.uiAksiyonu || 'YOK');
       const effectiveMainUiParams =
         firstActionNode?.tip === 'FORM_AC' && firstActionNode?.hedefRota
           ? firstActionNode.hedefRota
-          : (formState as any).uiParametreleriJson;
+          : (currentState as any).uiParametreleriJson;
 
       const savedItem = {
-        ...formState,
+        ...currentState,
         baslik: effectiveBaslik,
         prompt: effectiveMainPrompt,
         uiAksiyonu: effectiveMainUiAction,
         uiParametreleriJson: effectiveMainUiParams,
-        hizliErisimDugmesi: (baslaNode?.hizliErisimDugmesi !== undefined ? baslaNode.hizliErisimDugmesi : formState.hizliErisimDugmesi) !== false,
+        hizliErisimDugmesi: (baslaNode?.hizliErisimDugmesi !== undefined ? baslaNode.hizliErisimDugmesi : currentState.hizliErisimDugmesi) !== false,
         dugmeBasligi: effectiveDugmeBasligi,
         akisDugumleri: cleanedNodes
       };
@@ -713,6 +737,10 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       title={pageDisplayName}
       pageTitle={pageDisplayName}
       recordTitle={pageDisplayName}
+      onTitleChange={handleTitleChange}
+      titleValue={formState.baslik || ''}
+      titlePlaceholder={t('gorev_akisi_adi_giriniz', 'Görev akışı adı giriniz...')}
+      titleEditTooltip={t('gorev_akisi_adini_duzenle', 'Görev Akışı Adını Düzenle')}
       icon={<GitBranch size={24} color="var(--accent-primary)" />}
       subtitleLeft={
         agentData?.ad

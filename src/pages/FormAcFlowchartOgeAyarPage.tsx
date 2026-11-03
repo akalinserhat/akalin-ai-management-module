@@ -324,7 +324,12 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
       );
 
       const baseSourceReq =
-        (reqIdx !== -1 ? currentRequests[reqIdx] : activeIstekRef) || {
+        (reqIdx !== -1 || activeIstekRef
+          ? {
+              ...(reqIdx !== -1 ? currentRequests[reqIdx] : {}),
+              ...(activeIstekRef || {})
+            }
+          : null) || {
           id:
             activeIstekRef?.id ||
             (effectiveIstekId && effectiveIstekId !== 'yeni'
@@ -410,7 +415,12 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
       );
 
       const baseSourceReq =
-        (reqIdx !== -1 ? currentRequests[reqIdx] : activeIstekRef) || {
+        (reqIdx !== -1 || activeIstekRef
+          ? {
+              ...(reqIdx !== -1 ? currentRequests[reqIdx] : {}),
+              ...(activeIstekRef || {})
+            }
+          : null) || {
           id:
             activeIstekRef?.id ||
             (effectiveIstekId && effectiveIstekId !== 'yeni'

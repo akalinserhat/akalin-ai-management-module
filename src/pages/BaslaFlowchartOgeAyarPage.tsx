@@ -189,7 +189,12 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
       );
 
       const baseSourceReq =
-        (reqIdx !== -1 ? currentRequests[reqIdx] : incomingIstekData) || {
+        (reqIdx !== -1 || incomingIstekData
+          ? {
+              ...(reqIdx !== -1 ? currentRequests[reqIdx] : {}),
+              ...(incomingIstekData || {})
+            }
+          : null) || {
           id:
             incomingIstekData?.id ||
             (effectiveIstekId && effectiveIstekId !== 'yeni'
