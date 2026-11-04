@@ -847,7 +847,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
 
     navigate(`${basePath}/hizli-istek/${targetId}`, {
       state: {
-        agentData: formData,
+        agentData: formDataRef.current || formData,
         hizliIstekItem: item,
         activeTabId: 'hizliIstekler'
       }
@@ -1231,7 +1231,23 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
   const handleSubmit = async (e?: any) => {
     if (e && e.preventDefault) e.preventDefault();
     const currentFormData = formDataRef.current || formData;
-    if (!currentFormData.ad?.trim() || !currentFormData.kod?.trim()) {
+    const resolvedAd = currentFormData.ad?.trim() || '';
+    const resolvedKod = currentFormData.kod?.trim() || (
+      resolvedAd
+        ? resolvedAd
+            .toLocaleUpperCase('tr-TR')
+            .replace(/İ/g, 'I')
+            .replace(/İ/g, 'I')
+            .replace(/Ğ/g, 'G')
+            .replace(/Ü/g, 'U')
+            .replace(/Ş/g, 'S')
+            .replace(/Ö/g, 'O')
+            .replace(/Ç/g, 'C')
+            .replace(/[^A-Z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '')
+        : ''
+    );
+    if (!resolvedAd || !resolvedKod) {
       toast.error(t('ajan_ad_ve_kod_zorunlu', 'Lütfen ajan adı ve benzersiz kodunu giriniz.'));
       setActiveTabId('genel');
       return;
@@ -1255,6 +1271,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
 
       const payload = {
         ...currentFormData,
+        ad: resolvedAd,
+        kod: resolvedKod,
         kurallar: finalKurallar,
         seciliAracKodlari,
         kapsam: parseInt(currentFormData.kapsam, 10) || 1,
@@ -1278,6 +1296,10 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
 
       if (agentId) {
         await axios.post(`/api/AiAraclar/ajan/${agentId}/araclar`, seciliAracKodlari);
+      }
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ai-agents-updated'));
       }
 
       if (onSuccess) {
@@ -2353,6 +2375,18 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     }
   ], [t, handleToggleMcpNodeActive, handleRemoveMcpModule]);
 
+  const handleTitleChange = useCallback((newTitle: string) => {
+    const next = {
+      ...formDataRef.current,
+      ad: newTitle
+    };
+    formDataRef.current = next;
+    setFormData((prev: any) => ({
+      ...prev,
+      ad: newTitle
+    }));
+  }, []);
+
   // ─── SEKME TANIMLARI ──────────────────────────────────────────────────────────
   const tabs = [
     {
@@ -2405,7 +2439,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                 type="text"
                 className="form-input"
                 value={formData.ad}
-                onChange={e => setFormData({ ...formData, ad: e.target.value })}
+                onChange={e => handleTitleChange(e.target.value)}
                 placeholder={t('ajan_adi_placeholder', 'Örn: ERP Stok & Fiyat Asistanı')}
                 required
                 autoFocus
@@ -2420,7 +2454,11 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                 type="text"
                 className="form-input"
                 value={formData.kod}
-                onChange={e => setFormData({ ...formData, kod: e.target.value })}
+                onChange={e => setFormData((prev: any) => {
+                  const next = { ...prev, kod: e.target.value };
+                  formDataRef.current = next;
+                  return next;
+                })}
                 placeholder={t('ajan_kodu_placeholder', 'Örn: STOK_ASISTANI')}
                 required
               />
@@ -2437,7 +2475,11 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                 type="text"
                 className="form-input"
                 value={formData.rol}
-                onChange={e => setFormData({ ...formData, rol: e.target.value })}
+                onChange={e => setFormData((prev: any) => {
+                  const next = { ...prev, rol: e.target.value };
+                  formDataRef.current = next;
+                  return next;
+                })}
                 placeholder={t('ajan_rol_placeholder', 'Örn: Envanter ve Depo Uzmanı')}
               />
             </div>
@@ -2450,7 +2492,11 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                 type="text"
                 className="form-input"
                 value={formData.aciklama}
-                onChange={e => setFormData({ ...formData, aciklama: e.target.value })}
+                onChange={e => setFormData((prev: any) => {
+                  const next = { ...prev, aciklama: e.target.value };
+                  formDataRef.current = next;
+                  return next;
+                })}
                 placeholder={t('ajan_aciklama_placeholder', 'Örn: Stok kartları, fiyat listeleri ve depo hareketlerini yönetir.')}
               />
             </div>
@@ -2896,7 +2942,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
   const agentDisplayName = useMemo(() => {
     if (formData.ad?.trim()) return formData.ad.trim();
     if (localInitialData?.ad?.trim()) return localInitialData.ad.trim();
-    if (effectiveId) return `#${effectiveId}`;
+    if (effectiveId) return t('ai_ajani_yapilandir', 'Ajanı Yapılandır');
     return t('auto_yeni_ai_ajani', 'Yeni Yapay Zeka Ajanı');
   }, [formData.ad, localInitialData?.ad, effectiveId, t]);
 
@@ -3039,10 +3085,10 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     return (
       <AiAjanHizliIstekForm
         agentId={effectiveId}
-        initialAgentData={formData}
+        initialAgentData={formDataRef.current || formData}
         backRoute={targetParentRoute}
-        onClose={() => navigate(targetParentRoute, { state: { activeTabId: 'hizliIstekler' } })}
-        onBack={() => navigate(targetParentRoute, { state: { activeTabId: 'hizliIstekler' } })}
+        onClose={() => navigate(targetParentRoute, { state: { activeTabId: 'hizliIstekler', fromSubPage: true, agentData: formDataRef.current } })}
+        onBack={() => navigate(targetParentRoute, { state: { activeTabId: 'hizliIstekler', fromSubPage: true, agentData: formDataRef.current } })}
         onSuccess={() => {
           if (effectiveId) {
             axios.get(`/api/AiAjanlar/${effectiveId}`)
@@ -3068,6 +3114,10 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         title={agentDisplayName}
         pageTitle={agentDisplayName}
         recordTitle={agentDisplayName}
+        onTitleChange={handleTitleChange}
+        titleValue={formData.ad || ''}
+        titlePlaceholder={t('ajan_adi_giriniz', 'Ajan adı giriniz...')}
+        titleEditTooltip={t('ajan_adini_duzenle', 'Ajan Adını Düzenle')}
         icon={<Sparkles size={24} color={formData.renk || 'var(--accent-primary)'} />}
         subtitleLeft={formData.rol || formData.aciklama || undefined}
         showBackButton={true}
