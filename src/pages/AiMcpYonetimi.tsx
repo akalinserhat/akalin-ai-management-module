@@ -412,8 +412,31 @@ function buildEntityMcpFunctions(
 // ─── ORTAK MCP AĞAÇ VERİ MOTORU ───────────────────────────────────────────────
 
 export function buildMcpTreeData(t: any): McpTreeNode[] {
-  const modules = ModuleRegistry.getModules();
+  const modules = typeof ModuleRegistry?.getModules === 'function' ? ModuleRegistry.getModules() : [];
   if (!modules || modules.length === 0) return [];
+
+  const safeGetModuleEntities = (key: string, fallbackMod?: IModuleDefinition) => {
+    if (typeof (ModuleRegistry as any)?.getModuleEntities === 'function') {
+      return ModuleRegistry.getModuleEntities(key);
+    }
+    const m =
+      (typeof ModuleRegistry?.getModule === 'function' ? ModuleRegistry.getModule(key) : undefined) ||
+      fallbackMod;
+    const lists = Array.isArray(m?.lists) ? m!.lists : [];
+    const cards = Array.isArray(m?.cards) ? m!.cards : [];
+    const documents = Array.isArray(m?.documents) ? m!.documents : [];
+    const reports = Array.isArray(m?.reports) ? m!.reports : [];
+    const operations = Array.isArray(m?.operations) ? m!.operations : [];
+    return {
+      lists,
+      cards,
+      documents,
+      reports,
+      operations,
+      tree: [...lists, ...cards, ...documents, ...reports],
+      all: [...lists, ...cards, ...documents, ...reports, ...operations],
+    };
+  };
 
   return modules.map((mod): McpTreeNode => {
     // 1. Kademe: Modül Bilgileri
@@ -422,13 +445,13 @@ export function buildMcpTreeData(t: any): McpTreeNode[] {
     const modBaseRoute = (mod as any).baseRoute || mod.routes?.[0]?.path || '';
 
     // Modüle tescil edilmiş varlık ağacını (entities.tree) al
-    let entities = ModuleRegistry.getModuleEntities(modKod);
+    let entities = safeGetModuleEntities(modKod, mod);
     if ((!entities.tree || entities.tree.length === 0) && mod.title) {
-      const fromTitle = ModuleRegistry.getModuleEntities(mod.title);
+      const fromTitle = safeGetModuleEntities(mod.title, mod);
       if (fromTitle.tree && fromTitle.tree.length > 0) entities = fromTitle;
     }
     if ((!entities.tree || entities.tree.length === 0) && mod.name) {
-      const fromName = ModuleRegistry.getModuleEntities(mod.name);
+      const fromName = safeGetModuleEntities(mod.name, mod);
       if (fromName.tree && fromName.tree.length > 0) entities = fromName;
     }
 
