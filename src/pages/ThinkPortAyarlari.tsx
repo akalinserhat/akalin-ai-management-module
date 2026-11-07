@@ -35,7 +35,6 @@ import { useTranslation } from 'react-i18next';
 import {
   BaseCardPage,
   BasitInput,
-  BaseDropdownSecici,
   TamsayiInput,
   BaseSwitch,
   BaseButton,
@@ -47,8 +46,6 @@ import {
   type ActionMenuItem
 } from '@akalin/ui';
 import { aiSaglayiciService } from '../services/aiSaglayiciService';
-import { aiProtokolService } from '../services/aiProtokolService';
-import { AiProtokol } from '../types';
 import {
   validateThinkPortForm,
   validateThinkPortField,
@@ -79,7 +76,6 @@ export const ThinkPortAyarlari: React.FC<ThinkPortAyarlariProps> = ({
   const [apiKeyTanimliMi, setApiKeyTanimliMi] = useState<boolean>(false);
   const [ajanSayisi, setAjanSayisi] = useState<number>(0);
   const [gatewayBaglantiDurumu, setGatewayBaglantiDurumu] = useState<boolean>(false);
-  const [protokoller, setProtokoller] = useState<AiProtokol[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [testResult, setTestResult] = useState<{
@@ -134,25 +130,16 @@ export const ThinkPortAyarlari: React.FC<ThinkPortAyarlariProps> = ({
   const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
-      const [settings, protoList] = await Promise.all([
-        aiSaglayiciService.getThinkPortSettings(),
-        aiProtokolService.getAll().catch(() => [] as AiProtokol[])
-      ]);
+      const settings = await aiSaglayiciService.getThinkPortSettings();
 
-      setProtokoller(protoList || []);
       setProviderId(settings.id);
       setApiKeyTanimliMi(Boolean(settings.apiKeyTanimliMi));
       setAjanSayisi(settings.ajanSayisi || 0);
       setGatewayBaglantiDurumu(Boolean(settings.gatewayBaglantiDurumu));
 
-      const defaultOpenAiProto =
-        (protoList || []).find(p => (p.ad || '').toLowerCase().includes('openai'))?.id ??
-        protoList?.[0]?.id ??
-        1;
-
       setFormData({
         ad: settings.ad || 'ThinkPort API',
-        aiProtokolId: settings.aiProtokolId || defaultOpenAiProto,
+        aiProtokolId: settings.aiProtokolId || 1,
         baseUrl: settings.baseUrl || 'http://localhost:8000/v1',
         apiKey: '',
         varsayilanModel: settings.varsayilanModel || 'gpt-4o',
@@ -462,32 +449,6 @@ export const ThinkPortAyarlari: React.FC<ThinkPortAyarlariProps> = ({
                 className={errors.ad ? 'input-error' : ''}
               />
               <FieldError error={errors.ad} />
-            </div>
-
-            <div className="think-port-field-group">
-              <label className="think-port-label-title">
-                <Cpu size={14} />
-                <span>{t('ai_protokolu', 'API Protokolü')} *</span>
-              </label>
-              <BaseDropdownSecici
-                id="thinkport-protokol"
-                value={formData.aiProtokolId || ''}
-                onChange={val => {
-                  const numVal = val ? Number(val) : null;
-                  handleFieldChange('aiProtokolId', numVal);
-                  setTimeout(() => {
-                    const nextEl = document.getElementById('thinkport-baseurl');
-                    nextEl?.focus();
-                  }, 50);
-                }}
-                options={protokoller.map(p => ({
-                  id: p.id,
-                  label: p.sistemProtokoluMu
-                    ? `${p.ad} (${t('sistem', 'Sistem')})`
-                    : `${p.ad} (${t('ozel_script', 'Özel Script')})`
-                }))}
-                placeholder={t('protokol_seciniz', 'Protokol Seçiniz')}
-              />
             </div>
 
             <div className="think-port-field-group">

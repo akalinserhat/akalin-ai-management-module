@@ -3,9 +3,8 @@
  * 
  * BaseSystemPage mimarisinde çalışan ve altında:
  * 1. Think Port Ayarları (ThinkPortAyarlari)
- * 2. API Protokolleri & Scriptler (AiProtokoller)
- * 3. Ajanlar (AiAjanlar)
- * 4. Model Context Protocol (AiMcpYonetimi)
+ * 2. Ajanlar (AiAjanlar)
+ * 3. Model Context Protocol (AiMcpYonetimi)
  * seçeneklerini SistemKart grid görünümü ile ayrı ayrı listeleyen ana yönetim sayfası.
  * 
  * Kesinlikle inline CSS barındırmaz, %100 i18n ve MD3 tasarım sistemine uyumludur.
@@ -15,10 +14,9 @@ import React, { useMemo, useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { Bot, Cpu, Code2, Sparkles, Layers } from 'lucide-react';
+import { Bot, Cpu, Sparkles, Layers } from 'lucide-react';
 import { BaseSystemPage, BaseSwitch, type ActionMenuItem } from '@akalin/ui';
 import ThinkPortAyarlari from './ThinkPortAyarlari';
-import AiProtokoller from './AiProtokoller';
 import AiAjanlar from './AiAjanlar';
 import AiMcpYonetimi from './AiMcpYonetimi';
 import { firmaAiSettingsService } from '../services/firmaAiSettingsService';
@@ -77,20 +75,6 @@ export const YapayZekaAyarlari: React.FC<YapayZekaAyarlariProps> = ({ onBack }) 
       )
     },
     {
-      id: 'AiProtokoller',
-      name: t('menu_ai_protokoller', 'API Protokolleri'),
-      desc: t('ai_protokoller_desc', 'Dinamik Jint JavaScript scriptleri ile yeni LLM protokolleri ve istek dönüştürücüler'),
-      icon: <Code2 size={28} />,
-      keywords: 'ai protokol api script javascript jint llm endpoint yapay zeka',
-      hasOwnLayout: true,
-      component: () => (
-        <AiProtokoller
-          backRoute={baseRoute}
-          onBack={() => navigate(baseRoute)}
-        />
-      )
-    },
-    {
       id: 'AiAjanlar',
       name: t('menu_ai_ajanlar', 'Ajanlar'),
       desc: t('ai_ajanlar_desc', 'ERP ve Admin kapsamlarındaki otonom AI uzman ajanları, kuralları ve sistem promptları'),
@@ -130,7 +114,7 @@ export const YapayZekaAyarlari: React.FC<YapayZekaAyarlariProps> = ({ onBack }) 
       return params.subModuleId;
     }
     const currentMod = params.moduleId;
-    if (currentMod && ['thinkportayarlari', 'think-port-ayarlari', 'aisaglayicilar', 'aiprotokoller', 'aiajanlar', 'aimcp', 'mcp'].includes(currentMod.toLowerCase())) {
+    if (currentMod && ['thinkportayarlari', 'think-port-ayarlari', 'aisaglayicilar', 'aiajanlar', 'aimcp', 'mcp'].includes(currentMod.toLowerCase())) {
       const lowerMod = currentMod.toLowerCase();
       if (lowerMod === 'aisaglayicilar' || lowerMod === 'thinkportayarlari' || lowerMod === 'think-port-ayarlari') {
         return 'ThinkPortAyarlari';
@@ -169,7 +153,7 @@ export const YapayZekaAyarlari: React.FC<YapayZekaAyarlariProps> = ({ onBack }) 
   return (
     <BaseSystemPage
       title={t('yapay_zeka_ayarlari', 'Yapay Zeka Ayarları')}
-      subtitle={t('yapay_zeka_ayarlari_desc_thinkport', 'Think Port Ayarları, API protokolleri ve uzman ajanları tek bir merkezden yönetin.')}
+      subtitle={t('yapay_zeka_ayarlari_desc_thinkport', 'Think Port Ayarları, uzman ajanlar ve MCP araçlarını tek bir merkezden yönetin.')}
       icon={<Bot size={26} />}
       baseRoute={baseRoute}
       backRoute={backRoute}
