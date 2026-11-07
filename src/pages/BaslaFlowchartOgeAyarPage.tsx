@@ -41,8 +41,10 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
   const location = useLocation();
   const params = useParams<{ id?: string; istekId?: string; ogeId?: string }>();
 
-  const effectiveAgentId = propAgentId || params.id;
-  const effectiveIstekId = propIstekId || params.istekId;
+  const pathAgentIdMatch = location.pathname.match(/(?:AiAjanlar|ai-ajanlar|agents)\/(\d+)/i);
+  const pathIstekIdMatch = location.pathname.match(/hizli-istek\/([^/?#]+)/i);
+  const effectiveAgentId = propAgentId || params.id || (pathAgentIdMatch ? pathAgentIdMatch[1] : undefined);
+  const effectiveIstekId = propIstekId || params.istekId || (pathIstekIdMatch ? pathIstekIdMatch[1] : undefined);
 
   // location.state'ten veya props'tan gelen verileri çözümle
   const incomingNode = location.state?.nodeData || initialNodeData || {
@@ -105,15 +107,25 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
   const [isSaving, setIsSaving] = useState<boolean>(false);
 
   const isUnderAyarlar = location.pathname.startsWith('/ayarlar');
+  const isUnderSettingsAiAgents = location.pathname.startsWith('/settings/ai/agents');
+  const isUnderSettingsAiAjanlar = location.pathname.startsWith('/settings/ai/AiAjanlar');
+  const isUnderSettingsAgents = location.pathname.startsWith('/settings/agents');
+  const baseAgentRoute = isUnderSettingsAiAgents
+    ? '/settings/ai/agents'
+    : isUnderSettingsAiAjanlar
+      ? '/settings/ai/AiAjanlar'
+      : isUnderSettingsAgents
+        ? '/settings/agents'
+        : isUnderAyarlar
+          ? '/ayarlar/YapayZekaAyarlari/AiAjanlar'
+          : '/ai-ajanlar';
   const effectiveBackRoute = useMemo(() => {
     if (backRoute) return backRoute;
     if (effectiveAgentId && effectiveIstekId) {
-      return isUnderAyarlar
-        ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveAgentId}/hizli-istek/${effectiveIstekId}`
-        : `/ai-ajanlar/${effectiveAgentId}/hizli-istek/${effectiveIstekId}`;
+      return `${baseAgentRoute}/${effectiveAgentId}/hizli-istek/${effectiveIstekId}`;
     }
     return -1 as any;
-  }, [backRoute, effectiveAgentId, effectiveIstekId, isUnderAyarlar]);
+  }, [backRoute, effectiveAgentId, effectiveIstekId, baseAgentRoute]);
 
   const handleBackOrClose = () => {
     if (typeof effectiveBackRoute === 'string') {
@@ -292,22 +304,16 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
     }
   };
 
-  const ajanlarListRoute = isUnderAyarlar
-    ? '/ayarlar/YapayZekaAyarlari/AiAjanlar'
-    : '/ai-ajanlar';
+  const ajanlarListRoute = baseAgentRoute;
   const ajanlarListLabel = t('ai_ajanlar_baslik', 'Ajanlar');
 
   const agentTitle = agentData?.ad || incomingAgentData?.ad || (effectiveAgentId ? `#${effectiveAgentId}` : t('ai_ajani', 'AI Ajanı'));
   const istekTitle = istekData?.baslik || incomingIstekData?.baslik || t('gorev_akisi', 'Görev Akışı');
   const nodeTitle = t('basla', 'Başla');
 
-  const agentRoute = isUnderAyarlar
-    ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveAgentId}`
-    : `/ai-ajanlar/${effectiveAgentId}`;
+  const agentRoute = `${baseAgentRoute}/${effectiveAgentId}`;
 
-  const istekRoute = isUnderAyarlar
-    ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveAgentId}/hizli-istek/${effectiveIstekId}`
-    : `/ai-ajanlar/${effectiveAgentId}/hizli-istek/${effectiveIstekId}`;
+  const istekRoute = `${baseAgentRoute}/${effectiveAgentId}/hizli-istek/${effectiveIstekId}`;
 
   const subTrail = useMemo(() => [
     {

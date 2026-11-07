@@ -42,6 +42,10 @@ import {
 } from '@akalin/ai-assistants';
 import type { AiAkisDugumu } from '../types';
 import AiAjanHizliIstekForm from './AiAjanHizliIstekForm';
+import BaseAiAjanFlowchartOgeAyarPage from './BaseAiAjanFlowchartOgeAyarPage';
+import BaslaFlowchartOgeAyarPage from './BaslaFlowchartOgeAyarPage';
+import FormAcFlowchartOgeAyarPage from './FormAcFlowchartOgeAyarPage';
+import AiIslemFlowchartOgeAyarPage from './AiIslemFlowchartOgeAyarPage';
 import MCPSelectionList, { type McpStageOneItem } from './MCPSelectionList';
 import { buildMcpTreeData, countMcpNodeStats, type McpTreeNode } from './AiMcpYonetimi';
 
@@ -470,12 +474,27 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
   const { setHeaderBreadcrumbOptions } = useHeaderApi() || {};
 
   const isUnderAyarlar = location.pathname.startsWith('/ayarlar');
-  const defaultBackRoute = isUnderAyarlar ? '/ayarlar/YapayZekaAyarlari/AiAjanlar' : '/ai-ajanlar';
+  const isUnderSettingsAiAgents = location.pathname.startsWith('/settings/ai/agents');
+  const isUnderSettingsAiAjanlar = location.pathname.startsWith('/settings/ai/AiAjanlar');
+  const isUnderSettingsAgents = location.pathname.startsWith('/settings/agents');
+  const baseAgentRoute = isUnderSettingsAiAgents
+    ? '/settings/ai/agents'
+    : isUnderSettingsAiAjanlar
+      ? '/settings/ai/AiAjanlar'
+      : isUnderSettingsAgents
+        ? '/settings/agents'
+        : isUnderAyarlar
+          ? '/ayarlar/YapayZekaAyarlari/AiAjanlar'
+          : '/ai-ajanlar';
+  const defaultBackRoute = baseAgentRoute;
   const effectiveBackRoute = backRoute || defaultBackRoute;
 
+  const pathAgentIdMatch = location.pathname.match(/(?:AiAjanlar|ai-ajanlar|agents)\/(\d+)/i);
   const rawId = (propId && propId !== 'yeni')
     ? propId
-    : (params.id && params.id !== 'yeni' && !isNaN(Number(params.id)) ? params.id : null);
+    : (params.id && params.id !== 'yeni' && !isNaN(Number(params.id))
+      ? params.id
+      : (pathAgentIdMatch ? pathAgentIdMatch[1] : null));
   const effectiveId = (rawId && !isNaN(Number(rawId))) ? rawId : null;
 
   const [localInitialData, setLocalInitialData] = useState<any>(() => {
@@ -842,7 +861,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
   const handleOpenHizliIstekPage = useCallback((item: any = null) => {
     const targetId = item?.id || 'yeni';
     const basePath = effectiveId
-      ? (isUnderAyarlar ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveId}` : `/ai-ajanlar/${effectiveId}`)
+      ? `${baseAgentRoute}/${effectiveId}`
       : location.pathname.replace(/\/hizli-istek.*$/, '');
 
     navigate(`${basePath}/hizli-istek/${targetId}`, {
@@ -852,7 +871,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         activeTabId: 'hizliIstekler'
       }
     });
-  }, [effectiveId, isUnderAyarlar, location.pathname, formData, navigate]);
+  }, [effectiveId, baseAgentRoute, location.pathname, formData, navigate]);
 
   const handleAddHizliIstek = (preset: any = null) => {
     const newItem = preset ? {
@@ -1785,7 +1804,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     setIsMcpSelectionOpen(true);
     const cleanPath = location.pathname.replace(/\/mcp-secim.*$/, '').replace(/\/$/, '');
     const basePath = effectiveId
-      ? (isUnderAyarlar ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveId}` : `/ai-ajanlar/${effectiveId}`)
+      ? `${baseAgentRoute}/${effectiveId}`
       : cleanPath;
 
     navigate(`${basePath}/mcp-secim`, {
@@ -1795,13 +1814,13 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         fromSubPage: true
       }
     });
-  }, [effectiveId, isUnderAyarlar, location.pathname, navigate]);
+  }, [effectiveId, baseAgentRoute, location.pathname, navigate]);
 
   const handleCloseMcpSelection = useCallback(() => {
     setIsMcpSelectionOpen(false);
     if (location.pathname.includes('/mcp-secim')) {
       const targetParentRoute = effectiveId
-        ? (isUnderAyarlar ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveId}` : `/ai-ajanlar/${effectiveId}`)
+        ? `${baseAgentRoute}/${effectiveId}`
         : location.pathname.replace(/\/mcp-secim.*$/, '');
 
       navigate(targetParentRoute, {
@@ -1812,7 +1831,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         }
       });
     }
-  }, [effectiveId, isUnderAyarlar, location.pathname, navigate]);
+  }, [effectiveId, baseAgentRoute, location.pathname, navigate]);
 
   const handleAddMcpItems = useCallback((items: McpStageOneItem | McpStageOneItem[]) => {
     const list = Array.isArray(items) ? items : [items];
@@ -3062,12 +3081,69 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     );
   }
 
+  // ─── ALT SAYFA: FLOWCHART ADIM / ÖĞE AYARLARI SAYFASI ──────────────────────────
+  const isAdimRoute = location.pathname.includes('/adim/');
+  if (isAdimRoute) {
+    const istekMatch = location.pathname.match(/\/hizli-istek\/([^/?#]+)/i);
+    const ogeMatch = location.pathname.match(/\/adim\/([^/?#]+)/i);
+    const resolvedIstekId = istekMatch ? istekMatch[1] : undefined;
+    const resolvedOgeId = ogeMatch ? ogeMatch[1] : undefined;
+    const idUpper = (resolvedOgeId || '').toUpperCase();
+    const nodeTip = (location.state?.nodeData?.tip || '').toUpperCase();
+    const stepBackRoute = effectiveId && resolvedIstekId
+      ? `${baseAgentRoute}/${effectiveId}/hizli-istek/${resolvedIstekId}`
+      : (effectiveId ? `${baseAgentRoute}/${effectiveId}` : baseAgentRoute);
+
+    if (idUpper === 'BASLA' || idUpper === 'START' || nodeTip === 'BASLA') {
+      return (
+        <BaslaFlowchartOgeAyarPage
+          agentId={effectiveId || undefined}
+          istekId={resolvedIstekId}
+          backRoute={stepBackRoute}
+        />
+      );
+    }
+    if (nodeTip === 'AI_ISLEM' || idUpper.startsWith('AI_ISLEM')) {
+      return (
+        <AiIslemFlowchartOgeAyarPage
+          agentId={effectiveId || undefined}
+          istekId={resolvedIstekId}
+          nodeId={resolvedOgeId}
+          backRoute={stepBackRoute}
+        />
+      );
+    }
+    if (
+      nodeTip === 'FORM_AC' ||
+      nodeTip === 'EKRAN_AC' ||
+      idUpper.startsWith('FORM_AC') ||
+      idUpper.startsWith('ADIM_')
+    ) {
+      return (
+        <FormAcFlowchartOgeAyarPage
+          agentId={effectiveId || undefined}
+          istekId={resolvedIstekId}
+          nodeId={resolvedOgeId}
+          backRoute={stepBackRoute}
+        />
+      );
+    }
+    return (
+      <BaseAiAjanFlowchartOgeAyarPage
+        agentId={effectiveId || undefined}
+        istekId={resolvedIstekId}
+        nodeId={resolvedOgeId}
+        backRoute={stepBackRoute}
+      />
+    );
+  }
+
   // ─── ALT SAYFA: GÖREV AKIŞI (FLOWCHART) & HIZLI İSTEK DÜZENLEME ──────────────
   const isHizliIstekRoute = location.pathname.includes('/hizli-istek');
   if (isHizliIstekRoute) {
     const targetParentRoute = effectiveId
-      ? (isUnderAyarlar ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveId}` : `/ai-ajanlar/${effectiveId}`)
-      : (isUnderAyarlar ? '/ayarlar/YapayZekaAyarlari/AiAjanlar' : '/ai-ajanlar');
+      ? `${baseAgentRoute}/${effectiveId}`
+      : baseAgentRoute;
 
     return (
       <AiAjanHizliIstekForm

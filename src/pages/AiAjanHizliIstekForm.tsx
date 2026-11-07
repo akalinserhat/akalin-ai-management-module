@@ -74,7 +74,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
   const effectiveAgentId = useMemo(() => {
     if (propAgentId) return String(propAgentId);
     if (params.id && !isNaN(Number(params.id))) return params.id;
-    const match = location.pathname.match(/AiAjanlar\/(\d+)/i) || location.pathname.match(/ai-ajanlar\/(\d+)/i);
+    const match = location.pathname.match(/(?:AiAjanlar|ai-ajanlar|agents)\/(\d+)/i);
     return match ? match[1] : null;
   }, [propAgentId, params.id, location.pathname]);
 
@@ -86,9 +86,21 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
   }, [propIstekId, params.istekId, location.pathname]);
 
   const isUnderAyarlar = location.pathname.startsWith('/ayarlar');
+  const isUnderSettingsAiAgents = location.pathname.startsWith('/settings/ai/agents');
+  const isUnderSettingsAiAjanlar = location.pathname.startsWith('/settings/ai/AiAjanlar');
+  const isUnderSettingsAgents = location.pathname.startsWith('/settings/agents');
+  const baseAgentRoute = isUnderSettingsAiAgents
+    ? '/settings/ai/agents'
+    : isUnderSettingsAiAjanlar
+      ? '/settings/ai/AiAjanlar'
+      : isUnderSettingsAgents
+        ? '/settings/agents'
+        : isUnderAyarlar
+          ? '/ayarlar/YapayZekaAyarlari/AiAjanlar'
+          : '/ai-ajanlar';
   const defaultBackRoute = effectiveAgentId
-    ? (isUnderAyarlar ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveAgentId}` : `/ai-ajanlar/${effectiveAgentId}`)
-    : (isUnderAyarlar ? '/ayarlar/YapayZekaAyarlari/AiAjanlar' : '/ai-ajanlar');
+    ? `${baseAgentRoute}/${effectiveAgentId}`
+    : baseAgentRoute;
   const effectiveBackRoute = backRoute || defaultBackRoute;
 
   const [agentData, setAgentData] = useState<any>(() => {
@@ -494,9 +506,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       const ogeParam = isStart ? 'BASLA' : stepId;
       const currentIstekId = effectiveIstekId || latestState.id;
 
-      const targetUrl = isUnderAyarlar
-        ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveAgentId}/hizli-istek/${currentIstekId}/adim/${ogeParam}`
-        : `/ai-ajanlar/${effectiveAgentId}/hizli-istek/${currentIstekId}/adim/${ogeParam}`;
+      const targetUrl = `${baseAgentRoute}/${effectiveAgentId}/hizli-istek/${currentIstekId}/adim/${ogeParam}`;
 
       navigate(targetUrl, {
         state: {
@@ -641,15 +651,11 @@ const pageDisplayName = useMemo(() => {
   return t('yeni_gorev_akisi', 'Yeni Görev Akışı (Flowchart)');
 }, [formState.baslik, formState.dugmeBasligi, formState.akisDugumleri, t]);
 
-const ajanlarListRoute = isUnderAyarlar
-  ? '/ayarlar/YapayZekaAyarlari/AiAjanlar'
-  : '/ai-ajanlar';
+const ajanlarListRoute = baseAgentRoute;
 const ajanlarListLabel = t('ai_ajanlar_baslik', 'Ajanlar');
 
 const agentTitle = agentData?.ad || (effectiveAgentId ? `#${effectiveAgentId}` : t('ai_ajani', 'AI Ajanı'));
-const agentRoute = isUnderAyarlar
-  ? `/ayarlar/YapayZekaAyarlari/AiAjanlar/${effectiveAgentId}`
-  : `/ai-ajanlar/${effectiveAgentId}`;
+const agentRoute = `${baseAgentRoute}/${effectiveAgentId}`;
 
 const subTrail = useMemo(() => [
   {

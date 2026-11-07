@@ -27,13 +27,15 @@ import AiAjanForm from './AiAjanForm';
 // ─── Ana Sayfa Bileşeni ────────────────────────────────────────────────────────
 export interface AiAjanlarProps {
   embedded?: boolean;
+  baseRoute?: string;
   backRoute?: string;
   onBack?: () => void;
 }
 
 export function AiAjanlar({
   embedded = false,
-  backRoute: propBackRoute = '/ayarlar/YapayZekaAyarlari',
+  baseRoute: propBaseRoute,
+  backRoute: propBackRoute,
   onBack
 }: AiAjanlarProps) {
   const { t } = useTranslation();
@@ -43,8 +45,27 @@ export function AiAjanlar({
   const { showAlert } = useAlertDialog();
 
   const isUnderAyarlar = location.pathname.startsWith('/ayarlar');
-  const baseRoute = isUnderAyarlar ? '/ayarlar/YapayZekaAyarlari/AiAjanlar' : '/ai-ajanlar';
-  const effectiveBackRoute = propBackRoute || (isUnderAyarlar ? '/ayarlar/YapayZekaAyarlari' : '/yapay-zeka-ayarlari');
+  const isUnderSettingsAiAgents = location.pathname.startsWith('/settings/ai/agents');
+  const isUnderSettingsAiAjanlar = location.pathname.startsWith('/settings/ai/AiAjanlar');
+  const isUnderSettingsAgents = location.pathname.startsWith('/settings/agents');
+  const baseRoute = propBaseRoute || (
+    isUnderSettingsAiAgents
+      ? '/settings/ai/agents'
+      : isUnderSettingsAiAjanlar
+        ? '/settings/ai/AiAjanlar'
+        : isUnderSettingsAgents
+          ? '/settings/agents'
+          : isUnderAyarlar
+            ? '/ayarlar/YapayZekaAyarlari/AiAjanlar'
+            : '/ai-ajanlar'
+  );
+  const effectiveBackRoute = propBackRoute || (
+    (isUnderSettingsAiAgents || isUnderSettingsAiAjanlar || isUnderSettingsAgents)
+      ? '/settings/ai'
+      : isUnderAyarlar
+        ? '/ayarlar/YapayZekaAyarlari'
+        : '/yapay-zeka-ayarlari'
+  );
 
   const [agents, setAgents] = useState<any[]>([]);
   const [providers, setProviders] = useState<any[]>([]);
@@ -58,8 +79,16 @@ export function AiAjanlar({
   // Düzenleme / Alt Sayfa Durumu
   const [editingAgent, setEditingAgent] = useState<any>(null);
 
-  const isNewRoute = params.id === 'yeni' || location.pathname.endsWith('/yeni') || location.pathname.includes('/AiAjanlar/yeni/') || location.pathname.includes('/ai-ajanlar/yeni/');
-  const activeAgentId = (params.id && params.id !== 'yeni' && !isNaN(Number(params.id))) ? params.id : null;
+  const isNewRoute =
+    params.id === 'yeni' ||
+    location.pathname.endsWith('/yeni') ||
+    location.pathname.includes('/AiAjanlar/yeni') ||
+    location.pathname.includes('/ai-ajanlar/yeni') ||
+    location.pathname.includes('/agents/yeni');
+  const pathAgentIdMatch = location.pathname.match(/(?:AiAjanlar|ai-ajanlar|agents)\/(\d+)/i);
+  const activeAgentId = (params.id && params.id !== 'yeni' && !isNaN(Number(params.id)))
+    ? params.id
+    : (pathAgentIdMatch ? pathAgentIdMatch[1] : null);
   const isEditing = isNewRoute || Boolean(activeAgentId) || Boolean(editingAgent);
 
   // Sayfa İlk Yükleme
@@ -367,7 +396,7 @@ export function AiAjanlar({
       title={t('menu_ai_ajanlar', 'Ajanlar')}
       subtitle={t('ai_ajanlar_alt_baslik', 'ERP ve Admin kapsamlı akıllı asistanları yapılandırın; maddeleri tek tıkla özelleştirin.')}
       icon={<Bot size={26} />}
-      baseRoute="/ayarlar/YapayZekaAyarlari/AiAjanlar"
+      baseRoute={baseRoute}
       backRoute={effectiveBackRoute}
       onBack={onBack}
       headerSync={false}
