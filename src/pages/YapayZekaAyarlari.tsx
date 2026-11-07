@@ -2,7 +2,7 @@
  * @akalin/ai_management_module - Yapay Zeka Ayarları (YapayZekaAyarlari.tsx)
  * 
  * BaseSystemPage mimarisinde çalışan ve altında:
- * 1. Model Sağlayıcıları (AiSaglayicilar)
+ * 1. Think Port Ayarları (ThinkPortAyarlari)
  * 2. API Protokolleri & Scriptler (AiProtokoller)
  * 3. Ajanlar (AiAjanlar)
  * 4. Model Context Protocol (AiMcpYonetimi)
@@ -17,7 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { Bot, Cpu, Code2, Sparkles, Layers } from 'lucide-react';
 import { BaseSystemPage, BaseSwitch, type ActionMenuItem } from '@akalin/ui';
-import AiSaglayicilar from './AiSaglayicilar';
+import ThinkPortAyarlari from './ThinkPortAyarlari';
 import AiProtokoller from './AiProtokoller';
 import AiAjanlar from './AiAjanlar';
 import AiMcpYonetimi from './AiMcpYonetimi';
@@ -63,15 +63,15 @@ export const YapayZekaAyarlari: React.FC<YapayZekaAyarlariProps> = ({ onBack }) 
 
   const aiModules = useMemo(() => [
     {
-      id: 'AiSaglayicilar',
-      name: t('menu_ai_saglayicilar', 'Model Sağlayıcıları'),
-      desc: t('ai_saglayicilar_desc', 'OpenAI, Google Gemini, Anthropic Claude, DeepSeek ve yerel Ollama model entegrasyonları'),
+      id: 'ThinkPortAyarlari',
+      name: t('menu_think_port_ayarlari', 'Think Port Ayarları'),
+      desc: t('think_port_ayarlari_desc', 'ThinkPort AI Gateway bağlantı parametreleri, hız sınırları, tarayıcı havuzu ve model yönetimi'),
       icon: <Cpu size={28} />,
-      keywords: 'ai model sağlayıcı llm openai gemini claude deepseek ollama gpt yapay zeka',
+      keywords: 'think port thinkport ai gateway model sağlayıcı llm rpm browser stealth proxy yapay zeka',
       hasOwnLayout: true,
       component: () => (
-        <AiSaglayicilar
-          backRoute={baseRoute}
+        <ThinkPortAyarlari
+          isSubModule={true}
           onBack={() => navigate(baseRoute)}
         />
       )
@@ -123,12 +123,20 @@ export const YapayZekaAyarlari: React.FC<YapayZekaAyarlariProps> = ({ onBack }) 
   // URL rotasında subModuleId varsa veya doğrudan aliased moduleId geldiyse alt modülü seç
   const effectiveSubModuleId = useMemo(() => {
     if (params.subModuleId) {
+      const lowerSub = params.subModuleId.toLowerCase();
+      if (lowerSub === 'aisaglayicilar' || lowerSub === 'thinkportayarlari' || lowerSub === 'think-port-ayarlari') {
+        return 'ThinkPortAyarlari';
+      }
       return params.subModuleId;
     }
     const currentMod = params.moduleId;
-    if (currentMod && ['aisaglayicilar', 'aiprotokoller', 'aiajanlar', 'aimcp', 'mcp'].includes(currentMod.toLowerCase())) {
+    if (currentMod && ['thinkportayarlari', 'think-port-ayarlari', 'aisaglayicilar', 'aiprotokoller', 'aiajanlar', 'aimcp', 'mcp'].includes(currentMod.toLowerCase())) {
+      const lowerMod = currentMod.toLowerCase();
+      if (lowerMod === 'aisaglayicilar' || lowerMod === 'thinkportayarlari' || lowerMod === 'think-port-ayarlari') {
+        return 'ThinkPortAyarlari';
+      }
       const match = aiModules.find(
-        m => m.id.toLowerCase() === currentMod.toLowerCase() || (currentMod.toLowerCase() === 'mcp' && m.id === 'AiMcp')
+        m => m.id.toLowerCase() === lowerMod || (lowerMod === 'mcp' && m.id === 'AiMcp')
       );
       return match ? match.id : null;
     }
@@ -161,7 +169,7 @@ export const YapayZekaAyarlari: React.FC<YapayZekaAyarlariProps> = ({ onBack }) 
   return (
     <BaseSystemPage
       title={t('yapay_zeka_ayarlari', 'Yapay Zeka Ayarları')}
-      subtitle={t('yapay_zeka_ayarlari_desc', 'Model sağlayıcıları, API protokolleri ve uzman ajanları tek bir merkezden yönetin.')}
+      subtitle={t('yapay_zeka_ayarlari_desc_thinkport', 'Think Port Ayarları, API protokolleri ve uzman ajanları tek bir merkezden yönetin.')}
       icon={<Bot size={26} />}
       baseRoute={baseRoute}
       backRoute={backRoute}

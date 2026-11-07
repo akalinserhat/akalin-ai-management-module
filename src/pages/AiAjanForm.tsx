@@ -1540,19 +1540,6 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       }
     },
     {
-      id: 'saglayiciAdi',
-      header: t('llm_saglayicisi', 'Sağlayıcı'),
-      accessor: 'saglayiciAdi',
-      render: (item: AiModelConfig) => (
-        <div className="flex-row items-center gap-6">
-          <Bot size={14} className="text-secondary" />
-          <span className="chip-primary text-xs font-semibold">
-            {item.saglayiciAdi || t('belirtilmemis', 'Belirtilmemiş')}
-          </span>
-        </div>
-      )
-    },
-    {
       id: 'sicaklik',
       header: t('sicaklik', 'Sıcaklık (Creativity)'),
       accessor: 'sicaklik',

@@ -11,6 +11,7 @@ import { IAiManagementAdapter } from './types';
 import { AiManagementServiceProvider, defaultAiManagementAdapter } from './adapters/AiManagementServiceContext';
 
 const YapayZekaAyarlariPage = lazy(() => import('./pages/YapayZekaAyarlari'));
+const ThinkPortAyarlariPage = lazy(() => import('./pages/ThinkPortAyarlari'));
 const AiSaglayicilarPage = lazy(() => import('./pages/AiSaglayicilar'));
 const AiSaglayiciFormPage = lazy(() => import('./pages/AiSaglayiciForm'));
 const AiProtokollerPage = lazy(() => import('./pages/AiProtokoller'));
@@ -81,6 +82,7 @@ export function createAiManagementModule(options: CreateAiManagementModuleOption
   };
 
   const YapayZekaAyarlariComponent = options.customComponents?.YapayZekaAyarlari || YapayZekaAyarlariPage;
+  const ThinkPortAyarlariComponent = options.customComponents?.ThinkPortAyarlari || ThinkPortAyarlariPage;
   const AiSaglayicilarComponent = options.customComponents?.AiSaglayicilar || AiSaglayicilarPage;
   const AiSaglayiciFormComponent = options.customComponents?.AiSaglayiciForm || AiSaglayiciFormPage;
   const AiProtokollerComponent = options.customComponents?.AiProtokoller || AiProtokollerPage;
@@ -107,9 +109,19 @@ export function createAiManagementModule(options: CreateAiManagementModuleOption
         title: 'Yapay Zeka Ayarları'
       },
       {
+        path: '/think-port-ayarlari',
+        element: withProvider(ThinkPortAyarlariComponent),
+        title: 'Think Port Ayarları'
+      },
+      {
+        path: '/ayarlar/YapayZekaAyarlari/ThinkPortAyarlari',
+        element: withProvider(ThinkPortAyarlariComponent),
+        title: 'Think Port Ayarları'
+      },
+      {
         path: '/ai-saglayicilar',
-        element: withProvider(AiSaglayicilarComponent),
-        title: 'Model Sağlayıcıları'
+        element: withProvider(ThinkPortAyarlariComponent),
+        title: 'Think Port Ayarları'
       },
       {
         path: '/ai-saglayicilar/yeni',
@@ -261,7 +273,8 @@ export function createAiManagementModule(options: CreateAiManagementModuleOption
     ],
     components: {
       YapayZekaAyarlari: YapayZekaAyarlariComponent,
-      AiSaglayicilar: AiSaglayicilarComponent,
+      ThinkPortAyarlari: ThinkPortAyarlariComponent,
+      AiSaglayicilar: ThinkPortAyarlariComponent,
       AiSaglayiciForm: AiSaglayiciFormComponent,
       AiProtokoller: AiProtokollerComponent,
       AiProtokolForm: AiProtokolFormComponent,

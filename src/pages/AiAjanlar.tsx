@@ -216,18 +216,11 @@ export function AiAjanlar({
                     label: (
                       <span className="flex items-center gap-6">
                         <Cpu size={14} />
-                        <span>{t('auto_saglayici_ve_model', 'Sağlayıcı & Model')}</span>
+                        <span>{t('think_port_aktif_model', 'ThinkPort Modeli')}</span>
                       </span>
                     ),
                     value: (
                       <div className="flex items-center gap-6 justify-end flex-wrap">
-                        <span>{agent.aiSaglayiciAdi || 'OpenAI'}</span>
-                        {agent.aiSaglayiciAktifMi === false && (
-                          <span className="text-danger text-11 font-semibold" title={t('saglayici_pasif_uyari', 'Bu sağlayıcı şu anda devre dışı bırakılmıştır')}>
-                            ({t('Pasif', 'Pasif')})
-                          </span>
-                        )}
-                        <span className="text-secondary">/</span>
                         <span className="font-semibold text-primary">{agent.modelAdi || 'gpt-4o'}</span>
                       </div>
                     )

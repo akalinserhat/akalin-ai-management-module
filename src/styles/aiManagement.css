@@ -4755,3 +4755,153 @@
   color: var(--text-secondary, #64748b);
   flex-shrink: 0;
 }
+
+/* ─── THINK PORT AYARLARI (ZERO INLINE CSS) ─────────────────────────────────── */
+.think-port-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.think-port-grid-2col {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 820px) {
+  .think-port-grid-2col {
+    grid-template-columns: 1fr;
+  }
+}
+
+.think-port-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.think-port-field-group-full {
+  grid-column: 1 / -1;
+}
+
+.think-port-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.think-port-label-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.think-port-key-defined-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--success, #10b981);
+}
+
+.think-port-password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.think-port-password-wrapper > div {
+  width: 100%;
+}
+
+.think-port-eye-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.think-port-eye-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover, rgba(0, 0, 0, 0.04));
+}
+
+.think-port-policy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.think-port-number-control {
+  width: 130px;
+}
+
+.think-port-info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--md3-shape-medium, 12px);
+  background-color: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.think-port-info-banner-icon {
+  color: var(--accent-primary, #6366f1);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.think-port-test-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border-radius: var(--md3-shape-large, 14px);
+  background-color: var(--surface-card, var(--bg-secondary));
+  border: 1px solid var(--glass-border);
+}
+
+.think-port-test-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.think-port-test-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.think-port-test-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.think-port-test-desc {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  margin: 0;
+}

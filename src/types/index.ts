@@ -94,6 +94,32 @@ export interface AiSaglayici {
   sistemKaydiMi?: boolean;
 }
 
+export interface ThinkPortGatewaySettings {
+  globalRpm: number;
+  maxConcurrentBrowsers: number;
+  keepAliveIntervalSec: number;
+  enableStealth: boolean;
+  autoRotateProxyOn403: boolean;
+}
+
+export interface ThinkPortSettings {
+  id: number;
+  ad: string;
+  aiProtokolId?: number | null;
+  aiProtokolAdi?: string;
+  baseUrl: string;
+  apiKey?: string;
+  apiKeyTanimliMi: boolean;
+  varsayilanModel: string;
+  desteklenenModeller: string[];
+  timeoutSaniye: number;
+  aktifMi: boolean;
+  aciklama?: string;
+  ajanSayisi: number;
+  gatewayBaglantiDurumu: boolean;
+  gatewaySettings: ThinkPortGatewaySettings;
+}
+
 export type AiHizliIstekUiAksiyonu =
   | 'YOK'
   | 'BULUT_DOSYA_SEC'

@@ -3,9 +3,27 @@
  */
 
 import { getHttpClient } from './httpClient';
-import { AiSaglayici } from '../types';
+import { AiSaglayici, ThinkPortSettings } from '../types';
 
 export const aiSaglayiciService = {
+  async getThinkPortSettings(): Promise<ThinkPortSettings> {
+    const client = getHttpClient();
+    const res = await client.get<ThinkPortSettings>('/api/AiSaglayicilar/think-port');
+    return res.data;
+  },
+
+  async updateThinkPortSettings(data: Partial<ThinkPortSettings>): Promise<ThinkPortSettings> {
+    const client = getHttpClient();
+    const res = await client.put<ThinkPortSettings>('/api/AiSaglayicilar/think-port', data);
+    return res.data;
+  },
+
+  async resetThinkPortSettings(): Promise<ThinkPortSettings> {
+    const client = getHttpClient();
+    const res = await client.post<ThinkPortSettings>('/api/AiSaglayicilar/think-port/reset');
+    return res.data;
+  },
+
   async getAll(): Promise<AiSaglayici[]> {
     const client = getHttpClient();
     const res = await client.get<AiSaglayici[]>('/api/AiSaglayicilar');

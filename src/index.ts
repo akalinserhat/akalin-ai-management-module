@@ -21,11 +21,13 @@ export * from './adapters/AiManagementServiceContext';
 // Validatörler, Varsayılanlar & Kancalar (Hooks)
 export * from './validators/aiProtokolValidation';
 export * from './validators/aiSaglayiciValidation';
+export * from './validators/thinkPortAyarlariValidation';
 export * from './defaults/flowchartOgeAyarDefaultValue';
 export * from './hooks/useFlowchartOgeAyarAutoFocus';
 
 // Sayfalar & Bileşenler
 export { default as YapayZekaAyarlari, YapayZekaAyarlari as NamedYapayZekaAyarlari } from './pages/YapayZekaAyarlari';
+export { default as ThinkPortAyarlari, ThinkPortAyarlari as NamedThinkPortAyarlari, type ThinkPortAyarlariProps } from './pages/ThinkPortAyarlari';
 export { default as AiSaglayicilar, AiSaglayicilar as NamedAiSaglayicilar } from './pages/AiSaglayicilar';
 export { default as AiSaglayiciForm, AiSaglayiciForm as NamedAiSaglayiciForm } from './pages/AiSaglayiciForm';
 export { default as AiProtokoller, AiProtokoller as NamedAiProtokoller } from './pages/AiProtokoller';
