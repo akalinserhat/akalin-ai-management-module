@@ -1276,19 +1276,23 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     const resolvedAd = currentFormData.ad?.trim() || '';
     const resolvedKod = normalizeAgentCode(currentFormData.kod?.trim() || currentFormData.ajanId?.trim() || resolvedAd);
     const resolvedUygulamaId = normalizeAgentCode(currentFormData.uygulamaId?.trim() || 'THINKPORT_CORE') || 'THINKPORT_CORE';
+    const currentAgentId = effectiveId || localInitialData?.id || null;
 
     const candidateForValidation = {
       ...currentFormData,
+      id: currentAgentId,
       ad: resolvedAd,
       kod: resolvedKod,
-      ajanId: resolvedKod,
-      uygulamaId: resolvedUygulamaId
+      ajanId: resolvedKod
     };
-    const errors = validateAiAjanForm(candidateForValidation, t);
+    const errors = validateAiAjanForm(candidateForValidation, t, {
+      existingAgents: internalAllAgents,
+      currentAgentId
+    });
     setValidationErrors(errors);
 
     if (Object.keys(errors).length > 0) {
-      const firstError = Object.values(errors).find(Boolean) || t('ajan_ad_ve_kod_zorunlu', 'Lütfen ajan adı, benzersiz ajan kodu ve uygulama kimliğini kontrol ediniz.');
+      const firstError = Object.values(errors).find(Boolean) || t('ajan_ad_ve_kod_zorunlu', 'Lütfen ajan adı ve benzersiz Ajan Id bilgisini kontrol ediniz.');
       toast.error(firstError);
       setActiveTabId('genel');
       return;
@@ -2507,7 +2511,10 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                     formDataRef.current = next;
                     return next;
                   });
-                  const err = validateAiAjanField('kod', normalized, t);
+                  const err = validateAiAjanField('kod', raw.includes(':') ? raw : normalized, t, {
+                    existingAgents: internalAllAgents,
+                    currentAgentId: effectiveId || localInitialData?.id || null
+                  });
                   setValidationErrors(prev => ({ ...prev, kod: err, ajanId: err }));
                 }}
                 onValueChange={(val: string) => {
@@ -2517,7 +2524,10 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                     formDataRef.current = next;
                     return next;
                   });
-                  const err = validateAiAjanField('kod', normalized, t);
+                  const err = validateAiAjanField('kod', val.includes(':') ? val : normalized, t, {
+                    existingAgents: internalAllAgents,
+                    currentAgentId: effectiveId || localInitialData?.id || null
+                  });
                   setValidationErrors(prev => ({ ...prev, kod: err, ajanId: err }));
                 }}
                 placeholder={t('ajan_id_placeholder', 'Örn: AGENT_7K9P2X4M1Q8Z3W5R veya STOK_ASISTANI')}
@@ -2525,53 +2535,6 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                 className={validationErrors.kod || validationErrors.ajanId ? 'is-invalid' : ''}
               />
               <FieldError error={validationErrors.kod || validationErrors.ajanId} />
-            </div>
-          </div>
-
-          {/* Uygulama Kimliği (app_id) & Birleşik Hafıza Anahtarı */}
-          <div className="ai-ajan-two-col-grid">
-            <div>
-              <label className="ai-ajan-field-label">
-                {t('uygulama_id_label', 'Uygulama Kimliği (app_id)')} *
-              </label>
-              <BasitInput
-                type="text"
-                textTransform="none"
-                value={formData.uygulamaId || 'THINKPORT_CORE'}
-                onChange={e => {
-                  const normalized = normalizeAgentCode(e.target.value);
-                  setFormData((prev: any) => {
-                    const next = { ...prev, uygulamaId: normalized };
-                    formDataRef.current = next;
-                    return next;
-                  });
-                  const err = validateAiAjanField('uygulamaId', normalized, t);
-                  setValidationErrors(prev => ({ ...prev, uygulamaId: err }));
-                }}
-                placeholder={t('uygulama_id_placeholder', 'Örn: WEBAKUS_ERP veya THINKPORT_CORE')}
-                required
-                className={validationErrors.uygulamaId ? 'is-invalid' : ''}
-              />
-              <FieldError error={validationErrors.uygulamaId} />
-              <div className="ai-ajan-hint-text">
-                {t('uygulama_id_aciklama', 'Harici uygulamalar (örn. Webakus) ThinkPort API’ye istek atarken X-App-Id ve X-Agent-Id başlıkları ile bu kimliği gönderir.')}
-              </div>
-            </div>
-
-            <div>
-              <label className="ai-ajan-field-label">
-                {t('birlesik_ajan_anahtari_label', 'Birleşik Ajan & Hafıza Anahtarı (app_id : agent_id)')}
-              </label>
-              <BasitInput
-                type="text"
-                textTransform="none"
-                value={`${formData.uygulamaId || 'THINKPORT_CORE'}:${formData.kod || formData.ajanId || normalizeAgentCode(formData.ad || 'AJAN_KODU')}`}
-                onChange={() => {}}
-                disabled
-              />
-              <div className="ai-ajan-hint-text">
-                {t('birlesik_ajan_anahtari_aciklama', 'pgvector ajan hafızası bu birleşik anahtar ile izole edilir ve taranır.')}
-              </div>
             </div>
           </div>
 

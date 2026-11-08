@@ -245,12 +245,12 @@ export function AiAjanlar({
                     label: (
                       <span className="flex items-center gap-6">
                         <KeyRound size={14} />
-                        <span>{t('birlesik_ajan_kimligi', 'Ajan Kimliği (app:id)')}</span>
+                        <span>{t('ajan_id_label', 'Ajan Id (Benzersiz Kimlik)')}</span>
                       </span>
                     ),
                     value: (
                       <span className="ai-ajan-identity-badge">
-                        {`${agent.uygulamaId || 'THINKPORT_CORE'}:${agent.kod}`}
+                        {agent.ajanId || agent.kod}
                       </span>
                     )
                   },
