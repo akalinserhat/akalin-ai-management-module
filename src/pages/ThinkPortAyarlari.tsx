@@ -28,13 +28,15 @@ import {
   Sparkles,
   RotateCcw,
   Activity,
-  Sliders
+  Sliders,
+  Fingerprint
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import {
   BaseCardPage,
   BasitInput,
+  IdOlusturucuInput,
   TamsayiInput,
   BaseSwitch,
   BaseButton,
@@ -90,6 +92,7 @@ export const ThinkPortAyarlari: React.FC<ThinkPortAyarlariProps> = ({
     aiProtokolId: 1,
     baseUrl: 'http://localhost:8000/v1',
     apiKey: '',
+    appId: '',
     varsayilanModel: 'gpt-4o',
     desteklenenModeller: [
       'gpt-4o',
@@ -142,6 +145,7 @@ export const ThinkPortAyarlari: React.FC<ThinkPortAyarlariProps> = ({
         aiProtokolId: settings.aiProtokolId || 1,
         baseUrl: settings.baseUrl || 'http://localhost:8000/v1',
         apiKey: '',
+        appId: settings.appId || '',
         varsayilanModel: settings.varsayilanModel || 'gpt-4o',
         desteklenenModeller: Array.isArray(settings.desteklenenModeller)
           ? settings.desteklenenModeller
@@ -181,7 +185,7 @@ export const ThinkPortAyarlari: React.FC<ThinkPortAyarlariProps> = ({
     setErrors(validationErrors);
 
     if (Object.keys(validationErrors).length > 0) {
-      if (validationErrors.ad || validationErrors.baseUrl) {
+      if (validationErrors.ad || validationErrors.baseUrl || validationErrors.appId) {
         setActiveTab('baglanti');
       } else if (
         validationErrors.globalRpm ||
@@ -202,6 +206,7 @@ export const ThinkPortAyarlari: React.FC<ThinkPortAyarlariProps> = ({
         aiProtokolId: formData.aiProtokolId,
         baseUrl: formData.baseUrl.trim(),
         apiKey: formData.apiKey.trim() || undefined,
+        appId: formData.appId?.trim() || undefined,
         varsayilanModel: formData.varsayilanModel.trim(),
         desteklenenModeller: formData.desteklenenModeller,
         timeoutSaniye: Number(formData.timeoutSaniye) || 60,
@@ -300,6 +305,7 @@ export const ThinkPortAyarlari: React.FC<ThinkPortAyarlariProps> = ({
         aiProtokolId: resetData.aiProtokolId || formData.aiProtokolId,
         baseUrl: resetData.baseUrl || 'http://localhost:8000/v1',
         apiKey: '',
+        appId: resetData.appId || '',
         varsayilanModel: resetData.varsayilanModel || 'gpt-4o',
         desteklenenModeller: resetData.desteklenenModeller || [],
         timeoutSaniye: resetData.timeoutSaniye || 60,
@@ -499,6 +505,28 @@ export const ThinkPortAyarlari: React.FC<ThinkPortAyarlariProps> = ({
                   {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
+            </div>
+
+            <div className="think-port-field-group">
+              <div className="think-port-label-row">
+                <label className="think-port-label-title">
+                  <Fingerprint size={14} />
+                  <span>{t('think_port_app_id', 'Uygulama Kimliği (App ID)')} *</span>
+                </label>
+              </div>
+              <IdOlusturucuInput
+                id="thinkport-appid"
+                value={formData.appId}
+                onChange={e => handleFieldChange('appId', e.target.value)}
+                onValueChange={val => handleFieldChange('appId', val)}
+                idPrefix="APP"
+                idLength={16}
+                hideGenerateWhenFilled={true}
+                showCopyButton={true}
+                placeholder={t('think_port_app_id_placeholder', 'Örn: APP_7K9P2X4M1Q8Z3W5R veya WEBAKUS_ERP')}
+                className={errors.appId ? 'input-error' : ''}
+              />
+              <FieldError error={errors.appId} />
             </div>
 
             <div className="think-port-field-group">

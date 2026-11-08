@@ -86,6 +86,7 @@ export interface AiSaglayici {
   aiProtokolId?: number | null;
   baseUrl?: string;
   apiKey?: string;
+  appId?: string;
   varsayilanModel?: string;
   desteklenenModeller?: string[];
   aktifMi: boolean;
@@ -109,6 +110,7 @@ export interface ThinkPortSettings {
   aiProtokolAdi?: string;
   baseUrl: string;
   apiKey?: string;
+  appId?: string;
   apiKeyTanimliMi: boolean;
   varsayilanModel: string;
   desteklenenModeller: string[];
@@ -258,6 +260,7 @@ export interface AiAjan {
   uygulamaId?: string;
   ad: string;
   kod: string;
+  ajanId?: string;
   rol?: string;
   aciklama?: string;
   ikon?: string;

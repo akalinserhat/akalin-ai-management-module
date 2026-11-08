@@ -12,6 +12,7 @@ export interface ThinkPortAyarlariFormData {
   aiProtokolId?: number | null;
   baseUrl?: string;
   apiKey?: string;
+  appId?: string;
   varsayilanModel?: string;
   desteklenenModeller?: string[];
   timeoutSaniye?: number;
@@ -47,6 +48,23 @@ export const validateThinkPortField = (
         return t('auto_url_format_gecersiz', 'Geçerli bir HTTP veya HTTPS adresi giriniz.');
       }
       return '';
+
+    case 'appId': {
+      if (!value || typeof value !== 'string' || !value.trim()) {
+        return t('think_port_app_id_zorunlu', 'Lütfen Uygulama Kimliğini (App ID) giriniz veya Oluştur düğmesini kullanınız.');
+      }
+      const trimmed = value.trim();
+      if (trimmed.includes(':')) {
+        return t('think_port_app_id_iki_nokta_icermez', 'Uygulama Kimliği (App ID) iki nokta (:) karakteri içeremez.');
+      }
+      if (trimmed.length < 2 || trimmed.length > 64) {
+        return t('think_port_app_id_uzunluk_gecersiz', 'Uygulama Kimliği (App ID) 2 ile 64 karakter arasında olmalıdır.');
+      }
+      if (!/^[A-Za-z0-9_-]+$/.test(trimmed)) {
+        return t('think_port_app_id_gecersiz_karakter', 'Uygulama Kimliği (App ID) yalnızca alfanümerik karakterler, alt çizgi ve tire içerebilir.');
+      }
+      return '';
+    }
 
     case 'globalRpm': {
       const num = Number(value);
@@ -88,6 +106,9 @@ export const validateThinkPortForm = (
 
   const urlErr = validateThinkPortField('baseUrl', data.baseUrl, t);
   if (urlErr) errors.baseUrl = urlErr;
+
+  const appIdErr = validateThinkPortField('appId', data.appId, t);
+  if (appIdErr) errors.appId = appIdErr;
 
   const rpmErr = validateThinkPortField('globalRpm', data.globalRpm, t);
   if (rpmErr) errors.globalRpm = rpmErr;

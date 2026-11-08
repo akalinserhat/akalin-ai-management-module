@@ -24,6 +24,7 @@ import {
 import {
   BaseCardPage,
   BasitInput,
+  IdOlusturucuInput,
   FieldError,
   SaveButton,
   CancelButton,
@@ -511,6 +512,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       return {
         ad: `${src.ad} (${t('auto_ozel', 'Özel')})`,
         kod: `${src.kod}_OZEL`,
+        ajanId: `${src.kod}_OZEL`,
         rol: src.rol,
         aciklama: src.aciklama,
         ikon: src.ikon,
@@ -695,7 +697,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
 
   const [formData, setFormData] = useState<any>({
     ad: localInitialData?.ad || '',
-    kod: localInitialData?.kod || '',
+    kod: localInitialData?.kod || localInitialData?.ajanId || '',
+    ajanId: localInitialData?.ajanId || localInitialData?.kod || '',
     uygulamaId: localInitialData?.uygulamaId || 'THINKPORT_CORE',
     rol: localInitialData?.rol || 'Genel ERP Asistanı',
     aciklama: localInitialData?.aciklama || '',
@@ -757,7 +760,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       setFormData((prev: any) => ({
         ...prev,
         ad: localInitialData.ad ?? prev.ad,
-        kod: localInitialData.kod ?? prev.kod,
+        kod: localInitialData.kod ?? localInitialData.ajanId ?? prev.kod,
+        ajanId: localInitialData.ajanId ?? localInitialData.kod ?? prev.ajanId,
         uygulamaId: localInitialData.uygulamaId ?? prev.uygulamaId,
         rol: localInitialData.rol ?? prev.rol,
         aciklama: localInitialData.aciklama ?? prev.aciklama,
@@ -1270,13 +1274,14 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     if (e && e.preventDefault) e.preventDefault();
     const currentFormData = formDataRef.current || formData;
     const resolvedAd = currentFormData.ad?.trim() || '';
-    const resolvedKod = normalizeAgentCode(currentFormData.kod?.trim() || resolvedAd);
+    const resolvedKod = normalizeAgentCode(currentFormData.kod?.trim() || currentFormData.ajanId?.trim() || resolvedAd);
     const resolvedUygulamaId = normalizeAgentCode(currentFormData.uygulamaId?.trim() || 'THINKPORT_CORE') || 'THINKPORT_CORE';
 
     const candidateForValidation = {
       ...currentFormData,
       ad: resolvedAd,
       kod: resolvedKod,
+      ajanId: resolvedKod,
       uygulamaId: resolvedUygulamaId
     };
     const errors = validateAiAjanForm(candidateForValidation, t);
@@ -1309,6 +1314,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         ...currentFormData,
         ad: resolvedAd,
         kod: resolvedKod,
+        ajanId: resolvedKod,
         uygulamaId: resolvedUygulamaId,
         hafizaAktifMi: Boolean(currentFormData.hafizaAktifMi ?? true),
         hafizaMaxKayit: Math.max(10, Math.min(50000, parseInt(String(currentFormData.hafizaMaxKayit), 10) || 1000)),
@@ -2483,27 +2489,42 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
 
             <div>
               <label className="ai-ajan-field-label">
-                {t('ajan_kodu_label', 'Ajan Kodu (Benzersiz Kimlik)')} *
+                {t('ajan_id_label', 'Ajan Id (Benzersiz Kimlik)')} *
               </label>
-              <BasitInput
-                type="text"
-                textTransform="none"
-                value={formData.kod}
-                onChange={e => {
-                  const normalized = normalizeAgentCode(e.target.value);
+              <IdOlusturucuInput
+                id="ai-ajan-id"
+                name="kod"
+                idPrefix="AGENT"
+                idLength={16}
+                hideGenerateWhenFilled={true}
+                showCopyButton={true}
+                value={formData.kod || formData.ajanId || ''}
+                onChange={(e: any, val?: string) => {
+                  const raw = val !== undefined ? val : e?.target?.value || '';
+                  const normalized = normalizeAgentCode(raw);
                   setFormData((prev: any) => {
-                    const next = { ...prev, kod: normalized };
+                    const next = { ...prev, kod: normalized, ajanId: normalized };
                     formDataRef.current = next;
                     return next;
                   });
                   const err = validateAiAjanField('kod', normalized, t);
-                  setValidationErrors(prev => ({ ...prev, kod: err }));
+                  setValidationErrors(prev => ({ ...prev, kod: err, ajanId: err }));
                 }}
-                placeholder={t('ajan_kodu_placeholder', 'Örn: STOK_ASISTANI')}
+                onValueChange={(val: string) => {
+                  const normalized = normalizeAgentCode(val);
+                  setFormData((prev: any) => {
+                    const next = { ...prev, kod: normalized, ajanId: normalized };
+                    formDataRef.current = next;
+                    return next;
+                  });
+                  const err = validateAiAjanField('kod', normalized, t);
+                  setValidationErrors(prev => ({ ...prev, kod: err, ajanId: err }));
+                }}
+                placeholder={t('ajan_id_placeholder', 'Örn: AGENT_7K9P2X4M1Q8Z3W5R veya STOK_ASISTANI')}
                 required
-                className={validationErrors.kod ? 'is-invalid' : ''}
+                className={validationErrors.kod || validationErrors.ajanId ? 'is-invalid' : ''}
               />
-              <FieldError error={validationErrors.kod} />
+              <FieldError error={validationErrors.kod || validationErrors.ajanId} />
             </div>
           </div>
 
@@ -2544,7 +2565,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
               <BasitInput
                 type="text"
                 textTransform="none"
-                value={`${formData.uygulamaId || 'THINKPORT_CORE'}:${formData.kod || normalizeAgentCode(formData.ad || 'AJAN_KODU')}`}
+                value={`${formData.uygulamaId || 'THINKPORT_CORE'}:${formData.kod || formData.ajanId || normalizeAgentCode(formData.ad || 'AJAN_KODU')}`}
                 onChange={() => {}}
                 disabled
               />

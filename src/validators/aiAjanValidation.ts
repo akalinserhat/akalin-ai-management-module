@@ -8,6 +8,7 @@
 export interface AiAjanValidationInput {
   ad?: string;
   kod?: string;
+  ajanId?: string;
   uygulamaId?: string;
   hafizaMaxKayit?: number | string;
   hafizaSaklamaGun?: number | string;
@@ -43,7 +44,7 @@ export const validateAiAjanField = (
     }
   }
 
-  if (field === 'kod') {
+  if (field === 'kod' || field === 'ajanId') {
     const str = normalizeAgentCode(String(value ?? ''));
     if (!str) {
       return tr('ajan_kodu_zorunlu_hata', 'Benzersiz ajan kimliği (Agent ID / Kod) zorunludur.');
@@ -96,11 +97,21 @@ export const validateAiAjanForm = (
   ];
 
   for (const field of fields) {
-    const err = validateAiAjanField(field, formData[field], t);
-    if (err) {
-      errors[field] = err;
+    if (field === 'kod') {
+      const resolvedValue = formData.kod || formData.ajanId;
+      const err = validateAiAjanField('kod', resolvedValue, t);
+      if (err) {
+        errors.kod = err;
+        errors.ajanId = err;
+      }
+    } else {
+      const err = validateAiAjanField(field, formData[field], t);
+      if (err) {
+        errors[field] = err;
+      }
     }
   }
 
   return errors;
 };
+
