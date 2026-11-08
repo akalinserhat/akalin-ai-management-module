@@ -412,8 +412,7 @@ function buildEntityMcpFunctions(
 // ─── ORTAK MCP AĞAÇ VERİ MOTORU ───────────────────────────────────────────────
 
 export function buildMcpTreeData(t: any): McpTreeNode[] {
-  const modules = typeof ModuleRegistry?.getModules === 'function' ? ModuleRegistry.getModules() : [];
-  if (!modules || modules.length === 0) return [];
+  const modules = (typeof ModuleRegistry?.getModules === 'function' ? ModuleRegistry.getModules() : []) || [];
 
   const safeGetModuleEntities = (key: string, fallbackMod?: IModuleDefinition) => {
     if (typeof (ModuleRegistry as any)?.getModuleEntities === 'function') {
