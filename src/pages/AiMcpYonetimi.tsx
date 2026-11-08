@@ -438,7 +438,7 @@ export function buildMcpTreeData(t: any): McpTreeNode[] {
     };
   };
 
-  return modules.map((mod): McpTreeNode => {
+  const moduleTree: McpTreeNode[] = modules.map((mod): McpTreeNode => {
     // 1. Kademe: Modül Bilgileri
     const modKod = mod.id || '';
     const modAd = mod.title || mod.name || modKod;
@@ -797,6 +797,155 @@ export function buildMcpTreeData(t: any): McpTreeNode[] {
       children: listNodes
     };
   });
+
+  // ThinkPort pgvector Ajan Hafızası & Gözlemci Çekirdek MCP Modülü
+  const thinkportCoreModule: McpTreeNode = {
+    id: 'mod_thinkport_hafiza',
+    kademe: 1,
+    ad: t('thinkport_hafiza_ve_gozlemci_modulu', 'ThinkPort pgvector Ajan Hafızası & Gözlemci'),
+    kod: 'thinkport_hafiza',
+    kategori: 'modul',
+    aciklama: t(
+      'thinkport_hafiza_modulu_aciklama',
+      '(app_id + agent_id) birleşik anahtarıyla pgvector ajan hafızası tarama/kaydetme ve Gözlemci Ajan yanıt tamamlama fonksiyonları.'
+    ),
+    rota: '/settings/ai/agents',
+    children: [
+      {
+        id: 'ent_thinkport_hafiza_liste_agent_memories',
+        kademe: 2,
+        ad: t('pgvector_ajan_hafizasi_listesi', 'pgvector Ajan Hafızası (app_id + agent_id)'),
+        kod: 'agent_memories',
+        kategori: 'liste',
+        modulKodu: 'thinkport_hafiza',
+        varlikKodu: 'agent_memories',
+        varlikTuru: 'Liste',
+        rota: '/settings/ai/agents',
+        aciklama: t('pgvector_ajan_hafizasi_liste_aciklama', 'Uygulama ve ajan bazlı izole vektör hafıza deposu'),
+        children: [
+          {
+            id: 'fld_thinkport_hafiza_agent_memories_fonksiyonlar',
+            kademe: 3,
+            ad: t('fonksiyonlar', 'Fonksiyonlar'),
+            kod: 'agent_memories_fonksiyonlar',
+            kategori: 'klasor',
+            modulKodu: 'thinkport_hafiza',
+            varlikKodu: 'agent_memories',
+            rota: '/settings/ai/agents',
+            aciklama: t('thinkport_hafiza_fonksiyonlar_aciklama', 'Ajanın tool_call ile çağırabildiği Gateway hafıza ve gözlemci fonksiyonları'),
+            children: [
+              {
+                id: 'thinkport_memory_search',
+                kademe: 4,
+                ad: t('thinkport_memory_search_ad', 'Ajan Hafızası Tarama (pgvector + pg_trgm)'),
+                kod: 'thinkport_memory_search',
+                kategori: 'mcp',
+                modulKodu: 'thinkport_hafiza',
+                varlikKodu: 'agent_memories',
+                varlikTuru: 'Hafıza',
+                isSistem: true,
+                isleyici: 'AgentMemoryService.search_agent_memory',
+                rota: '/api/AiAjanlar/hafiza/tara',
+                aciklama: t(
+                  'thinkport_memory_search_aciklama',
+                  'Ajanın (app_id + agent_id) birleşik kimliğine ait geçmiş konuşmaları ve öğrenilmiş kuralları pgvector kosinüs benzerliğiyle tarar.'
+                ),
+                parametreSemasi: {
+                  type: 'object',
+                  required: ['query'],
+                  properties: {
+                    query: { type: 'string', description: 'Aranacak anahtar kelime, kavram veya soru.' },
+                    memory_type: { type: 'string', enum: ['all', 'interaction', 'fact', 'rule', 'summary'] },
+                    top_k: { type: 'integer', description: 'Maksimum sonuç sayısı (varsayılan: 5).' }
+                  }
+                }
+              },
+              {
+                id: 'thinkport_memory_save',
+                kademe: 4,
+                ad: t('thinkport_memory_save_ad', 'Kalıcı Ajan Hafızasına Bilgi/Kural Kaydet'),
+                kod: 'thinkport_memory_save',
+                kategori: 'mcp',
+                modulKodu: 'thinkport_hafiza',
+                varlikKodu: 'agent_memories',
+                varlikTuru: 'Hafıza',
+                isSistem: true,
+                isleyici: 'AgentMemoryService.save_explicit_agent_memory',
+                rota: '/api/AiAjanlar/hafiza/kaydet',
+                aciklama: t(
+                  'thinkport_memory_save_aciklama',
+                  'Önemli bir kararı, kullanıcı tercihini veya kuralı ajanın (app_id + agent_id) özel pgvector hafızasına kaydeder.'
+                ),
+                parametreSemasi: {
+                  type: 'object',
+                  required: ['content'],
+                  properties: {
+                    content: { type: 'string', description: 'Kaydedilecek bilgi veya kural metni.' },
+                    memory_type: { type: 'string', enum: ['fact', 'rule', 'summary'] },
+                    importance: { type: 'number', description: 'Önem derecesi (0.1 - 1.0).' },
+                    is_pinned: { type: 'boolean', description: 'Süresiz sabitleme durumu.' }
+                  }
+                }
+              },
+              {
+                id: 'thinkport_conversation_recall',
+                kademe: 4,
+                ad: t('thinkport_conversation_recall_ad', 'Geçmiş Sohbet Oturumlarını Hatırla'),
+                kod: 'thinkport_conversation_recall',
+                kategori: 'mcp',
+                modulKodu: 'thinkport_hafiza',
+                varlikKodu: 'agent_memories',
+                varlikTuru: 'Hafıza',
+                isSistem: true,
+                isleyici: 'AgentMemoryService.recall_agent_conversations',
+                rota: '/v1/chat/completions',
+                aciklama: t(
+                  'thinkport_conversation_recall_aciklama',
+                  'Aynı (app_id + agent_id) kimliğine ait önceki sohbet oturumlarının mesaj geçmişini getirir.'
+                )
+              },
+              {
+                id: 'observer_detect_truncation',
+                kademe: 4,
+                ad: t('observer_detect_truncation_ad', 'Gözlemci: Kesik Yanıt & Token Sınırı Denetçisi'),
+                kod: 'observer_detect_truncation',
+                kategori: 'mcp',
+                modulKodu: 'thinkport_hafiza',
+                varlikKodu: 'agent_memories',
+                varlikTuru: 'Gözlemci',
+                isSistem: true,
+                isleyici: 'AgentMemoryService.detect_response_truncation',
+                rota: '/v1/chat/completions',
+                aciklama: t(
+                  'observer_detect_truncation_aciklama',
+                  'Token yetmezliği (finish_reason=length) veya açık kalan JSON/kod bloklarını tespit eder.'
+                )
+              },
+              {
+                id: 'observer_continue_generation',
+                kademe: 4,
+                ad: t('observer_continue_generation_ad', 'Gözlemci: Otomatik Tamamlama & Yanıt Birleştirici'),
+                kod: 'observer_continue_generation',
+                kategori: 'mcp',
+                modulKodu: 'thinkport_hafiza',
+                varlikKodu: 'agent_memories',
+                varlikTuru: 'Gözlemci',
+                isSistem: true,
+                isleyici: 'AgentMemoryService.merge_continued_response',
+                rota: '/v1/chat/completions',
+                aciklama: t(
+                  'observer_continue_generation_aciklama',
+                  'Yarıda kesilen yanıtlar için devam istemi (continuation prompt) üretir ve tek yanıt olarak birleştirir.'
+                )
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  };
+
+  return [thinkportCoreModule, ...moduleTree];
 }
 
 export interface AgentActiveMcpEntity {

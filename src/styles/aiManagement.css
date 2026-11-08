@@ -4914,3 +4914,27 @@
   color: var(--text-secondary);
   margin: 0;
 }
+
+.ai-ajan-three-col-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+@media (max-width: 900px) {
+  .ai-ajan-three-col-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ai-ajan-identity-badge {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent-primary);
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 6px;
+  padding: 2px 8px;
+}

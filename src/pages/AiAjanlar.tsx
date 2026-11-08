@@ -19,7 +19,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Bot, Sparkles, Plus, Trash2,
   Edit2, Cpu, RefreshCw, AlertCircle,
-  GitBranch, SlidersHorizontal, Zap
+  GitBranch, SlidersHorizontal, Zap, Database, KeyRound
 } from 'lucide-react';
 import { BaseSystemPage, BaseSystemCard, useAlertDialog } from '@akalin/ui';
 import AiAjanForm from './AiAjanForm';
@@ -244,6 +244,19 @@ export function AiAjanlar({
                   {
                     label: (
                       <span className="flex items-center gap-6">
+                        <KeyRound size={14} />
+                        <span>{t('birlesik_ajan_kimligi', 'Ajan Kimliği (app:id)')}</span>
+                      </span>
+                    ),
+                    value: (
+                      <span className="ai-ajan-identity-badge">
+                        {`${agent.uygulamaId || 'THINKPORT_CORE'}:${agent.kod}`}
+                      </span>
+                    )
+                  },
+                  {
+                    label: (
+                      <span className="flex items-center gap-6">
                         <Cpu size={14} />
                         <span>{t('think_port_aktif_model', 'ThinkPort Modeli')}</span>
                       </span>
@@ -251,6 +264,23 @@ export function AiAjanlar({
                     value: (
                       <div className="flex items-center gap-6 justify-end flex-wrap">
                         <span className="font-semibold text-primary">{agent.modelAdi || 'gpt-4o'}</span>
+                      </div>
+                    )
+                  },
+                  {
+                    label: (
+                      <span className="flex items-center gap-6">
+                        <Database size={14} />
+                        <span>{t('pgvector_hafiza_durumu', 'pgvector Hafıza & Gözlemci')}</span>
+                      </span>
+                    ),
+                    value: (
+                      <div className="flex items-center gap-6 justify-end">
+                        <span>
+                          {agent.hafizaAktifMi !== false
+                            ? `${agent.hafizaMaxKayit || 1000} ${t('kayit', 'Kayıt')} / ${agent.hafizaSaklamaGun || 30}${t('gun_kisaltma', 'g')}`
+                            : t('pasif', 'Pasif')}
+                        </span>
                       </div>
                     )
                   },

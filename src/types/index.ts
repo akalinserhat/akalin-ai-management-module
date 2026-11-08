@@ -255,6 +255,7 @@ export interface AiHizliIstek {
 
 export interface AiAjan {
   id: number;
+  uygulamaId?: string;
   ad: string;
   kod: string;
   rol?: string;
@@ -269,6 +270,11 @@ export interface AiAjan {
   modelAdi?: string;
   sicaklik?: number;
   maxTokens?: number;
+  hafizaAktifMi?: boolean;
+  hafizaMaxKayit?: number;
+  hafizaSaklamaGun?: number;
+  hafizaAramaTopK?: number;
+  gozlemciAktifMi?: boolean;
   aktifMi: boolean;
   sistemKaydiMi: boolean;
   ajanAraclari?: any[];

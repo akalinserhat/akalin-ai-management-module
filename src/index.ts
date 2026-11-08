@@ -22,6 +22,7 @@ export * from './adapters/AiManagementServiceContext';
 export * from './validators/aiProtokolValidation';
 export * from './validators/aiSaglayiciValidation';
 export * from './validators/thinkPortAyarlariValidation';
+export * from './validators/aiAjanValidation';
 export * from './defaults/flowchartOgeAyarDefaultValue';
 export * from './hooks/useFlowchartOgeAyarAutoFocus';
 

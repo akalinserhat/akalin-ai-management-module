@@ -24,6 +24,7 @@ import {
 import {
   BaseCardPage,
   BasitInput,
+  FieldError,
   SaveButton,
   CancelButton,
   BaseSwitch,
@@ -36,6 +37,11 @@ import {
   type Column,
   type ActionMenuItem
 } from '@akalin/ui';
+import {
+  validateAiAjanField,
+  validateAiAjanForm,
+  normalizeAgentCode
+} from '../validators/aiAjanValidation';
 import {
   AiModelSelection,
   type AiModelConfig
@@ -690,6 +696,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
   const [formData, setFormData] = useState<any>({
     ad: localInitialData?.ad || '',
     kod: localInitialData?.kod || '',
+    uygulamaId: localInitialData?.uygulamaId || 'THINKPORT_CORE',
     rol: localInitialData?.rol || 'Genel ERP Asistanı',
     aciklama: localInitialData?.aciklama || '',
     ikon: localInitialData?.ikon || 'Bot',
@@ -706,12 +713,18 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     yanitSenteziModu: localInitialData?.yanitSenteziModu ?? 0,
     aktifMi: localInitialData?.aktifMi ?? true,
     sistemKaydiMi: localInitialData?.sistemKaydiMi ?? false,
+    hafizaAktifMi: localInitialData?.hafizaAktifMi ?? true,
+    hafizaMaxKayit: localInitialData?.hafizaMaxKayit ?? 1000,
+    hafizaSaklamaGun: localInitialData?.hafizaSaklamaGun ?? 30,
+    hafizaAramaTopK: localInitialData?.hafizaAramaTopK ?? 5,
+    gozlemciAktifMi: localInitialData?.gozlemciAktifMi ?? true,
     seciliAracKodlari: Array.isArray(localInitialData?.seciliAracKodlari)
       ? localInitialData.seciliAracKodlari
       : (localInitialData?.ajanAraclari?.map((a: any) => a.aracKodu) || []),
     hizliIstekler: initialHizliIstekler
   });
 
+  const [validationErrors, setValidationErrors] = useState<Record<string, string | null>>({});
   const formDataRef = useRef<any>(formData);
   formDataRef.current = formData;
   const [isMcpSelectionOpen, setIsMcpSelectionOpen] = useState<boolean>(false);
@@ -745,6 +758,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         ...prev,
         ad: localInitialData.ad ?? prev.ad,
         kod: localInitialData.kod ?? prev.kod,
+        uygulamaId: localInitialData.uygulamaId ?? prev.uygulamaId,
         rol: localInitialData.rol ?? prev.rol,
         aciklama: localInitialData.aciklama ?? prev.aciklama,
         ikon: localInitialData.ikon ?? prev.ikon,
@@ -759,6 +773,11 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         yanitSenteziModu: localInitialData.yanitSenteziModu ?? prev.yanitSenteziModu,
         aktifMi: localInitialData.aktifMi ?? prev.aktifMi,
         sistemKaydiMi: localInitialData.sistemKaydiMi ?? prev.sistemKaydiMi,
+        hafizaAktifMi: localInitialData.hafizaAktifMi ?? prev.hafizaAktifMi,
+        hafizaMaxKayit: localInitialData.hafizaMaxKayit ?? prev.hafizaMaxKayit,
+        hafizaSaklamaGun: localInitialData.hafizaSaklamaGun ?? prev.hafizaSaklamaGun,
+        hafizaAramaTopK: localInitialData.hafizaAramaTopK ?? prev.hafizaAramaTopK,
+        gozlemciAktifMi: localInitialData.gozlemciAktifMi ?? prev.gozlemciAktifMi,
         seciliAracKodlari: Array.isArray(localInitialData.seciliAracKodlari)
           ? localInitialData.seciliAracKodlari
           : (localInitialData.ajanAraclari ? localInitialData.ajanAraclari.map((a: any) => a.aracKodu) : prev.seciliAracKodlari),
@@ -1251,23 +1270,21 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     if (e && e.preventDefault) e.preventDefault();
     const currentFormData = formDataRef.current || formData;
     const resolvedAd = currentFormData.ad?.trim() || '';
-    const resolvedKod = currentFormData.kod?.trim() || (
-      resolvedAd
-        ? resolvedAd
-            .toLocaleUpperCase('tr-TR')
-            .replace(/İ/g, 'I')
-            .replace(/İ/g, 'I')
-            .replace(/Ğ/g, 'G')
-            .replace(/Ü/g, 'U')
-            .replace(/Ş/g, 'S')
-            .replace(/Ö/g, 'O')
-            .replace(/Ç/g, 'C')
-            .replace(/[^A-Z0-9]+/g, '_')
-            .replace(/^_+|_+$/g, '')
-        : ''
-    );
-    if (!resolvedAd || !resolvedKod) {
-      toast.error(t('ajan_ad_ve_kod_zorunlu', 'Lütfen ajan adı ve benzersiz kodunu giriniz.'));
+    const resolvedKod = normalizeAgentCode(currentFormData.kod?.trim() || resolvedAd);
+    const resolvedUygulamaId = normalizeAgentCode(currentFormData.uygulamaId?.trim() || 'THINKPORT_CORE') || 'THINKPORT_CORE';
+
+    const candidateForValidation = {
+      ...currentFormData,
+      ad: resolvedAd,
+      kod: resolvedKod,
+      uygulamaId: resolvedUygulamaId
+    };
+    const errors = validateAiAjanForm(candidateForValidation, t);
+    setValidationErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
+      const firstError = Object.values(errors).find(Boolean) || t('ajan_ad_ve_kod_zorunlu', 'Lütfen ajan adı, benzersiz ajan kodu ve uygulama kimliğini kontrol ediniz.');
+      toast.error(firstError);
       setActiveTabId('genel');
       return;
     }
@@ -1292,6 +1309,12 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         ...currentFormData,
         ad: resolvedAd,
         kod: resolvedKod,
+        uygulamaId: resolvedUygulamaId,
+        hafizaAktifMi: Boolean(currentFormData.hafizaAktifMi ?? true),
+        hafizaMaxKayit: Math.max(10, Math.min(50000, parseInt(String(currentFormData.hafizaMaxKayit), 10) || 1000)),
+        hafizaSaklamaGun: Math.max(1, Math.min(3650, parseInt(String(currentFormData.hafizaSaklamaGun), 10) || 30)),
+        hafizaAramaTopK: Math.max(1, Math.min(20, parseInt(String(currentFormData.hafizaAramaTopK), 10) || 5)),
+        gozlemciAktifMi: Boolean(currentFormData.gozlemciAktifMi ?? true),
         kurallar: finalKurallar,
         seciliAracKodlari,
         kapsam: parseInt(currentFormData.kapsam, 10) || 1,
@@ -2435,39 +2458,99 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
             </div>
           )}
 
-          {/* Ajan Adı & Kodu */}
+          {/* Ajan Adı & Benzersiz Ajan Kodu */}
           <div className="ai-ajan-two-col-grid">
             <div>
               <label className="ai-ajan-field-label">
                 {t('ajan_adi_label', 'Ajan Adı')} *
               </label>
-              <input
+              <BasitInput
                 type="text"
-                className="form-input"
                 value={formData.ad}
-                onChange={e => handleTitleChange(e.target.value)}
+                onChange={e => {
+                  const val = e.target.value;
+                  handleTitleChange(val);
+                  const err = validateAiAjanField('ad', val, t);
+                  setValidationErrors(prev => ({ ...prev, ad: err }));
+                }}
                 placeholder={t('ajan_adi_placeholder', 'Örn: ERP Stok & Fiyat Asistanı')}
                 required
                 autoFocus
+                className={validationErrors.ad ? 'is-invalid' : ''}
               />
+              <FieldError error={validationErrors.ad} />
             </div>
 
             <div>
               <label className="ai-ajan-field-label">
-                {t('ajan_kodu_label', 'Ajan Kodu (Benzersiz)')} *
+                {t('ajan_kodu_label', 'Ajan Kodu (Benzersiz Kimlik)')} *
               </label>
-              <input
+              <BasitInput
                 type="text"
-                className="form-input"
+                textTransform="none"
                 value={formData.kod}
-                onChange={e => setFormData((prev: any) => {
-                  const next = { ...prev, kod: e.target.value };
-                  formDataRef.current = next;
-                  return next;
-                })}
+                onChange={e => {
+                  const normalized = normalizeAgentCode(e.target.value);
+                  setFormData((prev: any) => {
+                    const next = { ...prev, kod: normalized };
+                    formDataRef.current = next;
+                    return next;
+                  });
+                  const err = validateAiAjanField('kod', normalized, t);
+                  setValidationErrors(prev => ({ ...prev, kod: err }));
+                }}
                 placeholder={t('ajan_kodu_placeholder', 'Örn: STOK_ASISTANI')}
                 required
+                className={validationErrors.kod ? 'is-invalid' : ''}
               />
+              <FieldError error={validationErrors.kod} />
+            </div>
+          </div>
+
+          {/* Uygulama Kimliği (app_id) & Birleşik Hafıza Anahtarı */}
+          <div className="ai-ajan-two-col-grid">
+            <div>
+              <label className="ai-ajan-field-label">
+                {t('uygulama_id_label', 'Uygulama Kimliği (app_id)')} *
+              </label>
+              <BasitInput
+                type="text"
+                textTransform="none"
+                value={formData.uygulamaId || 'THINKPORT_CORE'}
+                onChange={e => {
+                  const normalized = normalizeAgentCode(e.target.value);
+                  setFormData((prev: any) => {
+                    const next = { ...prev, uygulamaId: normalized };
+                    formDataRef.current = next;
+                    return next;
+                  });
+                  const err = validateAiAjanField('uygulamaId', normalized, t);
+                  setValidationErrors(prev => ({ ...prev, uygulamaId: err }));
+                }}
+                placeholder={t('uygulama_id_placeholder', 'Örn: WEBAKUS_ERP veya THINKPORT_CORE')}
+                required
+                className={validationErrors.uygulamaId ? 'is-invalid' : ''}
+              />
+              <FieldError error={validationErrors.uygulamaId} />
+              <div className="ai-ajan-hint-text">
+                {t('uygulama_id_aciklama', 'Harici uygulamalar (örn. Webakus) ThinkPort API’ye istek atarken X-App-Id ve X-Agent-Id başlıkları ile bu kimliği gönderir.')}
+              </div>
+            </div>
+
+            <div>
+              <label className="ai-ajan-field-label">
+                {t('birlesik_ajan_anahtari_label', 'Birleşik Ajan & Hafıza Anahtarı (app_id : agent_id)')}
+              </label>
+              <BasitInput
+                type="text"
+                textTransform="none"
+                value={`${formData.uygulamaId || 'THINKPORT_CORE'}:${formData.kod || normalizeAgentCode(formData.ad || 'AJAN_KODU')}`}
+                onChange={() => {}}
+                disabled
+              />
+              <div className="ai-ajan-hint-text">
+                {t('birlesik_ajan_anahtari_aciklama', 'pgvector ajan hafızası bu birleşik anahtar ile izole edilir ve taranır.')}
+              </div>
             </div>
           </div>
 
@@ -2477,9 +2560,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
               <label className="ai-ajan-field-label">
                 {t('ajan_rol_label', 'Rol / Görev Ünvanı')}
               </label>
-              <input
+              <BasitInput
                 type="text"
-                className="form-input"
                 value={formData.rol}
                 onChange={e => setFormData((prev: any) => {
                   const next = { ...prev, rol: e.target.value };
@@ -2494,9 +2576,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
               <label className="ai-ajan-field-label">
                 {t('ajan_aciklama_label', 'Ajan Açıklaması')}
               </label>
-              <input
+              <BasitInput
                 type="text"
-                className="form-input"
                 value={formData.aciklama}
                 onChange={e => setFormData((prev: any) => {
                   const next = { ...prev, aciklama: e.target.value };
@@ -2506,6 +2587,126 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                 placeholder={t('ajan_aciklama_placeholder', 'Örn: Stok kartları, fiyat listeleri ve depo hareketlerini yönetir.')}
               />
             </div>
+          </div>
+
+          {/* pgvector Ajan Hafızası & Gözlemci Ajan Denetimi */}
+          <div className="ai-ajan-section-card">
+            <div className="ai-ajan-section-header">
+              <label className="ai-ajan-section-title">
+                <Database size={16} />
+                <span>{t('ajan_hafiza_ve_gozlemci_baslik', 'pgvector Ajan Hafızası & Gözlemci (Observer) Denetimi')}</span>
+              </label>
+            </div>
+
+            <div className="ai-ajan-two-col-grid">
+              <div>
+                <BaseSwitch
+                  id="ajanHafizaAktifSwitch"
+                  checked={Boolean(formData.hafizaAktifMi ?? true)}
+                  onChange={(e: any) => {
+                    const val = typeof e === 'boolean' ? e : Boolean(e?.target?.checked);
+                    setFormData((prev: any) => {
+                      const next = { ...prev, hafizaAktifMi: val };
+                      formDataRef.current = next;
+                      return next;
+                    });
+                  }}
+                  label={t('ajan_hafiza_aktif_label', 'pgvector Uzun Süreli Hafıza ve Tool Call Arama Yetkisi Aktif')}
+                />
+                <div className="ai-ajan-hint-text">
+                  {t('ajan_hafiza_aktif_aciklama', 'Ajan thinkport_memory_search ve thinkport_memory_save araçlarını çağırarak kendi (app_id, agent_id) hafızasını tarayabilir.')}
+                </div>
+              </div>
+
+              <div>
+                <BaseSwitch
+                  id="ajanGozlemciAktifSwitch"
+                  checked={Boolean(formData.gozlemciAktifMi ?? true)}
+                  onChange={(e: any) => {
+                    const val = typeof e === 'boolean' ? e : Boolean(e?.target?.checked);
+                    setFormData((prev: any) => {
+                      const next = { ...prev, gozlemciAktifMi: val };
+                      formDataRef.current = next;
+                      return next;
+                    });
+                  }}
+                  label={t('ajan_gozlemci_aktif_label', 'Yarıda Kesilen Yanıtları Gözlemci Ajan İle Otomatik Tamamla')}
+                />
+                <div className="ai-ajan-hint-text">
+                  {t('ajan_gozlemci_aktif_aciklama', 'Token sınırı (length) veya açık kalan kod/JSON blokları tespit edildiğinde Gözlemci Ajan (GOZLEMCI_AJAN) yanıtı otomatik tamamlar.')}
+                </div>
+              </div>
+            </div>
+
+            {formData.hafizaAktifMi !== false && (
+              <div className="ai-ajan-three-col-grid">
+                <div>
+                  <label className="ai-ajan-field-label">
+                    {t('hafiza_max_kayit_label', 'Maksimum Hafıza Kaydı (Kapasite)')}
+                  </label>
+                  <BasitInput
+                    type="number"
+                    value={String(formData.hafizaMaxKayit ?? 1000)}
+                    onChange={e => {
+                      const val = parseInt(e.target.value, 10) || 1000;
+                      setFormData((prev: any) => {
+                        const next = { ...prev, hafizaMaxKayit: val };
+                        formDataRef.current = next;
+                        return next;
+                      });
+                      const err = validateAiAjanField('hafizaMaxKayit', val, t);
+                      setValidationErrors(prev => ({ ...prev, hafizaMaxKayit: err }));
+                    }}
+                    className={validationErrors.hafizaMaxKayit ? 'is-invalid' : ''}
+                  />
+                  <FieldError error={validationErrors.hafizaMaxKayit} />
+                </div>
+
+                <div>
+                  <label className="ai-ajan-field-label">
+                    {t('hafiza_saklama_gun_label', 'Hafıza Saklama Süresi (Gün / TTL)')}
+                  </label>
+                  <BasitInput
+                    type="number"
+                    value={String(formData.hafizaSaklamaGun ?? 30)}
+                    onChange={e => {
+                      const val = parseInt(e.target.value, 10) || 30;
+                      setFormData((prev: any) => {
+                        const next = { ...prev, hafizaSaklamaGun: val };
+                        formDataRef.current = next;
+                        return next;
+                      });
+                      const err = validateAiAjanField('hafizaSaklamaGun', val, t);
+                      setValidationErrors(prev => ({ ...prev, hafizaSaklamaGun: err }));
+                    }}
+                    className={validationErrors.hafizaSaklamaGun ? 'is-invalid' : ''}
+                  />
+                  <FieldError error={validationErrors.hafizaSaklamaGun} />
+                </div>
+
+                <div>
+                  <label className="ai-ajan-field-label">
+                    {t('hafiza_arama_topk_label', 'Arama Başına Maksimum Sonuç (Top-K)')}
+                  </label>
+                  <BasitInput
+                    type="number"
+                    value={String(formData.hafizaAramaTopK ?? 5)}
+                    onChange={e => {
+                      const val = parseInt(e.target.value, 10) || 5;
+                      setFormData((prev: any) => {
+                        const next = { ...prev, hafizaAramaTopK: val };
+                        formDataRef.current = next;
+                        return next;
+                      });
+                      const err = validateAiAjanField('hafizaAramaTopK', val, t);
+                      setValidationErrors(prev => ({ ...prev, hafizaAramaTopK: err }));
+                    }}
+                    className={validationErrors.hafizaAramaTopK ? 'is-invalid' : ''}
+                  />
+                  <FieldError error={validationErrors.hafizaAramaTopK} />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )
@@ -2603,6 +2804,19 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                 >
                   <Sparkles size={13} />
                   <span>{t('otonom_mcp_ilkesi_ekle', '+ Otonom MCP & Flowchart İlkesi Ekle')}</span>
+                </button>
+                <button
+                  type="button"
+                  className="ai-guardrail-chip-btn"
+                  onClick={() =>
+                    handleAppendGuardrailToSystemPrompt(
+                      'THINKPORT PGVECTOR HAFIZA VE TOOL CALL PROTOKOLÜ',
+                      'Kimliğin (app_id, agent_id) ikilisi ile ThinkPort API üzerinde izole edilmiştir. Geçmiş konuşmaları, önceki kararları veya kullanıcı tercihlerini hatırlaman gerektiğinde tahmin yürütme; önce `thinkport_memory_search` aracını (tool_call) çağırarak pgvector hafızanı tara. Gelecekte hatırlanması gereken kritik kararları ise `thinkport_memory_save` aracıyla hafızana kaydet.'
+                    )
+                  }
+                >
+                  <Database size={13} />
+                  <span>{t('thinkport_hafiza_ilkesi_ekle', '+ ThinkPort Hafıza Tarama (pgvector) İlkesi Ekle')}</span>
                 </button>
                 <button
                   type="button"
