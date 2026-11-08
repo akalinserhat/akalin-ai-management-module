@@ -2,18 +2,27 @@
  * @akalin/ai_management_module - Stiller ve Grid Yapılandırması
  */
 
-/* AI Sağlayıcıları (MD3 Uyumlu) - Yan yana 2 kart, ekran daraldığında tek kolon */
-.ai-saglayicilar-grid {
+/* AI Sağlayıcıları & AI Ajanları (MD3 Uyumlu) - Yan yana 2 kart, ekran daraldığında tek kolon */
+.ai-saglayicilar-grid,
+.ai-ajanlar-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   width: 100%;
+  align-items: stretch;
 }
 
 @media (max-width: 900px) {
-  .ai-saglayicilar-grid {
+  .ai-saglayicilar-grid,
+  .ai-ajanlar-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.ai-scope-info-banner {
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .ai-provider-brand-openai {
