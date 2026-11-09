@@ -1200,6 +1200,227 @@ export const getNodeFixedOutputJsonSchema = (
     };
   }
 
+  if (nType === 'HAFIZA') {
+    const cleanName = (node?.dosyaAdi || 'fiyat_farki_tablosu').replace(/\.(csv|json|txt|md|xml)$/i, '').trim() || 'fiyat_farki_tablosu';
+    const cleanExt = (node?.dosyaUzantisi || 'csv').replace(/^\./, '').toLowerCase().trim() || 'csv';
+    const fullFileName = `${cleanName}.${cleanExt}`;
+
+    const properties: Record<string, FlowchartNodeJsonSchemaProperty> = {
+      dugumId: {
+        type: 'string',
+        title: tr('schema_prop_dugum_id', 'Düğüm Kimliği (ID)'),
+        description: tr('schema_prop_hafiza_dugum_id_desc', 'Hafıza düğümünün benzersiz akış kimliği'),
+        expression: `{{ ${prefix}.dugumId }}`,
+        required: true,
+        example: nodeId
+      },
+      dugumTipi: {
+        type: 'string',
+        title: tr('schema_prop_dugum_tipi', 'Düğüm Tipi'),
+        description: tr('schema_prop_hafiza_dugum_tipi_desc', 'Sabit düğüm türü kodu (HAFIZA)'),
+        expression: `{{ ${prefix}.dugumTipi }}`,
+        required: true,
+        example: 'HAFIZA'
+      },
+      basariliMi: {
+        type: 'boolean',
+        title: tr('schema_prop_basarili_mi', 'Depolama Başarı Durumu'),
+        description: tr('schema_prop_hafiza_basarili_mi_desc', 'Verinin hafıza dosyasına başarıyla yazılıp yazılmadığı bilgisi'),
+        expression: `{{ ${prefix}.basariliMi }}`,
+        required: true,
+        example: true
+      },
+      dosyaTamAdi: {
+        type: 'string',
+        title: tr('schema_prop_dosya_tam_adi', 'Hafıza Dosya Adı ve Uzantısı'),
+        description: tr('schema_prop_dosya_tam_adi_desc', 'Hafızada oluşturulan dosyanın uzantısıyla birlikte tam adı'),
+        expression: `{{ ${prefix}.dosyaTamAdi }}`,
+        required: true,
+        example: fullFileName
+      },
+      dosyaAdi: {
+        type: 'string',
+        title: tr('schema_prop_dosya_adi_sade', 'Dosya Adı'),
+        description: tr('schema_prop_dosya_adi_sade_desc', 'Hafızada oluşturulan dosyanın uzantısız adı'),
+        expression: `{{ ${prefix}.dosyaAdi }}`,
+        required: true,
+        example: cleanName
+      },
+      dosyaUzantisi: {
+        type: 'string',
+        title: tr('schema_prop_dosya_uzantisi_sade', 'Dosya Uzantısı'),
+        description: tr('schema_prop_dosya_uzantisi_sade_desc', 'Hafıza dosyasının format uzantısı (csv, json, txt, md, xml)'),
+        expression: `{{ ${prefix}.dosyaUzantisi }}`,
+        required: true,
+        example: cleanExt
+      },
+      depolananIcerik: {
+        type: 'string',
+        format: cleanExt,
+        title: tr('schema_prop_depolanan_icerik', 'Depolanan Dosya İçeriği (Ham Metin / CSV / JSON)'),
+        description: tr('schema_prop_depolanan_icerik_desc', 'LLM çıktısından alınıp hafıza dosyasına kaydedilen tam veri içeriği'),
+        expression: `{{ ${prefix}.depolananIcerik }}`,
+        required: true,
+        example: 'BASLANGIC_TARIHI: 2026-11-04\nBITIS_TARIHI: 2026-11-15\nKDV_DAHIL_MI: false\nKDN55NWE0N;1424.42\nWQG25201TR;2509.69'
+      },
+      ayristirilanSatirlar: {
+        type: 'array',
+        itemsType: 'string',
+        title: tr('schema_prop_ayristirilan_satirlar', 'Ayrıştırılan Veri Satırları (Lines)'),
+        description: tr('schema_prop_ayristirilan_satirlar_desc', 'Hafıza dosyasındaki boş olmayan satırların dizi listesi'),
+        expression: `{{ ${prefix}.ayristirilanSatirlar }}`,
+        required: true,
+        example: [
+          'BASLANGIC_TARIHI: 2026-11-04',
+          'BITIS_TARIHI: 2026-11-15',
+          'KDV_DAHIL_MI: false',
+          'KDN55NWE0N;1424.42',
+          'WQG25201TR;2509.69'
+        ]
+      },
+      satirSayisi: {
+        type: 'number',
+        title: tr('schema_prop_satir_sayisi', 'Depolanan Satır Sayısı'),
+        description: tr('schema_prop_satir_sayisi_desc', 'Hafıza dosyasında depolanan toplam satır adedi'),
+        expression: `{{ ${prefix}.satirSayisi }}`,
+        required: true,
+        example: 101
+      }
+    };
+
+    return {
+      $schema: 'https://json-schema.org/draft/2020-12/schema',
+      schemaId: 'https://webakus.ai/schemas/flowchart/hafiza-output.schema.json',
+      title: `${tr('schema_title_hafiza', 'Hafıza Düğümü Sabit Çıktı Şeması (MemoryOutputSchema)')} • ${fullFileName}`,
+      description: tr(
+        'schema_desc_hafiza',
+        'Hafıza düğümünün LLM çıktısını "{{fullFileName}}" dosyası olarak depolayıp bir sonraki Script İşlemi veya AI adımına aktarmayı taahhüt ettiği şema sözleşmesi.',
+        { fullFileName }
+      ),
+      nodeType: 'HAFIZA',
+      type: 'object',
+      required: [
+        'dugumId',
+        'dugumTipi',
+        'basariliMi',
+        'dosyaTamAdi',
+        'dosyaAdi',
+        'dosyaUzantisi',
+        'depolananIcerik',
+        'ayristirilanSatirlar',
+        'satirSayisi'
+      ],
+      properties,
+      examplePayload: {
+        dugumId: nodeId,
+        dugumTipi: 'HAFIZA',
+        basariliMi: true,
+        dosyaTamAdi: fullFileName,
+        dosyaAdi: cleanName,
+        dosyaUzantisi: cleanExt,
+        depolananIcerik: properties.depolananIcerik.example,
+        ayristirilanSatirlar: properties.ayristirilanSatirlar.example,
+        satirSayisi: 101
+      }
+    };
+  }
+
+  if (nType === 'SCRIPT_ISLEM') {
+    const targetMcpTool = node?.aracKodu || 'erp_create_document';
+    const targetDocType = node?.varlikKodu || 'BshFiyatFarki';
+
+    const properties: Record<string, FlowchartNodeJsonSchemaProperty> = {
+      dugumId: {
+        type: 'string',
+        title: tr('schema_prop_dugum_id', 'Düğüm Kimliği (ID)'),
+        description: tr('schema_prop_script_dugum_id_desc', 'Script İşlemi düğümünün benzersiz akış kimliği'),
+        expression: `{{ ${prefix}.dugumId }}`,
+        required: true,
+        example: nodeId
+      },
+      dugumTipi: {
+        type: 'string',
+        title: tr('schema_prop_dugum_tipi', 'Düğüm Tipi'),
+        description: tr('schema_prop_script_dugum_tipi_desc', 'Sabit düğüm türü kodu (SCRIPT_ISLEM)'),
+        expression: `{{ ${prefix}.dugumTipi }}`,
+        required: true,
+        example: 'SCRIPT_ISLEM'
+      },
+      basariliMi: {
+        type: 'boolean',
+        title: tr('schema_prop_basarili_mi', 'Script Çalışma Durumu'),
+        description: tr('schema_prop_script_basarili_mi_desc', 'JavaScript kodunun ve MCP beslemesinin hatasız tamamlanıp tamamlanmadığı'),
+        expression: `{{ ${prefix}.basariliMi }}`,
+        required: true,
+        example: true
+      },
+      hedefMcpAraci: {
+        type: 'string',
+        title: tr('schema_prop_hedef_mcp_araci', 'Beslenen MCP Fonksiyonu'),
+        description: tr('schema_prop_hedef_mcp_araci_desc', 'JavaScript çıktısının gönderildiği MCP aracı kodu'),
+        expression: `{{ ${prefix}.hedefMcpAraci }}`,
+        required: true,
+        example: targetMcpTool
+      },
+      uretilenMcpJson: {
+        type: 'object',
+        format: 'json',
+        title: tr('schema_prop_uretilen_mcp_json', 'Script Tarafından Üretilen MCP JSON Verisi'),
+        description: tr('schema_prop_uretilen_mcp_json_desc', 'JavaScript kodunun hafıza verisini işleyerek ürettiği resmi MCP JSON veri yapısı'),
+        expression: `{{ ${prefix}.uretilenMcpJson }}`,
+        required: true,
+        example: {
+          documentType: targetDocType,
+          isDraft: true,
+          baslangicTarihi: '2026-11-04',
+          bitisTarihi: '2026-11-15',
+          kdvDahilMi: false,
+          kalemler: [
+            { tedarikciUrunKodu: 'KDN55NWE0N', fiyat: 1424.42, kdvDahilMi: false },
+            { tedarikciUrunKodu: 'WQG25201TR', fiyat: 2509.69, kdvDahilMi: false }
+          ]
+        }
+      },
+      mcpCalismaSonucu: {
+        type: 'object',
+        format: 'json',
+        title: tr('schema_prop_mcp_calisma_sonucu', 'MCP Fonksiyonu Çalışma Sonucu'),
+        description: tr('schema_prop_mcp_calisma_sonucu_desc', 'MCP fonksiyonunun ürettiği belge taslağı ve ekran aksiyonu çıktısı'),
+        expression: `{{ ${prefix}.mcpCalismaSonucu }}`,
+        required: false,
+        example: {
+          success: true,
+          eylemTipi: 'BELGE_DOLDUR',
+          belgeTuru: targetDocType,
+          satirSayisi: 101
+        }
+      }
+    };
+
+    return {
+      $schema: 'https://json-schema.org/draft/2020-12/schema',
+      schemaId: 'https://webakus.ai/schemas/flowchart/script-islem-output.schema.json',
+      title: `${tr('schema_title_script_islem', 'Script İşlemi Düğümü Sabit Çıktı Şeması (ScriptProcessOutputSchema)')} • ${targetMcpTool}`,
+      description: tr(
+        'schema_desc_script_islem',
+        'Script İşlemi düğümünün JavaScript kodu çalıştırarak ürettiği MCP JSON veri yapısı ve "{{targetMcpTool}}" fonksiyonu çalışma sonucu şeması.',
+        { targetMcpTool }
+      ),
+      nodeType: 'SCRIPT_ISLEM',
+      type: 'object',
+      required: ['dugumId', 'dugumTipi', 'basariliMi', 'hedefMcpAraci', 'uretilenMcpJson'],
+      properties,
+      examplePayload: {
+        dugumId: nodeId,
+        dugumTipi: 'SCRIPT_ISLEM',
+        basariliMi: true,
+        hedefMcpAraci: targetMcpTool,
+        uretilenMcpJson: properties.uretilenMcpJson.example,
+        mcpCalismaSonucu: properties.mcpCalismaSonucu.example
+      }
+    };
+  }
+
   // AI_ISLEM, MCP_SORGULA, BELGE_OLUSTUR ve diğer işlem düğümleri
   const properties: Record<string, FlowchartNodeJsonSchemaProperty> = {
     dugumId: {
@@ -2454,6 +2675,14 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
 
   const formatNodeDisplayTitle = (node: AiAkisDugumu | null, idx?: number) => {
     if (!node) return t('onceki_dugum', 'Önceki Düğüm');
+    const upperTip = (node.tip || '').toUpperCase();
+    if (upperTip === 'HAFIZA' && node.dosyaAdi?.trim()) {
+      const ext = (node.dosyaUzantisi || 'csv').replace(/^\./, '').trim();
+      return `${node.baslik || t('hafiza', 'Hafıza')} (${node.dosyaAdi.trim()}.${ext})`;
+    }
+    if (upperTip === 'SCRIPT_ISLEM' && node.aracKodu?.trim()) {
+      return `${node.baslik || t('script_islem', 'Script İşlemi')} (${node.aracKodu.trim()})`;
+    }
     if (node.varlikAdi?.trim()) {
       return `${node.baslik || t('form_ac', 'Form Aç')} (${node.varlikAdi.trim()})`;
     }
@@ -2541,6 +2770,8 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
     const upper = (tip || '').toUpperCase();
     if (upper === 'BASLA') return <Play size={13} />;
     if (upper === 'FORM_AC' || upper === 'EKRAN_AC') return <Monitor size={13} />;
+    if (upper === 'HAFIZA') return <Database size={13} />;
+    if (upper === 'SCRIPT_ISLEM') return <Code2 size={13} />;
     if (upper === 'KARAR_ONAY') return <GitBranch size={13} />;
     return <Cpu size={13} />;
   };

@@ -53,6 +53,8 @@ import BaseAiAjanFlowchartOgeAyarPage from './BaseAiAjanFlowchartOgeAyarPage';
 import BaslaFlowchartOgeAyarPage from './BaslaFlowchartOgeAyarPage';
 import FormAcFlowchartOgeAyarPage from './FormAcFlowchartOgeAyarPage';
 import AiIslemFlowchartOgeAyarPage from './AiIslemFlowchartOgeAyarPage';
+import HafizaFlowchartOgeAyarPage from './HafizaFlowchartOgeAyarPage';
+import ScriptIslemFlowchartOgeAyarPage from './ScriptIslemFlowchartOgeAyarPage';
 import MCPSelectionList, { type McpStageOneItem } from './MCPSelectionList';
 import { buildMcpTreeData, countMcpNodeStats, type McpTreeNode } from './AiMcpYonetimi';
 
@@ -72,6 +74,8 @@ export const FLOWCHART_NODE_TYPES = [
   { id: 'BASLA', label: '▶️ Başla', shortLabel: 'Başla' },
   { id: 'FORM_AC', label: '🖥️ Form Aç (Belge / Kart / Liste)', shortLabel: 'Form Aç' },
   { id: 'AI_ISLEM', label: '🤖 AI İşlemi (Analiz / Sorgu / Belge Oluşturma)', shortLabel: 'AI İşlemi' },
+  { id: 'HAFIZA', label: '💾 Hafıza (Veri & Dosya Depolama)', shortLabel: 'Hafıza' },
+  { id: 'SCRIPT_ISLEM', label: '💻 Script İşlemi (JavaScript & MCP Besleme)', shortLabel: 'Script İşlemi' },
   { id: 'BASLANGIC_GIRDI', label: '🏁 Başlangıç & Girdi Al', shortLabel: 'Başlangıç / Girdi' },
   { id: 'MCP_SORGULA', label: '🔍 MCP Veri Sorgulama (Cari / Ürün)', shortLabel: 'MCP Sorgu' },
   { id: 'KARAR_ONAY', label: '⚖️ Kullanıcı Onayı & Seçim (Evet / Hayır)', shortLabel: 'Karar / Onay (E/H)' },
@@ -3304,6 +3308,26 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     if (nodeTip === 'AI_ISLEM' || idUpper.startsWith('AI_ISLEM')) {
       return (
         <AiIslemFlowchartOgeAyarPage
+          agentId={effectiveId || undefined}
+          istekId={resolvedIstekId}
+          nodeId={resolvedOgeId}
+          backRoute={stepBackRoute}
+        />
+      );
+    }
+    if (nodeTip === 'HAFIZA' || idUpper.startsWith('HAFIZA')) {
+      return (
+        <HafizaFlowchartOgeAyarPage
+          agentId={effectiveId || undefined}
+          istekId={resolvedIstekId}
+          nodeId={resolvedOgeId}
+          backRoute={stepBackRoute}
+        />
+      );
+    }
+    if (nodeTip === 'SCRIPT_ISLEM' || idUpper.startsWith('SCRIPT_ISLEM')) {
+      return (
+        <ScriptIslemFlowchartOgeAyarPage
           agentId={effectiveId || undefined}
           istekId={resolvedIstekId}
           nodeId={resolvedOgeId}

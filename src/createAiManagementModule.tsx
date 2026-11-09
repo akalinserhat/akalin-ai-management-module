@@ -24,6 +24,8 @@ const AiAjanFlowchartOgeAyarPage = lazy(() => import('./pages/BaseAiAjanFlowchar
 const BaslaFlowchartOgeAyarPage = lazy(() => import('./pages/BaslaFlowchartOgeAyarPage'));
 const FormAcFlowchartOgeAyarPage = lazy(() => import('./pages/FormAcFlowchartOgeAyarPage'));
 const AiIslemFlowchartOgeAyarPage = lazy(() => import('./pages/AiIslemFlowchartOgeAyarPage'));
+const HafizaFlowchartOgeAyarPage = lazy(() => import('./pages/HafizaFlowchartOgeAyarPage'));
+const ScriptIslemFlowchartOgeAyarPage = lazy(() => import('./pages/ScriptIslemFlowchartOgeAyarPage'));
 const AiMcpYonetimiPage = lazy(() => import('./pages/AiMcpYonetimi'));
 const MCPSelectionListPage = lazy(() => import('./pages/MCPSelectionList'));
 
@@ -31,6 +33,8 @@ const MCPSelectionListPage = lazy(() => import('./pages/MCPSelectionList'));
  * Flowchart öğe ayar sayfaları için dinamik yönlendirici bileşen
  * Adım parametresi (ogeId) 'BASLA' ise BaslaFlowchartOgeAyarPage'e,
  * 'AI_ISLEM' ise AiIslemFlowchartOgeAyarPage'e,
+ * 'HAFIZA' ise HafizaFlowchartOgeAyarPage'e,
+ * 'SCRIPT_ISLEM' ise ScriptIslemFlowchartOgeAyarPage'e,
  * 'FORM_AC' ise FormAcFlowchartOgeAyarPage'e yönlendirir.
  */
 const FlowchartOgeAyarDispatcher: React.FC = () => {
@@ -44,6 +48,12 @@ const FlowchartOgeAyarDispatcher: React.FC = () => {
   }
   if (nodeTip === 'AI_ISLEM' || idUpper.startsWith('AI_ISLEM')) {
     return <AiIslemFlowchartOgeAyarPage />;
+  }
+  if (nodeTip === 'HAFIZA' || idUpper.startsWith('HAFIZA')) {
+    return <HafizaFlowchartOgeAyarPage />;
+  }
+  if (nodeTip === 'SCRIPT_ISLEM' || idUpper.startsWith('SCRIPT_ISLEM')) {
+    return <ScriptIslemFlowchartOgeAyarPage />;
   }
   if (
     nodeTip === 'FORM_AC' ||

@@ -23,7 +23,9 @@ import {
   Power,
   Play,
   Monitor,
-  Cpu
+  Cpu,
+  Database,
+  Code2
 } from 'lucide-react';
 import {
   BaseCardPage,
@@ -40,6 +42,7 @@ import {
   UI_ACTION_OPTIONS,
   FLOWCHART_NODE_TYPES
 } from './AiAjanForm';
+import { DEFAULT_CSV_TO_MCP_SCRIPT } from './ScriptIslemFlowchartOgeAyarPage';
 
 const START_NODE_ID = '__START__';
 
@@ -358,20 +361,46 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       const uiOpt = UI_ACTION_OPTIONS.find(o => o.id === node.uiAksiyonu || o.value === node.uiAksiyonu);
       const isFormAc = node.tip === 'FORM_AC' || node.tip === 'EKRAN_AC';
       const isAiIslem = node.tip === 'AI_ISLEM';
-      const resolvedUiActionLabel = node.varlikAdi
-        ? `${node.varlikAdi}${node.modulAdi ? ` • ${node.modulAdi}` : ''}`
-        : (node.uiAksiyonu && node.uiAksiyonu !== 'YOK' ? (uiOpt ? t(uiOpt.badge) : node.uiAksiyonu) : undefined);
+      const isHafiza = node.tip === 'HAFIZA';
+      const isScriptIslem = node.tip === 'SCRIPT_ISLEM';
+      const hafizaFileLabel = isHafiza
+        ? `${(node.dosyaAdi || 'fiyat_farki_tablosu').replace(/\.(csv|json|txt|md|xml)$/i, '')}.${(node.dosyaUzantisi || 'csv').replace(/^\./, '')}`
+        : undefined;
+      const scriptTargetLabel = isScriptIslem
+        ? `${node.kaynakDosyaAdi || 'fiyat_farki_tablosu.csv'} → ${node.aracKodu || 'erp_create_document'}`
+        : undefined;
+      const resolvedUiActionLabel = isHafiza
+        ? hafizaFileLabel
+        : isScriptIslem
+          ? scriptTargetLabel
+          : node.varlikAdi
+            ? `${node.varlikAdi}${node.modulAdi ? ` • ${node.modulAdi}` : ''}`
+            : (node.uiAksiyonu && node.uiAksiyonu !== 'YOK' ? (uiOpt ? t(uiOpt.badge) : node.uiAksiyonu) : undefined);
 
       return {
         id: node.id,
         type: node.tip,
-        title: isAiIslem ? t('ai_islem', 'AI İşlemi') : node.baslik,
+        title: isAiIslem
+          ? t('ai_islem', 'AI İşlemi')
+          : isHafiza
+            ? t('hafiza', 'Hafıza')
+            : isScriptIslem
+              ? t('script_islem', 'Script İşlemi')
+              : node.baslik,
         shapeBadgeText: isFormAc
           ? t('form_ac', 'Form Aç')
           : isAiIslem
             ? t('ai_islem', 'AI İşlemi')
-            : (typeInfo ? t(typeInfo.shortLabel) : node.tip),
-        prompt: node.prompt || node.kullaniciMesaji,
+            : isHafiza
+              ? t('hafiza', 'Hafıza')
+              : isScriptIslem
+                ? t('script_islem', 'Script İşlemi')
+                : (typeInfo ? t(typeInfo.shortLabel) : node.tip),
+        prompt: isHafiza
+          ? hafizaFileLabel
+          : isScriptIslem
+            ? (node.scriptKodu || node.prompt)
+            : (node.prompt || node.kullaniciMesaji),
         toolCode: node.aracKodu,
         uiAction: node.uiAksiyonu,
         uiActionLabel: resolvedUiActionLabel,
@@ -407,23 +436,34 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
             ? t('form_ac', 'Form Aç')
             : nodeType === 'AI_ISLEM'
               ? t('ai_islem', 'AI İşlemi')
-              : nodeType === 'KARAR_ONAY'
-                ? `${t('karar_onay_adimi', 'Kullanıcı Onayı')} (${nextNum}. ${t('adim', 'Adım')})`
-                : nodeType === 'BELGE_OLUSTUR'
-                  ? `${t('belge_olusturma_adimi', 'Belge Taslağı Oluştur')} (${nextNum}. ${t('adim', 'Adım')})`
-                  : nodeType === 'EKRAN_AC'
-                    ? `${t('ekran_acma_adimi', 'ERP Ekranı Aç')} (${nextNum}. ${t('adim', 'Adım')})`
-                    : `${nextNum}. ${t('islem_adimi', 'İşlem Adımı')}`,
+              : nodeType === 'HAFIZA'
+                ? t('hafiza', 'Hafıza')
+                : nodeType === 'SCRIPT_ISLEM'
+                  ? t('script_islem', 'Script İşlemi')
+                  : nodeType === 'KARAR_ONAY'
+                    ? `${t('karar_onay_adimi', 'Kullanıcı Onayı')} (${nextNum}. ${t('adim', 'Adım')})`
+                    : nodeType === 'BELGE_OLUSTUR'
+                      ? `${t('belge_olusturma_adimi', 'Belge Taslağı Oluştur')} (${nextNum}. ${t('adim', 'Adım')})`
+                      : nodeType === 'EKRAN_AC'
+                        ? `${t('ekran_acma_adimi', 'ERP Ekranı Aç')} (${nextNum}. ${t('adim', 'Adım')})`
+                        : `${nextNum}. ${t('islem_adimi', 'İşlem Adımı')}`,
         prompt: '',
+        dosyaAdi: nodeType === 'HAFIZA' ? 'fiyat_farki_tablosu' : undefined,
+        dosyaUzantisi: nodeType === 'HAFIZA' ? 'csv' : undefined,
+        veriKaynagi: nodeType === 'HAFIZA' ? 'ONCEKI_AI_CIKTISI' : undefined,
+        yazmaModu: nodeType === 'HAFIZA' ? 'UZERINE_YAZ' : undefined,
+        kaynakDosyaAdi: nodeType === 'SCRIPT_ISLEM' ? 'fiyat_farki_tablosu.csv' : undefined,
+        varlikKodu: nodeType === 'SCRIPT_ISLEM' ? 'BshFiyatFarki' : undefined,
+        scriptKodu: nodeType === 'SCRIPT_ISLEM' ? DEFAULT_CSV_TO_MCP_SCRIPT : undefined,
         aracKodu: nodeType === 'FORM_AC' || nodeType === 'EKRAN_AC'
           ? 'erp_navigate'
           : nodeType === 'KARAR_ONAY'
             ? 'erp_request_confirmation'
-            : (nodeType === 'BELGE_OLUSTUR' ? 'erp_create_document' : (nodeType === 'MCP_SORGULA' ? 'erp_query_data' : '')),
+            : (nodeType === 'BELGE_OLUSTUR' || nodeType === 'SCRIPT_ISLEM' ? 'erp_create_document' : (nodeType === 'MCP_SORGULA' ? 'erp_query_data' : '')),
         uiAksiyonu: nodeType === 'FORM_AC' || nodeType === 'EKRAN_AC' ? 'OZEL_ROTA' : 'YOK',
         hedefRota: '',
-        kayitBekle: nodeType === 'FORM_AC' || nodeType === 'AI_ISLEM' ? true : undefined,
-        kayitSonrasiTeyitEt: nodeType === 'FORM_AC' || nodeType === 'AI_ISLEM' ? true : undefined,
+        kayitBekle: nodeType === 'FORM_AC' || nodeType === 'AI_ISLEM' || nodeType === 'HAFIZA' || nodeType === 'SCRIPT_ISLEM' ? true : undefined,
+        kayitSonrasiTeyitEt: nodeType === 'FORM_AC' || nodeType === 'AI_ISLEM' || nodeType === 'SCRIPT_ISLEM' ? true : undefined,
         sonrakiDugumId: '',
         evetDugumId: '',
         hayirDugumId: ''
@@ -532,6 +572,8 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
             n.prompt?.trim() ||
             n.tip === 'FORM_AC' ||
             n.tip === 'AI_ISLEM' ||
+            n.tip === 'HAFIZA' ||
+            n.tip === 'SCRIPT_ISLEM' ||
             n.tip === 'BASLA' ||
             n.id === 'BASLA'
         );
@@ -709,6 +751,22 @@ const flowchartPaletteItems = useMemo<FlowchartPaletteItem[]>(() => [
     subTitle: t('ai_analiz_sorgu_belge_islem', 'AI Analiz, Sorgu veya Belge İşlemi'),
     shape: 'process',
     icon: <Cpu size={13} />
+  },
+  {
+    id: 'palette_hafiza',
+    type: 'HAFIZA',
+    title: t('hafiza', 'Hafıza'),
+    subTitle: t('llm_verisini_dosya_olarak_depola', 'LLM Verisini Dosya + Uzantı Olarak Depola'),
+    shape: 'storage' as any,
+    icon: <Database size={13} />
+  },
+  {
+    id: 'palette_script_islem',
+    type: 'SCRIPT_ISLEM',
+    title: t('script_islem', 'Script İşlemi'),
+    subTitle: t('js_ile_mcp_json_olustur', 'JavaScript ile MCP JSON Veri Yapısı Oluştur'),
+    shape: 'script' as any,
+    icon: <Code2 size={13} />
   }
 ], [t]);
 

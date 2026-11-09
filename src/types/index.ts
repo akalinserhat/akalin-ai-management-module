@@ -137,6 +137,8 @@ export type AiAkisDugumuTipi =
   | 'BASLANGIC_GIRDI'
   | 'FORM_AC'
   | 'AI_ISLEM'
+  | 'HAFIZA'
+  | 'SCRIPT_ISLEM'
   | 'MCP_SORGULA'
   | 'KARAR_ONAY'
   | 'EKRAN_AC'
@@ -234,6 +236,18 @@ export interface AiAkisDugumu {
   kullaniciMesaji?: string;
   /** Seçilen sayfanın [sayfaİsmi]SettingsForExternal.tsx bileşeninden gelen harici düğüm ayarları */
   hariciSayfaAyarlari?: Record<string, any>;
+  /** Hafıza (HAFIZA) düğümü için kaydedilecek dosya adı (uzantısız veya tam, örn: 'fiyat_farki_tablosu') */
+  dosyaAdi?: string;
+  /** Hafıza (HAFIZA) düğümü için dosya uzantısı ('csv' | 'json' | 'txt' | 'md' | 'xml') */
+  dosyaUzantisi?: string;
+  /** Hafıza (HAFIZA) düğümü için hangi önceki düğüm verisinin depolanacağı */
+  veriKaynagi?: string;
+  /** Hafıza (HAFIZA) düğümü için yazma modu ('UZERINE_YAZ' | 'SONUNA_EKLE') */
+  yazmaModu?: string;
+  /** Script İşlemi (SCRIPT_ISLEM) düğümü için okunacak hafıza dosyası adı (örn: 'fiyat_farki_tablosu.csv') */
+  kaynakDosyaAdi?: string;
+  /** Script İşlemi (SCRIPT_ISLEM) düğümünde çalıştırılacak JavaScript kodu */
+  scriptKodu?: string;
   /** Kendisinden önce gelen düğümden bilgi, form verisi ve belge alma yapılandırması (n8n Input Binding) */
   oncekiDugumGirdisi?: AiOncekiDugumGirdiAyarlari;
   /** Bu düğümün bir sonraki düğüme vermeyi taahhüt ettiği sabit JSON Schema sözleşmesi */
