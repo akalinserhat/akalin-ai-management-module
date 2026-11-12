@@ -25,7 +25,8 @@ import {
   Monitor,
   Cpu,
   Database,
-  Code2
+  Code2,
+  Search
 } from 'lucide-react';
 import {
   BaseCardPage,
@@ -35,9 +36,14 @@ import {
   useHeaderApi,
   type BaseTabItem,
   type FlowchartStepItem,
-  type FlowchartPaletteItem
+  type FlowchartPaletteItem,
+  type FlowchartAttachedToolItem
 } from '@akalin/ui';
-import type { AiAkisDugumu } from '../types';
+import type { AiAkisDugumu, AiBagliAracDugumu } from '../types';
+import {
+  createDefaultRagAracDugumu,
+  buildRagAracSummaryText
+} from '../defaults/ragAracFlowchartDefaultValue';
 import {
   UI_ACTION_OPTIONS,
   FLOWCHART_NODE_TYPES
@@ -279,6 +285,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
   const [selectedFlowNodeId, setSelectedFlowNodeId] = useState<string>(() => {
     return formState.akisDugumleri[0]?.id || START_NODE_ID;
   });
+  const [selectedToolId, setSelectedToolId] = useState<string | undefined>(undefined);
 
   const formStateRef = useRef(formState);
   useEffect(() => {
@@ -407,12 +414,140 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         routePath: node.hedefRota,
         nextStepId: node.sonrakiDugumId,
         yesStepId: node.evetDugumId,
-        noStepId: node.hayirDugumId
+        noStepId: node.hayirDugumId,
+        supportsTools: isAiIslem,
+        attachedTools:
+          isAiIslem && Array.isArray(node.bagliAraclar)
+            ? node.bagliAraclar.map((toolItem: AiBagliAracDugumu): FlowchartAttachedToolItem => ({
+                id: toolItem.id,
+                type: toolItem.tip || 'RAG_ARAC',
+                title: t('rag_sorgu_araci', 'RAG Sorgu Aracı'),
+                summary: buildRagAracSummaryText(toolItem, t),
+                toolCode: toolItem.aracKodu || 'erp_rag_search',
+                icon: <Search size={13} />
+              }))
+            : undefined
       };
     });
   }, [formState.akisDugumleri, t]);
 
+  const handleAttachToolToStep = useCallback(
+    (parentStepId: string, _toolType: string = 'RAG_ARAC') => {
+      let createdOrExistingId = '';
+      let alreadyExisted = false;
+
+      setFormState((prev) => {
+        const existing = [...(prev.akisDugumleri || [])];
+        const parentIdx = existing.findIndex((n) => n.id === parentStepId);
+        if (parentIdx === -1) return prev;
+
+        const parentNode = existing[parentIdx];
+        const currentTools: AiBagliAracDugumu[] = Array.isArray(parentNode.bagliAraclar)
+          ? [...parentNode.bagliAraclar]
+          : [];
+
+        const existingRag = currentTools.find((x) => (x.tip || '').toUpperCase() === 'RAG_ARAC');
+        if (existingRag) {
+          createdOrExistingId = existingRag.id;
+          alreadyExisted = true;
+          return prev;
+        }
+
+        const newTool = createDefaultRagAracDugumu({
+          parentNodeId: parentStepId,
+          title: t('rag_sorgu_araci', 'RAG Sorgu Aracı')
+        });
+        createdOrExistingId = newTool.id;
+        existing[parentIdx] = {
+          ...parentNode,
+          bagliAraclar: [...currentTools, newTool]
+        };
+
+        return {
+          ...prev,
+          akisDugumleri: normalizeFlowNodes(existing, prev)
+        };
+      });
+
+      if (createdOrExistingId) {
+        setSelectedFlowNodeId(parentStepId);
+        setSelectedToolId(createdOrExistingId);
+        if (alreadyExisted) {
+          toast(t('rag_arac_zaten_bagli', 'Bu AI İşlemi adımına RAG Sorgu Aracı zaten bağlı.'));
+        } else {
+          toast.success(
+            t('rag_arac_dugume_baglandi', 'RAG Sorgu Aracı AI İşlemi düğümüne bağlandı.')
+          );
+        }
+      }
+    },
+    [t]
+  );
+
+  const handleDeleteAttachedTool = useCallback(
+    (parentStepId: string, toolId: string, e?: React.MouseEvent) => {
+      if (e) e.stopPropagation();
+      setFormState((prev) => {
+        const existing = [...(prev.akisDugumleri || [])];
+        const parentIdx = existing.findIndex((n) => n.id === parentStepId);
+        if (parentIdx === -1) return prev;
+        const parentNode = existing[parentIdx];
+        const nextTools = (parentNode.bagliAraclar || []).filter((item) => item.id !== toolId);
+        existing[parentIdx] = {
+          ...parentNode,
+          bagliAraclar: nextTools
+        };
+        return {
+          ...prev,
+          akisDugumleri: normalizeFlowNodes(existing, prev)
+        };
+      });
+      if (selectedToolId === toolId) {
+        setSelectedToolId(undefined);
+      }
+    },
+    [selectedToolId]
+  );
+
   const handleAddFlowNode = (nodeType: string = 'FORM_AC', insertAtIndex?: number) => {
+    // RAG_ARAC bir ana akış adımı değil, "AI İşlemi" (AI_ISLEM) düğümüne bağlanan araç alt düğümüdür
+    if (nodeType === 'RAG_ARAC') {
+      const existingNodes = formStateRef.current?.akisDugumleri || formState.akisDugumleri || [];
+      const selectedNode = existingNodes.find((n) => n.id === selectedFlowNodeId);
+      const nearBefore =
+        typeof insertAtIndex === 'number' && insertAtIndex > 0
+          ? existingNodes[insertAtIndex - 1]
+          : undefined;
+      const nearAt =
+        typeof insertAtIndex === 'number' && insertAtIndex < existingNodes.length
+          ? existingNodes[insertAtIndex]
+          : undefined;
+      const aiNodes = existingNodes.filter((n) => (n.tip || '').toUpperCase() === 'AI_ISLEM');
+
+      const targetAiNode =
+        (selectedNode && (selectedNode.tip || '').toUpperCase() === 'AI_ISLEM'
+          ? selectedNode
+          : undefined) ||
+        (nearBefore && (nearBefore.tip || '').toUpperCase() === 'AI_ISLEM'
+          ? nearBefore
+          : undefined) ||
+        (nearAt && (nearAt.tip || '').toUpperCase() === 'AI_ISLEM' ? nearAt : undefined) ||
+        aiNodes[aiNodes.length - 1];
+
+      if (!targetAiNode) {
+        toast.error(
+          t(
+            'rag_arac_icin_ai_islem_gerekli',
+            'RAG Sorgu Aracı bağlamak için önce akışa bir "AI İşlemi" düğümü ekleyin.'
+          )
+        );
+        return;
+      }
+
+      handleAttachToolToStep(targetAiNode.id, 'RAG_ARAC');
+      return;
+    }
+
     setFormState(prev => {
       const existing = [...(prev.akisDugumleri || [])];
       const hasBasla = existing.some(n => n.id === 'BASLA' || n.tip === 'BASLA');
@@ -556,6 +691,37 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         }
       });
     };
+
+  const handleToolDoubleClick = (parentStepId: string, toolId: string) => {
+    const latestState = {
+      ...formState,
+      baslik: formStateRef.current?.baslik ?? formState.baslik
+    };
+    const parentNode = (latestState.akisDugumleri || []).find((n) => n.id === parentStepId);
+    const toolNode =
+      parentNode?.bagliAraclar?.find((item) => item.id === toolId) ||
+      createDefaultRagAracDugumu({
+        parentNodeId: parentStepId,
+        title: t('rag_sorgu_araci', 'RAG Sorgu Aracı')
+      });
+
+    const currentIstekId = effectiveIstekId || latestState.id;
+    const targetUrl = `${baseAgentRoute}/${effectiveAgentId}/hizli-istek/${currentIstekId}/adim/${toolId}`;
+
+    navigate(targetUrl, {
+      state: {
+        agentData,
+        istekData: latestState,
+        parentNodeId: parentStepId,
+        nodeData: {
+          ...toolNode,
+          id: toolId,
+          tip: toolNode.tip || 'RAG_ARAC',
+          parentNodeId: parentStepId
+        }
+      }
+    });
+  };
 
     const handleSave = async (e?: any) => {
       if (e && e.preventDefault) e.preventDefault();
@@ -767,6 +933,18 @@ const flowchartPaletteItems = useMemo<FlowchartPaletteItem[]>(() => [
     subTitle: t('js_ile_mcp_json_olustur', 'JavaScript ile MCP JSON Veri Yapısı Oluştur'),
     shape: 'script' as any,
     icon: <Code2 size={13} />
+  },
+  {
+    id: 'palette_rag_arac',
+    type: 'RAG_ARAC',
+    title: t('rag_sorgu_araci', 'RAG Sorgu Aracı'),
+    subTitle: t(
+      'ai_islem_bulut_tablo_vektor_araci',
+      'AI İşlemi Düğümüne Bağlı Bulut Belge & Tablo RAG Aracı'
+    ),
+    shape: 'tool',
+    category: 'tool',
+    icon: <Search size={13} />
   }
 ], [t]);
 
@@ -782,17 +960,36 @@ const tabs: BaseTabItem[] = useMemo(() => [
           paletteItems={flowchartPaletteItems}
           steps={flowchartSteps}
           selectedStepId={selectedFlowNodeId}
-          onSelectStep={(stepId) => setSelectedFlowNodeId(stepId)}
+          selectedToolId={selectedToolId}
+          onSelectStep={(stepId) => {
+            setSelectedFlowNodeId(stepId);
+            setSelectedToolId(undefined);
+          }}
+          onSelectTool={(parentStepId, toolId) => {
+            setSelectedFlowNodeId(parentStepId);
+            setSelectedToolId(toolId);
+          }}
           onDoubleClickStep={handleNodeDoubleClick}
+          onDoubleClickTool={handleToolDoubleClick}
           onAddStep={(stepType, insertAtIndex) => handleAddFlowNode(stepType, insertAtIndex)}
+          onAddToolToStep={(parentStepId, toolType) => handleAttachToolToStep(parentStepId, toolType)}
           onMoveStep={handleMoveFlowNode}
           onDeleteStep={handleDeleteFlowNode}
+          onDeleteTool={handleDeleteAttachedTool}
           className="ai-flowchart-fit"
         />
       </div>
     )
   }
-], [flowchartPaletteItems, flowchartSteps, selectedFlowNodeId, t]);
+], [
+  flowchartPaletteItems,
+  flowchartSteps,
+  selectedFlowNodeId,
+  selectedToolId,
+  handleAttachToolToStep,
+  handleDeleteAttachedTool,
+  t
+]);
 
 const extraDropdownActions = useMemo(() => [
   {

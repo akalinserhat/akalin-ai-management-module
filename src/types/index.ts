@@ -139,12 +139,63 @@ export type AiAkisDugumuTipi =
   | 'AI_ISLEM'
   | 'HAFIZA'
   | 'SCRIPT_ISLEM'
+  | 'RAG_ARAC'
   | 'MCP_SORGULA'
   | 'KARAR_ONAY'
   | 'EKRAN_AC'
   | 'BELGE_OLUSTUR'
   | 'SONUC'
   | string;
+
+export type AiAracDugumuTipi = 'RAG_ARAC' | (string & {});
+
+export type RagAramaKapsami =
+  | 'AKTIF_BULUT_DOSYASI'
+  | 'BELGE_KLASORU'
+  | 'TUM_FIRMA_BELGELERI';
+
+export type RagAramaStratejisi =
+  | 'HIBRIT_VEKTOR_KELIME'
+  | 'BOLUM_VE_TABLO_ODAKLI'
+  | 'TAM_DOKUMAN_PARCALARI';
+
+export interface AiRagAracAyarlari {
+  /** Hangi bulut dökümanlarının taranacağı */
+  aramaKapsami: RagAramaKapsami;
+  /** aramaKapsami === 'BELGE_KLASORU' ise taranacak klasör / belge_turu (örn: 'BshFiyatFarki', 'KampanyaBelgesi') */
+  belgeTuruKlasoru?: string;
+  /** Vektör ve tablo parça getirme stratejisi */
+  aramaStratejisi: RagAramaStratejisi;
+  /** Opsiyonel varsayılan section_title / tablo başlığı filtresi */
+  varsayilanBolumFiltresi?: string;
+  /** Tek sorguda getirilecek maksimum chunk sayısı (1 - 25) */
+  topK: number;
+  /** Minimum kosinüs / hibrit benzerlik skoru (0.00 - 0.95) */
+  minBenzerlikSkoru: number;
+  /** Sayfalara bölünmüş Markdown tablolarının komşu parçalarını sayfa sırasıyla koru */
+  tabloOncelikliMi?: boolean;
+  /** LLM'e dönen parçalarda sayfa numarası ve bölüm başlığı üst verisini dahil et */
+  sayfaVeBolumKaynakGoster: boolean;
+}
+
+export interface AiBagliAracDugumu {
+  /** Tekil araç düğümü kimliği (örn: 'RAG_ARAC_1762950000') */
+  id: string;
+  /** Bağlı olduğu ana AI_ISLEM düğümünün kimliği */
+  parentNodeId: string;
+  /** Araç düğümü tipi ('RAG_ARAC' vb.) */
+  tip: AiAracDugumuTipi;
+  /** Sabit düğüm başlığı (örn: 'RAG Sorgu Aracı') */
+  baslik: string;
+  /** Çalışma zamanında tetiklenecek MCP araç kodu (örn: 'erp_rag_search') */
+  aracKodu: string;
+  /** Araç aktif mi? */
+  aktifMi: boolean;
+  /** Opsiyonel: AI İşlemi düğümünün bu aracı nasıl kullanacağına dair ek bağlam notu */
+  aciklama?: string;
+  /** RAG Sorgu Aracı yapılandırma parametreleri */
+  ragAyarlari?: AiRagAracAyarlari;
+}
 
 export interface FlowchartNodeJsonSchemaProperty {
   type: 'string' | 'number' | 'boolean' | 'object' | 'array';
@@ -248,6 +299,8 @@ export interface AiAkisDugumu {
   kaynakDosyaAdi?: string;
   /** Script İşlemi (SCRIPT_ISLEM) düğümünde çalıştırılacak JavaScript kodu */
   scriptKodu?: string;
+  /** AI İşlemi (AI_ISLEM) düğümüne bağlanan alt araç düğümleri (örn: RAG Sorgu Aracı) */
+  bagliAraclar?: AiBagliAracDugumu[];
   /** Kendisinden önce gelen düğümden bilgi, form verisi ve belge alma yapılandırması (n8n Input Binding) */
   oncekiDugumGirdisi?: AiOncekiDugumGirdiAyarlari;
   /** Bu düğümün bir sonraki düğüme vermeyi taahhüt ettiği sabit JSON Schema sözleşmesi */

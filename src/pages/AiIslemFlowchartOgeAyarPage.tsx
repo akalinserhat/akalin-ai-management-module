@@ -17,13 +17,24 @@ import {
   Sparkles,
   Info,
   CheckCircle2,
-  ShieldCheck
+  ShieldCheck,
+  Wrench,
+  Search,
+  Plus,
+  SlidersHorizontal,
+  Trash2
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
+  BaseButton,
   BaseSwitch
 } from '@akalin/ui';
+import type { AiBagliAracDugumu } from '../types';
+import {
+  createDefaultRagAracDugumu,
+  buildRagAracSummaryText
+} from '../defaults/ragAracFlowchartDefaultValue';
 import {
   BaseAiAjanFlowchartOgeAyarPage,
   FlowchartPromptMentionInput,
@@ -74,6 +85,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
       aracKodu: baseNode.aracKodu || '',
       uiAksiyonu: 'YOK',
       hedefRota: baseNode.hedefRota || '',
+      bagliAraclar: Array.isArray(baseNode.bagliAraclar) ? baseNode.bagliAraclar : [],
       oncekiDugumGirdisi: baseNode.oncekiDugumGirdisi || {
         aktifMi: true,
         kaynakDugumId: 'OTOMATIK_ONCEKI',
@@ -109,6 +121,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
                       aracKodu: foundNode.aracKodu || '',
                       uiAksiyonu: 'YOK',
                       hedefRota: foundNode.hedefRota || '',
+                      bagliAraclar: Array.isArray(foundNode.bagliAraclar) ? foundNode.bagliAraclar : [],
                       oncekiDugumGirdisi: foundNode.oncekiDugumGirdisi || {
                         aktifMi: true,
                         kaynakDugumId: 'OTOMATIK_ONCEKI',
@@ -152,6 +165,8 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
   }, [backRoute, effectiveAgentId, effectiveIstekId, baseAgentRoute]);
 
   const buildUpdatedNodePayload = (overrideData?: any) => {
+    const rawTools =
+      overrideData?.bagliAraclar !== undefined ? overrideData.bagliAraclar : formData.bagliAraclar;
     const merged = {
       ...formData,
       ...(overrideData || {}),
@@ -159,6 +174,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
       tip: 'AI_ISLEM',
       baslik: defaultNodeTitle,
       uiAksiyonu: 'YOK',
+      bagliAraclar: Array.isArray(rawTools) ? rawTools : [],
       kayitBekle: (overrideData?.kayitBekle !== undefined ? overrideData.kayitBekle : formData.kayitBekle) !== false,
       kayitSonrasiTeyitEt:
         (overrideData?.kayitSonrasiTeyitEt !== undefined
@@ -166,6 +182,95 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
           : formData.kayitSonrasiTeyitEt) !== false
     };
     return merged;
+  };
+
+  const attachedTools: AiBagliAracDugumu[] = useMemo(
+    () => (Array.isArray(formData.bagliAraclar) ? formData.bagliAraclar : []),
+    [formData.bagliAraclar]
+  );
+
+  const buildUpdatedIstekSnapshot = (nextTools: AiBagliAracDugumu[]) => {
+    const currentIstek = istekData || incomingIstekData;
+    const existingNodes = Array.isArray(currentIstek?.akisDugumleri)
+      ? [...currentIstek.akisDugumleri]
+      : [];
+    const activeNode = buildUpdatedNodePayload({ bagliAraclar: nextTools });
+    const nodeIdx = existingNodes.findIndex((x: any) => x.id === activeNode.id);
+    if (nodeIdx !== -1) {
+      existingNodes[nodeIdx] = { ...existingNodes[nodeIdx], ...activeNode };
+    } else {
+      existingNodes.push(activeNode);
+    }
+    const updatedIstek = {
+      ...(currentIstek || { id: effectiveIstekId || `req_${Date.now()}` }),
+      akisDugumleri: existingNodes
+    };
+    if (
+      typeof window !== 'undefined' &&
+      typeof sessionStorage !== 'undefined' &&
+      effectiveAgentId &&
+      updatedIstek?.id
+    ) {
+      try {
+        sessionStorage.setItem(
+          `webakus_flow_draft_${effectiveAgentId}_${updatedIstek.id}`,
+          JSON.stringify(updatedIstek)
+        );
+      } catch {
+        // ignore
+      }
+    }
+    return updatedIstek;
+  };
+
+  const handleAttachRagTool = () => {
+    const existingRag = attachedTools.find((item) => (item.tip || '').toUpperCase() === 'RAG_ARAC');
+    if (existingRag) {
+      handleOpenAttachedTool(existingRag);
+      return;
+    }
+    const newTool = createDefaultRagAracDugumu({
+      parentNodeId: formData.id,
+      title: t('rag_sorgu_araci', 'RAG Sorgu Aracı')
+    });
+    const nextTools = [...attachedTools, newTool];
+    setFormData((prev: any) => ({ ...prev, bagliAraclar: nextTools }));
+    buildUpdatedIstekSnapshot(nextTools);
+    toast.success(
+      t('rag_arac_dugume_baglandi', 'RAG Sorgu Aracı bu AI İşlemi düğümüne bağlandı.')
+    );
+  };
+
+  const handleOpenAttachedTool = (toolItem: AiBagliAracDugumu) => {
+    if (!effectiveAgentId || !effectiveIstekId) return;
+    const updatedIstek = buildUpdatedIstekSnapshot(attachedTools);
+    const targetUrl = `${baseAgentRoute}/${effectiveAgentId}/hizli-istek/${effectiveIstekId}/adim/${toolItem.id}`;
+    navigate(targetUrl, {
+      state: {
+        agentData: agentData || incomingAgentData,
+        istekData: updatedIstek,
+        parentNodeId: formData.id,
+        nodeData: {
+          ...toolItem,
+          tip: toolItem.tip || 'RAG_ARAC',
+          parentNodeId: formData.id
+        }
+      }
+    });
+  };
+
+  const handleToggleAttachedTool = (toolId: string, checked: boolean) => {
+    const nextTools = attachedTools.map((item) =>
+      item.id === toolId ? { ...item, aktifMi: checked } : item
+    );
+    setFormData((prev: any) => ({ ...prev, bagliAraclar: nextTools }));
+    buildUpdatedIstekSnapshot(nextTools);
+  };
+
+  const handleRemoveAttachedTool = (toolId: string) => {
+    const nextTools = attachedTools.filter((item) => item.id !== toolId);
+    setFormData((prev: any) => ({ ...prev, bagliAraclar: nextTools }));
+    buildUpdatedIstekSnapshot(nextTools);
   };
 
   const handleBackOrClose = () => {
@@ -460,6 +565,131 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
                 {(formData.prompt || '').length} {t('karakter', 'karakter')}
               </span>
             </div>
+          </div>
+        </section>
+
+        {/* BAĞLI AI ARAÇ DÜĞÜMLERİ (TOOLS SUB-NODES) */}
+        <section className="basla-ayar-card">
+          <div className="basla-ayar-card-header">
+            <div className="basla-ayar-card-header-left">
+              <div className="basla-ayar-icon-box purple">
+                <Wrench size={18} />
+              </div>
+              <div className="basla-ayar-header-text">
+                <h3 className="basla-ayar-card-title">
+                  {t('bagli_ai_arac_dugumleri_baslik', 'Bağlı AI Araç Düğümleri (MCP Tools)')}
+                </h3>
+                <p className="basla-ayar-card-subtitle">
+                  {t(
+                    'bagli_ai_arac_dugumleri_aciklama',
+                    'Bu AI İşlemi adımına RAG Sorgu Aracı bağlayarak bulut PDF ve Excel tabloları üzerinde hedefli vektör/tablo araması yaptırabilirsiniz.'
+                  )}
+                </p>
+              </div>
+            </div>
+            <div className="ai-islem-tools-header-actions">
+              <BaseButton
+                variant="outline"
+                className="btn-sm"
+                icon={<Plus size={14} />}
+                onClick={handleAttachRagTool}
+                text={
+                  attachedTools.some((item) => (item.tip || '').toUpperCase() === 'RAG_ARAC')
+                    ? t('rag_arac_ayarlarini_ac', 'RAG Aracı Ayarları')
+                    : t('rag_sorgu_araci_bagla', 'RAG Sorgu Aracı Bağla')
+                }
+              />
+            </div>
+          </div>
+
+          <div className="basla-ayar-card-body">
+            {attachedTools.length === 0 ? (
+              <div className="ai-islem-attached-tools-empty">
+                <Search size={18} className="ai-islem-attached-tools-empty-icon" />
+                <div className="ai-islem-attached-tools-empty-texts">
+                  <span className="ai-islem-attached-tools-empty-title">
+                    {t(
+                      'henuz_bagli_arac_dugumu_yok',
+                      'Bu AI İşlemi adımına henüz bir araç alt düğümü bağlanmadı.'
+                    )}
+                  </span>
+                  <span className="ai-islem-attached-tools-empty-desc">
+                    {t(
+                      'henuz_bagli_arac_dugumu_yok_aciklama',
+                      'Akış şeması (Flowchart) üzerindeki "+ Araç Bağla" noktasından veya yukarıdaki düğmeden RAG Sorgu Aracı ekleyebilirsiniz.'
+                    )}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="ai-islem-attached-tools-list">
+                {attachedTools.map((toolItem) => {
+                  const summaryLabel = buildRagAracSummaryText(toolItem, t);
+                  const isToolActive = toolItem.aktifMi !== false;
+                  return (
+                    <div
+                      key={toolItem.id}
+                      className={`ai-islem-attached-tool-row ${isToolActive ? 'is-active' : 'is-disabled'}`}
+                    >
+                      <div className="ai-islem-attached-tool-main">
+                        <div className="ai-islem-attached-tool-icon">
+                          <Search size={16} />
+                        </div>
+                        <div className="ai-islem-attached-tool-info">
+                          <div className="ai-islem-attached-tool-title-row">
+                            <span className="ai-islem-attached-tool-title">
+                              {t('rag_sorgu_araci', 'RAG Sorgu Aracı')}
+                            </span>
+                            <span className="ai-ajan-identity-badge">
+                              {toolItem.aracKodu || 'erp_rag_search'}
+                            </span>
+                            <span className="rag-arac-summary-pill">{summaryLabel}</span>
+                          </div>
+                          <p className="ai-islem-attached-tool-desc">
+                            {toolItem.aciklama?.trim()
+                              ? toolItem.aciklama
+                              : t(
+                                  'rag_arac_varsayilan_aciklama',
+                                  'PostgreSQL webakus_db (rag_document_chunks) üzerinden sayfa, bölüm ve Markdown tablo parçalarını getirir.'
+                                )}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="ai-islem-attached-tool-controls">
+                        <BaseSwitch
+                          id={`attachedToolSwitch_${toolItem.id}`}
+                          checked={isToolActive}
+                          onChange={(e: any) => {
+                            const checked = typeof e === 'boolean' ? e : e?.target?.checked;
+                            handleToggleAttachedTool(toolItem.id, Boolean(checked));
+                          }}
+                          label={
+                            <span className="text-xs font-semibold">
+                              {isToolActive ? t('aktif', 'Aktif') : t('pasif', 'Pasif')}
+                            </span>
+                          }
+                        />
+                        <BaseButton
+                          variant="outline"
+                          className="btn-sm"
+                          icon={<SlidersHorizontal size={14} />}
+                          onClick={() => handleOpenAttachedTool(toolItem)}
+                          text={t('ayarlar', 'Ayarlar')}
+                        />
+                        <BaseButton
+                          variant="outline"
+                          className="btn-sm"
+                          icon={<Trash2 size={14} />}
+                          onClick={() => handleRemoveAttachedTool(toolItem.id)}
+                          title={t('araci_kaldir', 'Aracı Kaldır')}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </section>
 

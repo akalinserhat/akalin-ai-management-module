@@ -26,6 +26,7 @@ const FormAcFlowchartOgeAyarPage = lazy(() => import('./pages/FormAcFlowchartOge
 const AiIslemFlowchartOgeAyarPage = lazy(() => import('./pages/AiIslemFlowchartOgeAyarPage'));
 const HafizaFlowchartOgeAyarPage = lazy(() => import('./pages/HafizaFlowchartOgeAyarPage'));
 const ScriptIslemFlowchartOgeAyarPage = lazy(() => import('./pages/ScriptIslemFlowchartOgeAyarPage'));
+const RagAracFlowchartOgeAyarPage = lazy(() => import('./pages/RagAracFlowchartOgeAyarPage'));
 const AiMcpYonetimiPage = lazy(() => import('./pages/AiMcpYonetimi'));
 const MCPSelectionListPage = lazy(() => import('./pages/MCPSelectionList'));
 
@@ -35,6 +36,7 @@ const MCPSelectionListPage = lazy(() => import('./pages/MCPSelectionList'));
  * 'AI_ISLEM' ise AiIslemFlowchartOgeAyarPage'e,
  * 'HAFIZA' ise HafizaFlowchartOgeAyarPage'e,
  * 'SCRIPT_ISLEM' ise ScriptIslemFlowchartOgeAyarPage'e,
+ * 'RAG_ARAC' ise RagAracFlowchartOgeAyarPage'e,
  * 'FORM_AC' ise FormAcFlowchartOgeAyarPage'e yönlendirir.
  */
 const FlowchartOgeAyarDispatcher: React.FC = () => {
@@ -54,6 +56,9 @@ const FlowchartOgeAyarDispatcher: React.FC = () => {
   }
   if (nodeTip === 'SCRIPT_ISLEM' || idUpper.startsWith('SCRIPT_ISLEM')) {
     return <ScriptIslemFlowchartOgeAyarPage />;
+  }
+  if (nodeTip === 'RAG_ARAC' || idUpper.startsWith('RAG_ARAC')) {
+    return <RagAracFlowchartOgeAyarPage />;
   }
   if (
     nodeTip === 'FORM_AC' ||

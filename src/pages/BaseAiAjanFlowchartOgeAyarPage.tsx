@@ -1421,6 +1421,103 @@ export const getNodeFixedOutputJsonSchema = (
     };
   }
 
+  if (nType === 'RAG_ARAC') {
+    const ragSettings = (node as any)?.ragAyarlari || {};
+    const scopeCode = ragSettings.aramaKapsami || 'AKTIF_BULUT_DOSYASI';
+
+    const properties: Record<string, FlowchartNodeJsonSchemaProperty> = {
+      dugumId: {
+        type: 'string',
+        title: tr('schema_prop_dugum_id', 'Düğüm Kimliği (ID)'),
+        description: tr('schema_prop_rag_dugum_id_desc', 'RAG Sorgu Aracı alt düğümünün benzersiz kimliği'),
+        expression: `{{ ${prefix}.dugumId }}`,
+        required: true,
+        example: nodeId
+      },
+      dugumTipi: {
+        type: 'string',
+        title: tr('schema_prop_dugum_tipi', 'Düğüm Tipi'),
+        description: tr('schema_prop_rag_dugum_tipi_desc', 'Sabit araç düğümü türü kodu (RAG_ARAC)'),
+        expression: `{{ ${prefix}.dugumTipi }}`,
+        required: true,
+        example: 'RAG_ARAC'
+      },
+      basariliMi: {
+        type: 'boolean',
+        title: tr('schema_prop_basarili_mi', 'Sorgu Başarı Durumu'),
+        description: tr('schema_prop_rag_basarili_mi_desc', 'Vektör / hibrit RAG aramasının hatasız tamamlanıp tamamlanmadığı'),
+        expression: `{{ ${prefix}.basariliMi }}`,
+        required: true,
+        example: true
+      },
+      sorguMetni: {
+        type: 'string',
+        title: tr('schema_prop_rag_sorgu_metni', 'Çalıştırılan RAG Sorgusu'),
+        description: tr('schema_prop_rag_sorgu_metni_desc', 'AI İşlemi tarafından erp_rag_search aracına gönderilen arama ifadesi'),
+        expression: `{{ ${prefix}.sorguMetni }}`,
+        required: true,
+        example: 'Desteklenecek Ürünler ve Tutarları tablosu'
+      },
+      aramaKapsami: {
+        type: 'string',
+        title: tr('schema_prop_rag_arama_kapsami', 'Arama Kapsamı'),
+        description: tr('schema_prop_rag_arama_kapsami_desc', 'Aramanın sınırlandırıldığı bulut dosyası veya klasör kapsamı'),
+        expression: `{{ ${prefix}.aramaKapsami }}`,
+        required: true,
+        example: scopeCode
+      },
+      bulunanParcaSayisi: {
+        type: 'number',
+        title: tr('schema_prop_rag_parca_sayisi', 'Eşleşen Chunk / Tablo Sayısı'),
+        description: tr('schema_prop_rag_parca_sayisi_desc', 'PostgreSQL rag_document_chunks tablosundan dönen parça adedi'),
+        expression: `{{ ${prefix}.bulunanParcaSayisi }}`,
+        required: true,
+        example: 4
+      },
+      parcalar: {
+        type: 'array',
+        format: 'json',
+        title: tr('schema_prop_rag_parcalar', 'Bulunan Belge Parçaları ve Tablolar (Chunks)'),
+        description: tr('schema_prop_rag_parcalar_desc', 'Sayfa numarası, bölüm başlığı, benzerlik skoru ve Markdown tablo içeriğiyle dönen RAG parçaları'),
+        expression: `{{ ${prefix}.parcalar }}`,
+        required: true,
+        example: [
+          {
+            bulutDosyaId: 591,
+            dosyaAdi: '04_15_Kasim_2026_Perakende_Uygulama_Yazisi.pdf',
+            sayfaNo: 7,
+            bolumBasligi: 'Desteklenecek Ürünler ve Tutarları',
+            benzerlikSkoru: 0.89,
+            icerik: '| Ürün Grubu | Mamul Kodu | Tutar |\n|---|---|---|\n| Soğutucu | KDN55NWE0N | 1.424,42 |'
+          }
+        ]
+      }
+    };
+
+    return {
+      $schema: 'https://json-schema.org/draft/2020-12/schema',
+      schemaId: 'https://webakus.ai/schemas/flowchart/rag-arac-output.schema.json',
+      title: `${tr('schema_title_rag_arac', 'RAG Sorgu Aracı Sabit Çıktı Şeması (RagToolOutputSchema)')} • erp_rag_search`,
+      description: tr(
+        'schema_desc_rag_arac',
+        'AI İşlemi düğümüne bağlanan RAG Sorgu Aracının PostgreSQL webakus_db (rag_document_chunks) üzerinden getirdiği tablo ve metin parçalarının şema sözleşmesi.'
+      ),
+      nodeType: 'RAG_ARAC',
+      type: 'object',
+      required: ['dugumId', 'dugumTipi', 'basariliMi', 'sorguMetni', 'aramaKapsami', 'bulunanParcaSayisi', 'parcalar'],
+      properties,
+      examplePayload: {
+        dugumId: nodeId,
+        dugumTipi: 'RAG_ARAC',
+        basariliMi: true,
+        sorguMetni: properties.sorguMetni.example,
+        aramaKapsami: scopeCode,
+        bulunanParcaSayisi: 4,
+        parcalar: properties.parcalar.example
+      }
+    };
+  }
+
   // AI_ISLEM, MCP_SORGULA, BELGE_OLUSTUR ve diğer işlem düğümleri
   const properties: Record<string, FlowchartNodeJsonSchemaProperty> = {
     dugumId: {
@@ -2566,10 +2663,22 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
       return [startNodeFallback];
     }
 
-    const currentIdx = allNodes.findIndex(
+    let currentIdx = allNodes.findIndex(
       (n) =>
         n && (n.id === effectiveNodeId || (effectiveNodeId && n.id === String(effectiveNodeId)))
     );
+
+    // Eğer düzenlenen öğe bir ana adımın altına bağlanmış araç düğümü ise (bagliAraclar), ebeveyn adımın sırasını baz al
+    if (currentIdx === -1 && effectiveNodeId) {
+      currentIdx = allNodes.findIndex(
+        (n) =>
+          n &&
+          Array.isArray(n.bagliAraclar) &&
+          n.bagliAraclar.some(
+            (tool) => tool && (tool.id === effectiveNodeId || tool.id === String(effectiveNodeId))
+          )
+      );
+    }
 
     const sliced =
       currentIdx > 0 ? allNodes.slice(0, currentIdx) : currentIdx === -1 ? allNodes : [];

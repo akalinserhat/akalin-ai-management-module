@@ -4938,3 +4938,219 @@
   border-radius: 6px;
   padding: 2px 8px;
 }
+
+
+/* ─── AI İŞLEMİ BAĞLI ARAÇ DÜĞÜMLERİ & RAG SORGU ARACI (MD3 STİLLERİ) ─── */
+
+.rag-arac-connection-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border-radius: var(--md3-shape-medium, 12px);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(99, 102, 241, 0.04) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.32);
+  flex-wrap: wrap;
+}
+
+[data-theme='dark'] .rag-arac-connection-banner {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.16) 0%, rgba(99, 102, 241, 0.06) 100%);
+  border-color: rgba(167, 139, 250, 0.35);
+}
+
+.rag-arac-connection-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+  min-width: 240px;
+}
+
+.rag-arac-connection-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(139, 92, 246, 0.16);
+  color: #7c3aed;
+  flex-shrink: 0;
+}
+
+[data-theme='dark'] .rag-arac-connection-icon {
+  color: #c4b5fd;
+}
+
+.rag-arac-connection-texts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rag-arac-connection-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.rag-arac-connection-desc {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.rag-arac-connection-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.rag-arac-summary-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #7c3aed;
+  background: rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.28);
+  white-space: nowrap;
+}
+
+[data-theme='dark'] .rag-arac-summary-pill {
+  color: #c4b5fd;
+  background: rgba(139, 92, 246, 0.2);
+}
+
+.rag-arac-options-mt {
+  margin-top: 16px;
+}
+
+.ai-islem-tools-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ai-islem-attached-tools-empty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px dashed var(--glass-border);
+  background: var(--bg-primary);
+}
+
+.ai-islem-attached-tools-empty-icon {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.ai-islem-attached-tools-empty-texts {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ai-islem-attached-tools-empty-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ai-islem-attached-tools-empty-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.ai-islem-attached-tools-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ai-islem-attached-tool-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: var(--bg-primary);
+  transition: all 0.18s ease;
+  flex-wrap: wrap;
+}
+
+.ai-islem-attached-tool-row.is-active {
+  border-color: rgba(139, 92, 246, 0.36);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.06) 0%, transparent 100%);
+}
+
+.ai-islem-attached-tool-row.is-disabled {
+  opacity: 0.65;
+}
+
+.ai-islem-attached-tool-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+  min-width: 240px;
+}
+
+.ai-islem-attached-tool-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(139, 92, 246, 0.14);
+  color: #7c3aed;
+  flex-shrink: 0;
+}
+
+[data-theme='dark'] .ai-islem-attached-tool-icon {
+  color: #c4b5fd;
+}
+
+.ai-islem-attached-tool-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ai-islem-attached-tool-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ai-islem-attached-tool-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ai-islem-attached-tool-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.ai-islem-attached-tool-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
