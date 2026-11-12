@@ -2707,68 +2707,6 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
       icon: <SlidersHorizontal size={16} />,
       content: (
         <div className="ai-system-prompt-tab">
-          {/* Üst Mod Seçici: Sabit Sistem İstemi (Anayasa) vs Madde Bazlı Kurallar */}
-          <div className="ai-system-prompt-topbar">
-            <div className="ai-system-mode-switcher">
-              <button
-                type="button"
-                className={`ai-system-mode-btn ${systemPromptViewMode === 'sabitPrompt' ? 'active' : ''}`}
-                onClick={() => setSystemPromptViewMode('sabitPrompt')}
-              >
-                <Shield size={14} />
-                <span>{t('sabit_sistem_istemi_anayasa', 'Sabit Sistem İstemi & Yetki Sınırları (Anayasa)')}</span>
-              </button>
-              <button
-                type="button"
-                className={`ai-system-mode-btn ${systemPromptViewMode === 'kurallar' ? 'active' : ''}`}
-                onClick={() => {
-                  setFormData((prev: any) => {
-                    const syncedRules = parsePromptToRules(prev.sistemIstemi || '', prev.kurallar);
-                    if (syncedRules.length > 0 && !syncedRules.some((r: any) => r.id === selectedRuleId)) {
-                      setSelectedRuleId(syncedRules[0].id);
-                    }
-                    return {
-                      ...prev,
-                      kurallar: syncedRules
-                    };
-                  });
-                  setSystemPromptViewMode('kurallar');
-                }}
-              >
-                <Layers size={14} />
-                <span>{t('madde_bazli_kurallar', 'Madde Bazlı Kurallar')} ({formData.kurallar.length})</span>
-              </button>
-            </div>
-
-            {systemPromptViewMode === 'kurallar' && (
-              <div className="ai-rules-toolbar-actions">
-                <div className="ai-rules-stats-group">
-                  <span className="ai-rules-stat-label">{t('maddeler', 'Maddeler')}:</span>
-                  <span className="ai-rules-stat-pill total">{formData.kurallar.length} {t('toplam', 'Toplam')}</span>
-                  {inheritedCount > 0 && <span className="ai-rules-stat-pill inherited">{inheritedCount} {t('miras', 'Miras')}</span>}
-                  {overriddenCount > 0 && <span className="ai-rules-stat-pill overridden">{overriddenCount} {t('ezildi', 'Ezildi')}</span>}
-                  {customCount > 0 && <span className="ai-rules-stat-pill custom">{customCount} {t('ozel', 'Özel')}</span>}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowPresetsModal(!showPresetsModal)}
-                  className="btn btn-secondary ai-rules-toolbar-btn"
-                >
-                  <BookOpen size={13} />
-                  <span>{t('hazir_sablonlar', 'Hazır Şablonlar')}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAddCustomRule}
-                  className="btn btn-primary ai-rules-toolbar-btn"
-                >
-                  <Plus size={13} />
-                  <span>{t('yeni_madde', 'Yeni Madde')}</span>
-                </button>
-              </div>
-            )}
-          </div>
-
           {systemPromptViewMode === 'sabitPrompt' ? (
             <div className="ai-system-prompt-editor-box">
               <textarea
@@ -2798,6 +2736,33 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
             </div>
           ) : (
             <>
+              <div className="ai-system-prompt-topbar">
+                <div className="ai-rules-stats-group">
+                  <span className="ai-rules-stat-label">{t('maddeler', 'Maddeler')}:</span>
+                  <span className="ai-rules-stat-pill total">{formData.kurallar.length} {t('toplam', 'Toplam')}</span>
+                  {inheritedCount > 0 && <span className="ai-rules-stat-pill inherited">{inheritedCount} {t('miras', 'Miras')}</span>}
+                  {overriddenCount > 0 && <span className="ai-rules-stat-pill overridden">{overriddenCount} {t('ezildi', 'Ezildi')}</span>}
+                  {customCount > 0 && <span className="ai-rules-stat-pill custom">{customCount} {t('ozel', 'Özel')}</span>}
+                </div>
+                <div className="ai-rules-toolbar-actions">
+                  <button
+                    type="button"
+                    onClick={() => setShowPresetsModal(!showPresetsModal)}
+                    className="btn btn-secondary ai-rules-toolbar-btn"
+                  >
+                    <BookOpen size={13} />
+                    <span>{t('hazir_sablonlar', 'Hazır Şablonlar')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddCustomRule}
+                    className="btn btn-primary ai-rules-toolbar-btn"
+                  >
+                    <Plus size={13} />
+                    <span>{t('yeni_madde', 'Yeni Madde')}</span>
+                  </button>
+                </div>
+              </div>
               {showPresetsModal && (
                 <div className="ai-rules-presets-popover">
                   <div className="ai-ajan-section-header">
@@ -3078,6 +3043,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
 
   const extraDropdownActions = useMemo(() => {
     const isSistemYonetimi = formData.kapsam === 2;
+    const isMaddeBazliKurallar = systemPromptViewMode === 'kurallar';
     const actions: any[] = [
       {
         custom: (
@@ -3116,31 +3082,68 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
             className="action-menu-switch-item"
           />
         )
-      },
-      {
-        custom: (
-          <div className="action-menu-select-item">
-            <label htmlFor="actionMenuYanitSenteziSelect" className="action-menu-select-label">
-              <Sparkles size={15} className="text-secondary" />
-              <span>{t('akilli_yanit_sentezi', 'Akıllı Yanıt Sentezi')}:</span>
-            </label>
-            <select
-              id="actionMenuYanitSenteziSelect"
-              className="action-menu-select-control"
-              value={formData.yanitSenteziModu ?? 0}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                setFormData((prev: any) => ({ ...prev, yanitSenteziModu: isNaN(val) ? 0 : val }));
-              }}
-            >
-              <option value={0}>{t('yanit_sentezi_sistem_kisa', '🌐 Sistem Ayarı')}</option>
-              <option value={1}>{t('yanit_sentezi_acik_kisa', '✨ Zorunlu Açık (Sentez)')}</option>
-              <option value={2}>{t('yanit_sentezi_kapali_kisa', '⚡ Zorunlu Kapalı (Hızlı)')}</option>
-            </select>
-          </div>
-        )
       }
     ];
+
+    if (activeTabId === 'istem') {
+      actions.push({
+        custom: (
+          <BaseSwitch
+            id="actionMenuMaddeBazliKurallarSwitch"
+            checked={isMaddeBazliKurallar}
+            onChange={(e: any) => {
+              const checked = e.target.checked;
+              if (checked) {
+                setFormData((prev: any) => {
+                  const syncedRules = parsePromptToRules(prev.sistemIstemi || '', prev.kurallar);
+                  if (syncedRules.length > 0 && !syncedRules.some((r: any) => r.id === selectedRuleId)) {
+                    setSelectedRuleId(syncedRules[0].id);
+                  }
+                  return {
+                    ...prev,
+                    kurallar: syncedRules
+                  };
+                });
+                setSystemPromptViewMode('kurallar');
+              } else {
+                setSystemPromptViewMode('sabitPrompt');
+              }
+            }}
+            label={
+              <span className="flex items-center gap-8">
+                <Layers size={15} className={isMaddeBazliKurallar ? 'text-primary' : 'text-secondary'} />
+                <span className="font-medium">{t('madde_bazli_kurallar', 'Madde Bazlı Kurallar')}</span>
+              </span>
+            }
+            className="action-menu-switch-item"
+          />
+        )
+      });
+    }
+
+    actions.push({
+      custom: (
+        <div className="action-menu-select-item">
+          <label htmlFor="actionMenuYanitSenteziSelect" className="action-menu-select-label">
+            <Sparkles size={15} className="text-secondary" />
+            <span>{t('akilli_yanit_sentezi', 'Akıllı Yanıt Sentezi')}:</span>
+          </label>
+          <select
+            id="actionMenuYanitSenteziSelect"
+            className="action-menu-select-control"
+            value={formData.yanitSenteziModu ?? 0}
+            onChange={(e) => {
+              const val = parseInt(e.target.value, 10);
+              setFormData((prev: any) => ({ ...prev, yanitSenteziModu: isNaN(val) ? 0 : val }));
+            }}
+          >
+            <option value={0}>{t('yanit_sentezi_sistem_kisa', '🌐 Sistem Ayarı')}</option>
+            <option value={1}>{t('yanit_sentezi_acik_kisa', '✨ Zorunlu Açık (Sentez)')}</option>
+            <option value={2}>{t('yanit_sentezi_kapali_kisa', '⚡ Zorunlu Kapalı (Hızlı)')}</option>
+          </select>
+        </div>
+      )
+    });
 
     const currentId = effectiveId || localInitialData?.id;
     if (currentId) {
@@ -3170,7 +3173,18 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     }
 
     return actions;
-  }, [t, effectiveId, localInitialData?.id, showAlert, formData.aktifMi, formData.kapsam, formData.yanitSenteziModu]);
+  }, [
+    t,
+    effectiveId,
+    localInitialData?.id,
+    showAlert,
+    formData.aktifMi,
+    formData.kapsam,
+    formData.yanitSenteziModu,
+    activeTabId,
+    systemPromptViewMode,
+    selectedRuleId
+  ]);
 
   if (isOpen === false) {
     return null;
