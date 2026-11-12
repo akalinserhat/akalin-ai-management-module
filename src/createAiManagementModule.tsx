@@ -26,18 +26,14 @@ const FormAcFlowchartOgeAyarPage = lazy(() => import('./pages/FormAcFlowchartOge
 const AiIslemFlowchartOgeAyarPage = lazy(() => import('./pages/AiIslemFlowchartOgeAyarPage'));
 const HafizaFlowchartOgeAyarPage = lazy(() => import('./pages/HafizaFlowchartOgeAyarPage'));
 const ScriptIslemFlowchartOgeAyarPage = lazy(() => import('./pages/ScriptIslemFlowchartOgeAyarPage'));
+const BelgeOlusturFlowchartOgeAyarPage = lazy(() => import('./pages/BelgeOlusturFlowchartOgeAyarPage'));
+const KararOnayFlowchartOgeAyarPage = lazy(() => import('./pages/KararOnayFlowchartOgeAyarPage'));
 const RagAracFlowchartOgeAyarPage = lazy(() => import('./pages/RagAracFlowchartOgeAyarPage'));
 const AiMcpYonetimiPage = lazy(() => import('./pages/AiMcpYonetimi'));
 const MCPSelectionListPage = lazy(() => import('./pages/MCPSelectionList'));
 
 /**
  * Flowchart öğe ayar sayfaları için dinamik yönlendirici bileşen
- * Adım parametresi (ogeId) 'BASLA' ise BaslaFlowchartOgeAyarPage'e,
- * 'AI_ISLEM' ise AiIslemFlowchartOgeAyarPage'e,
- * 'HAFIZA' ise HafizaFlowchartOgeAyarPage'e,
- * 'SCRIPT_ISLEM' ise ScriptIslemFlowchartOgeAyarPage'e,
- * 'RAG_ARAC' ise RagAracFlowchartOgeAyarPage'e,
- * 'FORM_AC' ise FormAcFlowchartOgeAyarPage'e yönlendirir.
  */
 const FlowchartOgeAyarDispatcher: React.FC = () => {
   const { ogeId } = useParams<{ ogeId?: string }>();
@@ -56,6 +52,12 @@ const FlowchartOgeAyarDispatcher: React.FC = () => {
   }
   if (nodeTip === 'SCRIPT_ISLEM' || idUpper.startsWith('SCRIPT_ISLEM')) {
     return <ScriptIslemFlowchartOgeAyarPage />;
+  }
+  if (nodeTip === 'BELGE_OLUSTUR' || idUpper.startsWith('BELGE_OLUSTUR')) {
+    return <BelgeOlusturFlowchartOgeAyarPage />;
+  }
+  if (nodeTip === 'KARAR_ONAY' || idUpper.startsWith('KARAR_ONAY')) {
+    return <KararOnayFlowchartOgeAyarPage />;
   }
   if (nodeTip === 'RAG_ARAC' || idUpper.startsWith('RAG_ARAC')) {
     return <RagAracFlowchartOgeAyarPage />;

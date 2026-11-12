@@ -42,47 +42,98 @@ export const DEFAULT_CSV_TO_MCP_SCRIPT = `// Girdi Bağlamı: input.content (Haf
 const rawText = String(input.content || '').trim();
 const lines = rawText.split(/\\r?\\n/).map(l => l.trim()).filter(Boolean);
 
+function parsePrice(val) {
+  let s = String(val || '').replace(/\\s*(?:TL|₺|TRY).*$/i, '').trim();
+  if (!s) return NaN;
+  if (s.indexOf(',') !== -1 && s.indexOf('.') !== -1) {
+    if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
+      s = s.replace(/\\./g, '').replace(',', '.');
+    } else {
+      s = s.replace(/,/g, '');
+    }
+  } else if (s.indexOf(',') !== -1) {
+    s = s.replace(',', '.');
+  } else if (/^\\d{1,3}(\\.\\d{3})+$/.test(s)) {
+    s = s.replace(/\\./g, '');
+  }
+  return parseFloat(s);
+}
+
 let baslangicTarihi = '';
 let bitisTarihi = '';
-let aciklama = 'PDF Kampanya Bildiriminden Otomatik Aktarıldı';
+let aciklama = input.documentTitle || 'PDF Kampanya Bildiriminden Otomatik Aktarıldı';
+let kdvDahilMi = false;
+let kdvOrani = 20;
 const kalemler = [];
 
 for (let i = 0; i < lines.length; i++) {
-  const line = lines[i];
+  let line = lines[i];
+  if (line.startsWith('\`\`\`')) continue;
   if (line.startsWith('#META')) {
     const parts = line.split(';');
     for (let p = 1; p < parts.length; p++) {
-      const kv = parts[p].split('=');
-      if (kv.length === 2) {
-        const k = kv[0].trim();
-        const v = kv[1].trim();
-        if (k === 'BaslangicTarihi') baslangicTarihi = v;
-        if (k === 'BitisTarihi') bitisTarihi = v;
-        if (k === 'Aciklama') aciklama = v;
+      const idx = parts[p].indexOf('=');
+      if (idx > 0) {
+        const k = parts[p].substring(0, idx).trim();
+        const v = parts[p].substring(idx + 1).trim();
+        if (k === 'BaslangicTarihi' && v) baslangicTarihi = v;
+        if (k === 'BitisTarihi' && v) bitisTarihi = v;
+        if (k === 'Aciklama' && v) aciklama = v;
+        if (k === 'KdvDahilMi') kdvDahilMi = (v.toLowerCase() === 'true');
+        if (k === 'KdvOrani' && !isNaN(parseFloat(v))) kdvOrani = parseFloat(v);
       }
     }
     continue;
   }
 
-  // Başlık satırını veya markdown ayraçlarını atla
-  if (/^(UrunKodu|ÜrünKodu|Kod|#|-)/i.test(line)) continue;
+  line = line.replace(/^(?:#?\\d+[\\.\\)\\:\\-\\s]+|\\-\\s+|\\*\\s+)/, '').trim();
+  if (!line || line.startsWith('#') || line.startsWith('-')) continue;
 
-  const cols = line.split(';');
+  let cols = [];
+  if (line.indexOf(';') !== -1) {
+    cols = line.split(';').map(c => c.trim().replace(/^"|"$/g, '')).filter(Boolean);
+  } else if (line.indexOf('|') !== -1) {
+    cols = line.split('|').map(c => c.trim().replace(/^"|"$/g, '')).filter(Boolean);
+  } else if (line.indexOf('\\t') !== -1) {
+    cols = line.split('\\t').map(c => c.trim().replace(/^"|"$/g, '')).filter(Boolean);
+  } else {
+    const m = line.match(/([A-Z0-9\\-\\/]{4,})\\s*[,:\\s]\\s*([\\d\\.,]+(?:\\s*(?:TL|₺|TRY))?)\\s*$/i);
+    if (m) {
+      cols = [m[1].trim(), m[2].trim()];
+    }
+  }
+
   if (cols.length >= 2) {
-    const urunKodu = cols[0].trim();
-    const rawFiyat = cols[1].trim().replace(/\\./g, '').replace(',', '.');
-    const fiyat = parseFloat(rawFiyat);
-    if (urunKodu && !isNaN(fiyat) && fiyat > 0) {
+    if (cols.length >= 6 && /^\\d{4}-\\d{2}-\\d{2}$/.test(cols[0]) && /^\\d{4}-\\d{2}-\\d{2}$/.test(cols[1])) {
+      if (!baslangicTarihi) baslangicTarihi = cols[0];
+      if (!bitisTarihi) bitisTarihi = cols[1];
+    }
+
+    const urunKodu = cols[cols.length - 2].replace(/\\s+/g, '');
+    const fiyatCol = cols[cols.length - 1];
+    if (/^(UrunKodu|ÜrünKodu|BaslangicTarihi|TabloAdi|Model|ModelKodu|Kod)$/i.test(urunKodu)) continue;
+
+    const fiyat = parsePrice(fiyatCol);
+    if (urunKodu && urunKodu.length >= 3 && !isNaN(fiyat) && fiyat > 0) {
       kalemler.push({
-        UrunKodu: urunKodu,
-        Fiyat: fiyat
+        tedarikciUrunKodu: urunKodu,
+        fiyat: fiyat,
+        kdvOrani: kdvOrani,
+        kdvDahilMi: kdvDahilMi
       });
     }
   }
 }
 
 return JSON.stringify({
+  documentType: input.varlikKodu || 'BshFiyatFarki',
   varlikKodu: input.varlikKodu || 'BshFiyatFarki',
+  isDraft: true,
+  baslangicTarihi: baslangicTarihi,
+  bitisTarihi: bitisTarihi,
+  aciklama: aciklama,
+  kdvOrani: kdvOrani,
+  kdvDahilMi: kdvDahilMi,
   baslikVerisi: {
     BaslangicTarihi: baslangicTarihi,
     BitisTarihi: bitisTarihi,
@@ -127,8 +178,9 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
       id: baseNode.id || effectiveOgeId || `SCRIPT_ISLEM_${Date.now()}`,
       tip: 'SCRIPT_ISLEM',
       baslik: defaultNodeTitle,
+      aktifMi: baseNode.aktifMi !== false,
       kaynakDosyaAdi: baseNode.kaynakDosyaAdi || 'fiyat_farki_tablosu.csv',
-      aracKodu: baseNode.aracKodu || 'erp_create_document',
+      aracKodu: baseNode.aracKodu || 'SADECE_JSON_URET',
       varlikKodu: baseNode.varlikKodu || 'BshFiyatFarki',
       scriptKodu: baseNode.scriptKodu || baseNode.prompt || DEFAULT_CSV_TO_MCP_SCRIPT,
       prompt: baseNode.prompt || '',
@@ -142,8 +194,8 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
         aiCiktisiniAktar: true,
         seciliDegiskenler: []
       },
-      kayitBekle: baseNode.kayitBekle !== false,
-      kayitSonrasiTeyitEt: baseNode.kayitSonrasiTeyitEt !== false
+      kayitBekle: baseNode.kayitBekle === true,
+      kayitSonrasiTeyitEt: false
     };
   });
 
@@ -164,8 +216,9 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
                       id: foundNode.id,
                       tip: 'SCRIPT_ISLEM',
                       baslik: defaultNodeTitle,
+                      aktifMi: foundNode.aktifMi !== false,
                       kaynakDosyaAdi: foundNode.kaynakDosyaAdi || 'fiyat_farki_tablosu.csv',
-                      aracKodu: foundNode.aracKodu || 'erp_create_document',
+                      aracKodu: foundNode.aracKodu || 'SADECE_JSON_URET',
                       varlikKodu: foundNode.varlikKodu || 'BshFiyatFarki',
                       scriptKodu: foundNode.scriptKodu || foundNode.prompt || DEFAULT_CSV_TO_MCP_SCRIPT,
                       prompt: foundNode.prompt || '',
@@ -179,8 +232,8 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
                         aiCiktisiniAktar: true,
                         seciliDegiskenler: []
                       },
-                      kayitBekle: foundNode.kayitBekle !== false,
-                      kayitSonrasiTeyitEt: foundNode.kayitSonrasiTeyitEt !== false
+                      kayitBekle: foundNode.kayitBekle === true,
+                      kayitSonrasiTeyitEt: false
                     });
                   }
                 }
@@ -214,16 +267,12 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
     return -1 as any;
   }, [backRoute, effectiveAgentId, effectiveIstekId, baseAgentRoute]);
 
-  const mcpFunctionOptions = useMemo<DropdownOption[]>(() => [
-    { id: 'erp_create_document', label: t('mcp_fn_create_document', 'erp_create_document — Yeni ERP Belgesi ve Kalemlerini Oluştur') },
-    { id: 'erp_update_document', label: t('mcp_fn_update_document', 'erp_update_document — Mevcut ERP Belgesini Güncelle') },
-    { id: 'SADECE_JSON_URET', label: t('mcp_fn_only_json', 'Sadece JSON Veri Yapısı Üret (MCP Çağrısını Sonraki Düğüme Bırak)') }
-  ], [t]);
-
   const entityCodeOptions = useMemo<DropdownOption[]>(() => [
-    { id: 'BshFiyatFarki', label: t('varlik_bsh_fiyat_farki', 'BshFiyatFarki — BSH Fiyat Farkı Belgesi') },
-    { id: 'SatisFaturasi', label: t('varlik_satis_faturasi', 'SatisFaturasi — Satış Faturası') },
-    { id: 'AlisFaturasi', label: t('varlik_alis_faturasi', 'AlisFaturasi — Alış Faturası') }
+    { id: 'BshFiyatFarki', value: 'BshFiyatFarki', label: t('varlik_bsh_fiyat_farki', 'BshFiyatFarki — BSH Fiyat Farkı Şeması') },
+    { id: 'KampanyaBelgesi', value: 'KampanyaBelgesi', label: t('varlik_kampanya_belgesi', 'KampanyaBelgesi — Kampanya Belgesi Şeması') },
+    { id: 'FiyatListesi', value: 'FiyatListesi', label: t('varlik_fiyat_listesi', 'FiyatListesi — Fiyat Listesi Şeması') },
+    { id: 'SatisFaturasi', value: 'SatisFaturasi', label: t('varlik_satis_faturasi', 'SatisFaturasi — Satış Faturası Şeması') },
+    { id: 'AlisFaturasi', value: 'AlisFaturasi', label: t('varlik_alis_faturasi', 'AlisFaturasi — Alış Faturası Şeması') }
   ], [t]);
 
   // Akıştaki HAFIZA düğümlerinden gelen dosya adlarını otomatik öner
@@ -251,13 +300,14 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
       id: merged.id || effectiveOgeId || `SCRIPT_ISLEM_${Date.now()}`,
       tip: 'SCRIPT_ISLEM',
       baslik: defaultNodeTitle,
+      aktifMi: merged.aktifMi !== false,
       kaynakDosyaAdi: (merged.kaynakDosyaAdi || 'fiyat_farki_tablosu.csv').trim(),
-      aracKodu: merged.aracKodu || 'erp_create_document',
+      aracKodu: merged.aracKodu || 'SADECE_JSON_URET',
       varlikKodu: merged.varlikKodu || 'BshFiyatFarki',
       scriptKodu: merged.scriptKodu || DEFAULT_CSV_TO_MCP_SCRIPT,
       uiAksiyonu: 'YOK',
-      kayitBekle: (merged.kayitBekle !== undefined ? merged.kayitBekle : true) !== false,
-      kayitSonrasiTeyitEt: (merged.kayitSonrasiTeyitEt !== undefined ? merged.kayitSonrasiTeyitEt : true) !== false
+      kayitBekle: Boolean(merged.kayitBekle),
+      kayitSonrasiTeyitEt: false
     };
   };
 
@@ -396,7 +446,7 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
       icon={<Code2 size={24} color="var(--accent-primary)" />}
       subtitleLeft={t(
         'script_islem_oge_aciklama',
-        'Hafıza düğümünde depolanan tablo/metin verisini JavaScript ile işleyerek MCP fonksiyonunu besleyecek JSON veri yapısını oluşturma yapılandırması'
+        'Hafıza düğümünde depolanan tablo veya metin verisini JavaScript ile dönüştürerek sağ çıkış portundan yapısal JSON veri yapısı üretme yapılandırması'
       )}
       formData={formData}
       onFormDataChange={setFormData}
@@ -406,7 +456,7 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
       onBack={handleBackOrClose}
     >
       <div className="basla-ayar-page-container">
-        {/* 1. BÖLÜM: KAYNAK HAFIZA DOSYASI VE HEDEF MCP FONKSİYONU */}
+        {/* 1. BÖLÜM: KAYNAK HAFIZA DOSYASI VE HEDEF JSON ŞEMA TÜRÜ */}
         <section className="basla-ayar-card">
           <div className="basla-ayar-card-header">
             <div className="basla-ayar-card-header-left">
@@ -415,12 +465,12 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
               </div>
               <div className="basla-ayar-header-text">
                 <h3 className="basla-ayar-card-title">
-                  {t('script_islem_ve_mcp_baslik', 'JavaScript Veri Dönüştürücü & MCP Besleme Yapılandırması')}
+                  {t('script_veri_donusturucu_baslik', 'JavaScript Veri Dönüştürücü & Çıktı Şema Hedefi')}
                 </h3>
                 <p className="basla-ayar-card-subtitle">
                   {t(
-                    'script_islem_ve_mcp_aciklama',
-                    'Hafıza düğümünde depolanan tablo/metin verisini JavaScript ile işleyerek MCP fonksiyonunun beklediği eksiksiz JSON veri yapısına dönüştürün.'
+                    'script_veri_donusturucu_aciklama',
+                    'Tek Sorumluluk İlkesi: Script İşlemi düğümü yalnızca okunan veriyi JavaScript ile temizleyip yapısal JSON olarak sağ çıkış portuna (örn: Belge Oluştur düğümüne) aktarır.'
                   )}
                 </p>
               </div>
@@ -450,26 +500,8 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
               </div>
 
               <div className="form-group">
-                <label className="basla-ayar-field-label" htmlFor="script-node-mcp-fn">
-                  {t('script_hedef_mcp_fonksiyonu', 'Beslenecek Hedef MCP Fonksiyonu')}
-                </label>
-                <BaseDropdownSecici
-                  id="script-node-mcp-fn"
-                  value={formData.aracKodu || 'erp_create_document'}
-                  options={mcpFunctionOptions}
-                  onChange={(val: string | number | (string | number)[]) =>
-                    setFormData((prev: any) => ({
-                      ...prev,
-                      aracKodu: String(val || 'erp_create_document')
-                    }))
-                  }
-                  clearable={false}
-                />
-              </div>
-
-              <div className="form-group">
                 <label className="basla-ayar-field-label" htmlFor="script-node-varlik-kodu">
-                  {t('script_hedef_varlik_kodu', 'Hedef ERP Belge Türü (varlikKodu)')}
+                  {t('script_uretilecek_json_sema_hedefi', 'Üretilecek JSON Şema Hedefi (input.varlikKodu)')}
                 </label>
                 <BaseDropdownSecici
                   id="script-node-varlik-kodu"
@@ -514,7 +546,7 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
                 <p className="basla-ayar-card-subtitle">
                   {t(
                     'script_js_kodu_ipucu',
-                    'Script içerisinde "input.content" (Hafıza dosyası içeriği), "input.fileName", "input.varlikKodu" ve "input.memory" nesnelerine doğrudan erişebilirsiniz. Dönüş değeri MCP fonksiyonuna gönderilecek JSON metni veya nesnesi olmalıdır.'
+                    'Script içerisinde "input.content" (Hafıza dosyası içeriği), "input.fileName", "input.varlikKodu" ve "input.memory" nesnelerine doğrudan erişebilirsiniz. Dönüş değeri sağ çıkış portuna iletilecek JSON metni veya nesnesi olmalıdır.'
                   )}
                 </p>
               </div>
@@ -529,11 +561,11 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
                     scriptKodu: DEFAULT_CSV_TO_MCP_SCRIPT
                   }));
                   toast.success(
-                    t('script_sablon_yuklendi', 'Varsayılan CSV → MCP JSON dönüştürücü script şablonu yüklendi.')
+                    t('script_sablon_yuklendi', 'Varsayılan CSV → Yapısal JSON dönüştürücü script şablonu yüklendi.')
                   );
                 }}
               >
-                {t('script_varsayilan_sablonu_yukle', 'CSV → MCP JSON Şablonunu Yükle')}
+                {t('script_varsayilan_sablonu_yukle', 'CSV → JSON Şablonunu Yükle')}
               </BaseButton>
             </div>
           </div>
@@ -565,108 +597,8 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
                 </span>
               </span>
               <span className="basla-ayar-char-count">
-                <Sparkles size={12} /> {formData.aracKodu || 'erp_create_document'} ({formData.varlikKodu || 'BshFiyatFarki'})
+                <Sparkles size={12} /> JSON → {formData.varlikKodu || 'BshFiyatFarki'}
               </span>
-            </div>
-          </div>
-        </section>
-
-        {/* 3. BÖLÜM: SCRIPT & MCP YÜRÜTME DAVRANIŞI */}
-        <section className="basla-ayar-card">
-          <div className="basla-ayar-card-header">
-            <div className="basla-ayar-card-header-left">
-              <div className="basla-ayar-icon-box primary">
-                <Cpu size={18} />
-              </div>
-              <div className="basla-ayar-header-text">
-                <h3 className="basla-ayar-card-title">
-                  {t('script_calistirma_davranisi_baslik', 'Script & MCP Yürütme Davranışı')}
-                </h3>
-                <p className="basla-ayar-card-subtitle">
-                  {t(
-                    'script_calistirma_davranisi_aciklama',
-                    'JavaScript tarafından üretilen JSON verisiyle MCP fonksiyonu çağrıldığında uygulanacak kayıt ve doğrulama kuralları.'
-                  )}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="basla-ayar-card-body">
-            <div className="form-ac-wizard-options-grid">
-              <div
-                className={`form-ac-wizard-option-box ${formData.kayitBekle !== false ? 'is-active' : ''}`}
-              >
-                <div className="form-ac-wizard-option-texts">
-                  <div className="form-ac-wizard-option-title">
-                    <CheckCircle2 size={16} />
-                    <span>
-                      {t(
-                        'script_mcp_kayit_bekle_label',
-                        'Üretilen JSON ile MCP Fonksiyonunu Otomatik Çağır ve Kaydı Tamamla'
-                      )}
-                    </span>
-                  </div>
-                  <p className="form-ac-wizard-option-desc">
-                    {t(
-                      'script_mcp_kayit_bekle_hint',
-                      'Aktif olduğunda script çıktısı olarak üretilen JSON doğrudan seçili MCP fonksiyonuna (örn: erp_create_document) parametre olarak verilir ve belge veritabanına kaydedilir.'
-                    )}
-                  </p>
-                </div>
-                <BaseSwitch
-                  id="script-node-kayit-bekle"
-                  checked={formData.kayitBekle !== false}
-                  onChange={(e: any) => {
-                    const checked = typeof e === 'boolean' ? e : e?.target?.checked;
-                    setFormData((prev: any) => ({ ...prev, kayitBekle: checked }));
-                  }}
-                  label={
-                    <span className="text-sm font-semibold">
-                      {formData.kayitBekle !== false
-                        ? t('aktif', 'Aktif')
-                        : t('pasif', 'Pasif')}
-                    </span>
-                  }
-                />
-              </div>
-
-              <div
-                className={`form-ac-wizard-option-box ${formData.kayitSonrasiTeyitEt !== false ? 'is-active' : ''}`}
-              >
-                <div className="form-ac-wizard-option-texts">
-                  <div className="form-ac-wizard-option-title">
-                    <Sparkles size={16} />
-                    <span>
-                      {t(
-                        'script_kayit_sonrasi_teyit_label',
-                        'MCP Kaydı Sonrası Oluşturulan Kalem Sayısını Teyit Et'
-                      )}
-                    </span>
-                  </div>
-                  <p className="form-ac-wizard-option-desc">
-                    {t(
-                      'script_kayit_sonrasi_teyit_hint',
-                      'Aktif olduğunda script içinden çıkan kalem sayısı ile veritabanına kaydedilen belge kalem sayısı karşılaştırılarak işlem özeti raporlanır.'
-                    )}
-                  </p>
-                </div>
-                <BaseSwitch
-                  id="script-node-kayit-sonrasi-teyit"
-                  checked={formData.kayitSonrasiTeyitEt !== false}
-                  onChange={(e: any) => {
-                    const checked = typeof e === 'boolean' ? e : e?.target?.checked;
-                    setFormData((prev: any) => ({ ...prev, kayitSonrasiTeyitEt: checked }));
-                  }}
-                  label={
-                    <span className="text-sm font-semibold">
-                      {formData.kayitSonrasiTeyitEt !== false
-                        ? t('aktif', 'Aktif')
-                        : t('pasif', 'Pasif')}
-                    </span>
-                  }
-                />
-              </div>
             </div>
           </div>
         </section>

@@ -5154,3 +5154,95 @@
   gap: 10px;
   flex-shrink: 0;
 }
+
+/* ─── 3 SEKMELİ N8N DÜĞÜM AYAR MİMARİSİ: GİRDİ & ÇIKTI JSON ŞEMA ARAÇ ÇUBUĞU ─── */
+
+.n8n-schema-toolbar-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  border-radius: 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--glass-border);
+  flex-wrap: wrap;
+}
+
+.n8n-schema-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.n8n-schema-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.karar-onay-branch-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .karar-onay-branch-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.karar-onay-branch-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: var(--bg-primary);
+}
+
+.karar-onay-branch-box.is-yes {
+  border-left: 3px solid #10b981;
+}
+
+.karar-onay-branch-box.is-no {
+  border-left: 3px solid #ef4444;
+}
+
+.karar-onay-branch-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.karar-onay-branch-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.karar-onay-branch-dot.is-yes {
+  background: #10b981;
+}
+
+.karar-onay-branch-dot.is-no {
+  background: #ef4444;
+}
+
+.karar-onay-branch-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}

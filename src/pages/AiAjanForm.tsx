@@ -55,6 +55,8 @@ import FormAcFlowchartOgeAyarPage from './FormAcFlowchartOgeAyarPage';
 import AiIslemFlowchartOgeAyarPage from './AiIslemFlowchartOgeAyarPage';
 import HafizaFlowchartOgeAyarPage from './HafizaFlowchartOgeAyarPage';
 import ScriptIslemFlowchartOgeAyarPage from './ScriptIslemFlowchartOgeAyarPage';
+import BelgeOlusturFlowchartOgeAyarPage from './BelgeOlusturFlowchartOgeAyarPage';
+import KararOnayFlowchartOgeAyarPage from './KararOnayFlowchartOgeAyarPage';
 import RagAracFlowchartOgeAyarPage from './RagAracFlowchartOgeAyarPage';
 import MCPSelectionList, { type McpStageOneItem } from './MCPSelectionList';
 import { buildMcpTreeData, countMcpNodeStats, type McpTreeNode } from './AiMcpYonetimi';
@@ -3330,6 +3332,26 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     if (nodeTip === 'SCRIPT_ISLEM' || idUpper.startsWith('SCRIPT_ISLEM')) {
       return (
         <ScriptIslemFlowchartOgeAyarPage
+          agentId={effectiveId || undefined}
+          istekId={resolvedIstekId}
+          nodeId={resolvedOgeId}
+          backRoute={stepBackRoute}
+        />
+      );
+    }
+    if (nodeTip === 'BELGE_OLUSTUR' || idUpper.startsWith('BELGE_OLUSTUR')) {
+      return (
+        <BelgeOlusturFlowchartOgeAyarPage
+          agentId={effectiveId || undefined}
+          istekId={resolvedIstekId}
+          nodeId={resolvedOgeId}
+          backRoute={stepBackRoute}
+        />
+      );
+    }
+    if (nodeTip === 'KARAR_ONAY' || idUpper.startsWith('KARAR_ONAY')) {
+      return (
+        <KararOnayFlowchartOgeAyarPage
           agentId={effectiveId || undefined}
           istekId={resolvedIstekId}
           nodeId={resolvedOgeId}

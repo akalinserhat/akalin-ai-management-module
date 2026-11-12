@@ -268,11 +268,9 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
       id: formData.id || effectiveOgeId || `adim_${Date.now()}`,
       tip: 'FORM_AC',
       baslik: defaultFormTitle,
+      aktifMi: (overrideData?.aktifMi !== undefined ? overrideData.aktifMi : formData.aktifMi) !== false,
       kayitBekle: (overrideData?.kayitBekle !== undefined ? overrideData.kayitBekle : formData.kayitBekle) !== false,
-      kayitSonrasiTeyitEt:
-        (overrideData?.kayitSonrasiTeyitEt !== undefined
-          ? overrideData.kayitSonrasiTeyitEt
-          : formData.kayitSonrasiTeyitEt) !== false
+      kayitSonrasiTeyitEt: false
     };
     return merged;
   };
@@ -771,7 +769,7 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
           </div>
         </section>
 
-        {/* 3. BÖLÜM: SİHİRBAZ KAYIT TAKİBİ VE KULLANICI TEYİDİ (WIZARD HANDSHAKE) */}
+        {/* 3. BÖLÜM: SAYFA KAYIT VE DOSYA ÇIKTISI AKTARIMI (SINGLE-RESPONSIBILITY) */}
         <section className="basla-ayar-card">
           <div className="basla-ayar-card-header">
             <div className="basla-ayar-card-header-left">
@@ -781,14 +779,14 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
               <div className="basla-ayar-header-text">
                 <h3 className="basla-ayar-card-title">
                   {t(
-                    'sihirbaz_kayit_takibi_ve_teyit',
-                    'Sihirbaz Kayıt Takibi ve Kullanıcı Teyidi'
+                    'form_ac_kayit_bekleme_ve_cikti_aktarimi',
+                    'Kayıt Bekleme ve Sağ Çıkış Portuna Veri Aktarımı'
                   )}
                 </h3>
                 <p className="basla-ayar-card-subtitle">
                   {t(
-                    'sihirbaz_kayit_takibi_aciklama',
-                    'Açılan sayfanın kaydedilip kaydedilmediğini, hangi bilgilerle kaydedildiğini yakalayın ve sonraki adıma geçmeden önce kullanıcıya teyit ettirin.'
+                    'form_ac_kayit_bekleme_aciklama',
+                    'Tek Sorumluluk İlkesi: Açılan sayfanın kaydedilmesini bekleyip kaydedilen verileri veya yüklenen dosyaları doğrudan sağ çıkış portuna iletir.'
                   )}
                 </p>
               </div>
@@ -797,7 +795,6 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
 
           <div className="basla-ayar-card-body">
             <div className="form-ac-wizard-options-grid">
-              {/* Seçenek 1: Kayıt Bekle ve Kaydedilen Bilgileri Al */}
               <div
                 className={`form-ac-wizard-option-box ${formData.kayitBekle !== false ? 'is-active' : ''
                   }`}
@@ -808,14 +805,14 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
                     <span>
                       {t(
                         'kayit_bekle_ve_bilgileri_al',
-                        'Sayfanın Kaydedilmesini Bekle ve Kaydedilen Bilgileri Al'
+                        'Sayfanın Kaydedilmesini Bekle ve Kaydedilen Bilgileri Sağ Çıkışa Aktar'
                       )}
                     </span>
                   </div>
                   <p className="form-ac-wizard-option-desc">
                     {t(
                       'kayit_bekle_ve_bilgileri_al_aciklama',
-                      'Kullanıcı açılan kartı veya belgeyi doldurup kaydettiğinde, kaydedilip kaydedilmediği bilgisi ve kaydedilen tüm alan verileri otomatik olarak AI sohbetine iletilir.'
+                      'Kullanıcı açılan kartı, belgeyi veya dosya aktarım ekranını kaydettiğinde, kaydedilen tüm alan ve dosya verileri otomatik olarak sağ çıkış portundaki sonraki düğüme iletilir.'
                     )}
                   </p>
                 </div>
@@ -824,53 +821,15 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
                   checked={formData.kayitBekle !== false}
                   onChange={(e: any) => {
                     const checked = typeof e === 'boolean' ? e : e?.target?.checked;
-                    setFormData((prev: any) => ({ ...prev, kayitBekle: checked }));
-                  }}
-                  label={
-                    <span className="text-sm font-semibold">
-                      {formData.kayitBekle !== false
-                        ? t('aktif', 'Aktif')
-                        : t('pasif', 'Pasif')}
-                    </span>
-                  }
-                />
-              </div>
-
-              {/* Seçenek 2: Kayıt Sonrası Bilgileri Sun ve Teyit Et */}
-              <div
-                className={`form-ac-wizard-option-box ${formData.kayitSonrasiTeyitEt !== false ? 'is-active' : ''
-                  }`}
-              >
-                <div className="form-ac-wizard-option-texts">
-                  <div className="form-ac-wizard-option-title">
-                    <Sparkles size={16} />
-                    <span>
-                      {t(
-                        'kayit_sonrasi_kullaniciya_teyit_ettir',
-                        'Kaydedilen Bilgileri Kullanıcıya Sunup Teyit Ettikten Sonra İlerle'
-                      )}
-                    </span>
-                  </div>
-                  <p className="form-ac-wizard-option-desc">
-                    {t(
-                      'kayit_sonrasi_kullaniciya_teyit_ettir_aciklama',
-                      'Kart veya belge kaydedildikten sonra yapay zeka kaydedilen verileri sohbet ekranında kullanıcıya özetler, teyit alır ve ardından akıştaki bir sonraki düğüme geçer.'
-                    )}
-                  </p>
-                </div>
-                <BaseSwitch
-                  id="formAcKayitSonrasiTeyitSwitch"
-                  checked={formData.kayitSonrasiTeyitEt !== false}
-                  onChange={(e: any) => {
-                    const checked = typeof e === 'boolean' ? e : e?.target?.checked;
                     setFormData((prev: any) => ({
                       ...prev,
-                      kayitSonrasiTeyitEt: checked
+                      kayitBekle: checked,
+                      kayitSonrasiTeyitEt: false
                     }));
                   }}
                   label={
                     <span className="text-sm font-semibold">
-                      {formData.kayitSonrasiTeyitEt !== false
+                      {formData.kayitBekle !== false
                         ? t('aktif', 'Aktif')
                         : t('pasif', 'Pasif')}
                     </span>

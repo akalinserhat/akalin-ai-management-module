@@ -173,9 +173,10 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
       id: formData.id || effectiveOgeId || `adim_${Date.now()}`,
       tip: 'AI_ISLEM',
       baslik: defaultNodeTitle,
+      aktifMi: (overrideData?.aktifMi !== undefined ? overrideData.aktifMi : formData.aktifMi) !== false,
       uiAksiyonu: 'YOK',
       bagliAraclar: Array.isArray(rawTools) ? rawTools : [],
-      kayitBekle: (overrideData?.kayitBekle !== undefined ? overrideData.kayitBekle : formData.kayitBekle) !== false,
+      kayitBekle: false,
       kayitSonrasiTeyitEt:
         (overrideData?.kayitSonrasiTeyitEt !== undefined
           ? overrideData.kayitSonrasiTeyitEt
@@ -693,7 +694,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
           </div>
         </section>
 
-        {/* 2. BÖLÜM: İŞLEM SONRASI DAVRANIŞ VE KULLANICI TEYİDİ */}
+        {/* 3. BÖLÜM: SOHBET ÇIKTISI GÖRÜNÜRLÜĞÜ (SAF LLM ANALİZ / SENTEZ) */}
         <section className="basla-ayar-card">
           <div className="basla-ayar-card-header">
             <div className="basla-ayar-card-header-left">
@@ -703,14 +704,14 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
               <div className="basla-ayar-header-text">
                 <h3 className="basla-ayar-card-title">
                   {t(
-                    'ai_islem_sonrasi_davranis_ve_teyit',
-                    'İşlem Sonrası Davranış ve Kullanıcı Teyidi'
+                    'ai_islem_cikti_gorunurlugu_baslik',
+                    'Analiz Çıktısı ve Sohbet Ekranı Görünürlüğü'
                   )}
                 </h3>
                 <p className="basla-ayar-card-subtitle">
                   {t(
-                    'ai_islem_sonrasi_davranis_aciklama',
-                    'Yapay zeka işlemi tamamladığında oluşturulan/güncellenen belgenin takibini ve kullanıcı teyidini yapılandırın.'
+                    'ai_islem_cikti_gorunurlugu_aciklama',
+                    'Tek Sorumluluk İlkesi: AI İşlemi yalnızca LLM muhakemesi ve bağlı alt araç (RAG) sorgusu yürütür; üretilen yanıtı sağ çıkış portuna iletir.'
                   )}
                 </p>
               </div>
@@ -720,43 +721,6 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
           <div className="basla-ayar-card-body">
             <div className="form-ac-wizard-options-grid">
               <div
-                className={`form-ac-wizard-option-box ${formData.kayitBekle !== false ? 'is-active' : ''}`}
-              >
-                <div className="form-ac-wizard-option-texts">
-                  <div className="form-ac-wizard-option-title">
-                    <CheckCircle2 size={16} />
-                    <span>
-                      {t(
-                        'ai_islem_sonucu_forma_aktar_ve_izle',
-                        'Oluşturulan Belge / Kart Taslağını Hazırla ve Takip Et'
-                      )}
-                    </span>
-                  </div>
-                  <p className="form-ac-wizard-option-desc">
-                    {t(
-                      'ai_islem_sonucu_forma_aktar_ve_izle_aciklama',
-                      'Yapay zeka seçili MCP varlığı üzerinden belge veya kart oluşturduğunda ilgili ekran aksiyonunu sohbet ekranında hazırlar.'
-                    )}
-                  </p>
-                </div>
-                <BaseSwitch
-                  id="aiIslemKayitBekleSwitch"
-                  checked={formData.kayitBekle !== false}
-                  onChange={(e: any) => {
-                    const checked = typeof e === 'boolean' ? e : e?.target?.checked;
-                    setFormData((prev: any) => ({ ...prev, kayitBekle: checked }));
-                  }}
-                  label={
-                    <span className="text-sm font-semibold">
-                      {formData.kayitBekle !== false
-                        ? t('aktif', 'Aktif')
-                        : t('pasif', 'Pasif')}
-                    </span>
-                  }
-                />
-              </div>
-
-              <div
                 className={`form-ac-wizard-option-box ${formData.kayitSonrasiTeyitEt !== false ? 'is-active' : ''}`}
               >
                 <div className="form-ac-wizard-option-texts">
@@ -764,15 +728,15 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
                     <Sparkles size={16} />
                     <span>
                       {t(
-                        'ai_islem_sonrasi_ozet_ve_teyit',
-                        'İşlem Sonucunu Özetleyerek Kullanıcıya Sun'
+                        'ai_islem_analiz_ciktisini_sohbette_goster',
+                        'Analiz Çıktısını Sohbet Ekranında Göster'
                       )}
                     </span>
                   </div>
                   <p className="form-ac-wizard-option-desc">
                     {t(
-                      'ai_islem_sonrasi_ozet_ve_teyit_aciklama',
-                      'Yapay zeka analiz veya belge oluşturma işlemini tamamladığında çıkarılan kuralları ve kalemleri sohbet ekranında kullanıcıya özetler.'
+                      'ai_islem_analiz_ciktisini_sohbette_goster_aciklama',
+                      'Aktif olduğunda LLM modelinin ürettiği analiz/sentez metni kullanıcı sohbetinde de gösterilir; pasif olduğunda yalnızca sağ çıkış portundaki sonraki düğüme (örn: Hafıza) aktarılır.'
                     )}
                   </p>
                 </div>
@@ -783,6 +747,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
                     const checked = typeof e === 'boolean' ? e : e?.target?.checked;
                     setFormData((prev: any) => ({
                       ...prev,
+                      kayitBekle: false,
                       kayitSonrasiTeyitEt: checked
                     }));
                   }}

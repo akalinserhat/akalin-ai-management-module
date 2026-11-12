@@ -193,6 +193,10 @@ export interface AiBagliAracDugumu {
   aktifMi: boolean;
   /** Opsiyonel: AI İşlemi düğümünün bu aracı nasıl kullanacağına dair ek bağlam notu */
   aciklama?: string;
+  /** 2B serbest tuval X koordinatı */
+  pozisyonX?: number;
+  /** 2B serbest tuval Y koordinatı */
+  pozisyonY?: number;
   /** RAG Sorgu Aracı yapılandırma parametreleri */
   ragAyarlari?: AiRagAracAyarlari;
 }
@@ -299,6 +303,14 @@ export interface AiAkisDugumu {
   kaynakDosyaAdi?: string;
   /** Script İşlemi (SCRIPT_ISLEM) düğümünde çalıştırılacak JavaScript kodu */
   scriptKodu?: string;
+  /** Düğüm aktif mi? (Varsayılan: true) */
+  aktifMi?: boolean;
+  /** 2B serbest tuval X koordinatı */
+  pozisyonX?: number;
+  /** 2B serbest tuval Y koordinatı */
+  pozisyonY?: number;
+  /** Belge Oluştur (BELGE_OLUSTUR) düğümünde belgenin taslak olarak mı hazırlanacağı (Varsayılan: true) */
+  taslakOlarakOlustur?: boolean;
   /** AI İşlemi (AI_ISLEM) düğümüne bağlanan alt araç düğümleri (örn: RAG Sorgu Aracı) */
   bagliAraclar?: AiBagliAracDugumu[];
   /** Kendisinden önce gelen düğümden bilgi, form verisi ve belge alma yapılandırması (n8n Input Binding) */

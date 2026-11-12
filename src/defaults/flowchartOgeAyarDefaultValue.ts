@@ -9,7 +9,7 @@
 
 import type { AiOncekiDugumGirdiAyarlari } from '../types';
 
-export type FlowchartOgeAyarTabId = 'onceki_dugum' | 'ayarlar' | (string & {});
+export type FlowchartOgeAyarTabId = 'onceki_dugum' | 'ayarlar' | 'cikti_semasi' | (string & {});
 
 /**
  * BaseAiAjanFlowchartOgeAyarPage'den türeyen sayfalar ilk açıldığında odaklanılacak varsayılan sekme kimliği.

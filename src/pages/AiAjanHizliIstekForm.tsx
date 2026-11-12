@@ -26,6 +26,7 @@ import {
   Cpu,
   Database,
   Code2,
+  FileText,
   Search
 } from 'lucide-react';
 import {
@@ -37,13 +38,17 @@ import {
   type BaseTabItem,
   type FlowchartStepItem,
   type FlowchartPaletteItem,
-  type FlowchartAttachedToolItem
+  type FlowchartAttachedToolItem,
+  type FlowchartPoint,
+  type FlowchartConnectionBranch
 } from '@akalin/ui';
 import type { AiAkisDugumu, AiBagliAracDugumu } from '../types';
 import {
   createDefaultRagAracDugumu,
   buildRagAracSummaryText
 } from '../defaults/ragAracFlowchartDefaultValue';
+import { createDefaultBelgeOlusturDugumu } from '../defaults/belgeOlusturFlowchartDefaultValue';
+import { createDefaultKararOnayDugumu } from '../defaults/kararOnayFlowchartDefaultValue';
 import {
   UI_ACTION_OPTIONS,
   FLOWCHART_NODE_TYPES
@@ -171,7 +176,24 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     return null;
   }, [initialItem, location.state?.hizliIstekItem, agentData, effectiveAgentId, effectiveIstekId]);
 
-  // Akış düğümlerini normalize et: Başta her zaman tek bir BASLA düğümü bulunmasını ve sıralı bağlantıları garanti et
+  const snapCoord = (val: number): number => Math.max(24, Math.round(val / 16) * 16);
+
+  const getImmutableNodeTitle = useCallback(
+    (tip?: string, fallback?: string): string => {
+      const upper = (tip || '').toUpperCase();
+      if (upper === 'BASLA' || upper === 'START') return t('basla', 'Başla');
+      if (upper === 'FORM_AC' || upper === 'EKRAN_AC') return t('form_ac', 'Form Aç');
+      if (upper === 'AI_ISLEM') return t('ai_islem', 'AI İşlemi');
+      if (upper === 'HAFIZA') return t('hafiza', 'Hafıza');
+      if (upper === 'SCRIPT_ISLEM') return t('script_islem', 'Script İşlemi');
+      if (upper === 'BELGE_OLUSTUR') return t('belge_olustur', 'Belge Oluştur');
+      if (upper === 'KARAR_ONAY') return t('karar_onay', 'Karar / Onay');
+      return fallback || upper || t('islem_adimi', 'İşlem Adımı');
+    },
+    [t]
+  );
+
+  // Akış düğümlerini normalize et: Başta tek bir BASLA düğümü bulunmasını, sabit başlıkları ve yönlü graf bağlantılarını koru
   const normalizeFlowNodes = (
     rawNodes: any[] | undefined,
     fallbackItem?: any
@@ -188,24 +210,32 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     const otherNodes: AiAkisDugumu[] = [];
 
     if (existingBaslaIdx !== -1) {
+      const rawBasla = cloned[existingBaslaIdx];
       baslaNode = {
-        ...cloned[existingBaslaIdx],
+        ...rawBasla,
         id: 'BASLA',
         tip: 'BASLA',
         baslik: t('basla', 'Başla'),
-        prompt: cloned[existingBaslaIdx].prompt || fallbackItem?.prompt || '',
+        aktifMi: true,
+        prompt: rawBasla.prompt || fallbackItem?.prompt || '',
+        pozisyonX: typeof rawBasla.pozisyonX === 'number' ? rawBasla.pozisyonX : 64,
+        pozisyonY: typeof rawBasla.pozisyonY === 'number' ? rawBasla.pozisyonY : 160,
         hizliErisimDugmesi:
-          cloned[existingBaslaIdx].hizliErisimDugmesi !== undefined
-            ? cloned[existingBaslaIdx].hizliErisimDugmesi
+          rawBasla.hizliErisimDugmesi !== undefined
+            ? rawBasla.hizliErisimDugmesi
             : fallbackItem?.hizliErisimDugmesi !== false,
         dugmeBasligi:
-          cloned[existingBaslaIdx].dugmeBasligi !== undefined
-            ? cloned[existingBaslaIdx].dugmeBasligi
+          rawBasla.dugmeBasligi !== undefined
+            ? rawBasla.dugmeBasligi
             : fallbackItem?.dugmeBasligi || ''
       };
       cloned.forEach((n, idx) => {
         if (idx !== existingBaslaIdx && n && n.id !== 'BASLA' && n.tip !== 'BASLA') {
-          otherNodes.push(n);
+          otherNodes.push({
+            ...n,
+            baslik: getImmutableNodeTitle(n.tip, n.baslik),
+            aktifMi: n.aktifMi !== false
+          });
         }
       });
     } else {
@@ -213,27 +243,65 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         id: 'BASLA',
         tip: 'BASLA',
         baslik: t('basla', 'Başla'),
+        aktifMi: true,
         prompt: fallbackItem?.prompt || '',
         aracKodu: '',
         uiAksiyonu: fallbackItem?.uiAksiyonu || 'YOK',
         hedefRota: '',
         sonrakiDugumId: '',
+        pozisyonX: 64,
+        pozisyonY: 160,
         hizliErisimDugmesi: fallbackItem?.hizliErisimDugmesi !== false,
         dugmeBasligi: fallbackItem?.dugmeBasligi || ''
       };
       cloned.forEach((n) => {
-        if (n) otherNodes.push(n);
+        if (n) {
+          otherNodes.push({
+            ...n,
+            baslik: getImmutableNodeTitle(n.tip, n.baslik),
+            aktifMi: n.aktifMi !== false
+          });
+        }
       });
     }
 
     const result = [baslaNode, ...otherNodes];
-    for (let i = 0; i < result.length; i++) {
-      const curr = result[i];
-      const next = result[i + 1];
-      if (curr.tip !== 'KARAR_ONAY') {
-        curr.sonrakiDugumId = next ? next.id : '';
+    const validIds = new Set(result.map((n) => n.id));
+
+    // Yalnızca henüz hiçbir bağlantısı ve 2B koordinatı olmayan eski (legacy) doğrusal akışları ilk yüklemede otomatik zincirle
+    const hasAnyExplicitEdge = cloned.some((n) =>
+      Boolean(n?.sonrakiDugumId || n?.evetDugumId || n?.hayirDugumId)
+    );
+    const hasAnySavedNonStartCoord = otherNodes.some(
+      (n) => typeof n.pozisyonX === 'number' && typeof n.pozisyonY === 'number'
+    );
+
+    if (!hasAnyExplicitEdge && !hasAnySavedNonStartCoord && result.length > 1) {
+      for (let i = 0; i < result.length; i++) {
+        const curr = result[i];
+        const next = result[i + 1];
+        if ((curr.tip || '').toUpperCase() === 'KARAR_ONAY') {
+          curr.evetDugumId = next ? next.id : '';
+          curr.sonrakiDugumId = '';
+        } else {
+          curr.sonrakiDugumId = next ? next.id : '';
+        }
       }
+    } else {
+      // Silinmiş düğümlere işaret eden kopuk referansları temizle
+      result.forEach((curr) => {
+        if (curr.sonrakiDugumId && !validIds.has(curr.sonrakiDugumId)) {
+          curr.sonrakiDugumId = '';
+        }
+        if (curr.evetDugumId && !validIds.has(curr.evetDugumId)) {
+          curr.evetDugumId = '';
+        }
+        if (curr.hayirDugumId && !validIds.has(curr.hayirDugumId)) {
+          curr.hayirDugumId = '';
+        }
+      });
     }
+
     return result;
   };
 
@@ -361,53 +429,103 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     }
   }, [location.state?.hizliIstekItem, t]);
 
-  // @akalin/ui BaseFlowchart için düğüm listesini dönüştür
+  // @akalin/ui BaseFlowchart (2B serbest tuval) için düğüm listesini dönüştür
   const flowchartSteps = useMemo<FlowchartStepItem[]>(() => {
     return (formState.akisDugumleri || []).map((node) => {
-      const typeInfo = FLOWCHART_NODE_TYPES.find(nt => nt.id === node.tip);
-      const uiOpt = UI_ACTION_OPTIONS.find(o => o.id === node.uiAksiyonu || o.value === node.uiAksiyonu);
-      const isFormAc = node.tip === 'FORM_AC' || node.tip === 'EKRAN_AC';
-      const isAiIslem = node.tip === 'AI_ISLEM';
-      const isHafiza = node.tip === 'HAFIZA';
-      const isScriptIslem = node.tip === 'SCRIPT_ISLEM';
+      const upperTip = (node.tip || '').toUpperCase();
+      const typeInfo = FLOWCHART_NODE_TYPES.find((nt) => nt.id === upperTip);
+      const uiOpt = UI_ACTION_OPTIONS.find(
+        (o) => o.id === node.uiAksiyonu || o.value === node.uiAksiyonu
+      );
+      const isBasla = upperTip === 'BASLA' || node.id === 'BASLA';
+      const isFormAc = upperTip === 'FORM_AC' || upperTip === 'EKRAN_AC';
+      const isAiIslem = upperTip === 'AI_ISLEM';
+      const isHafiza = upperTip === 'HAFIZA';
+      const isScriptIslem = upperTip === 'SCRIPT_ISLEM';
+      const isBelgeOlustur = upperTip === 'BELGE_OLUSTUR';
+      const isKararOnay = upperTip === 'KARAR_ONAY';
+
       const hafizaFileLabel = isHafiza
-        ? `${(node.dosyaAdi || 'fiyat_farki_tablosu').replace(/\.(csv|json|txt|md|xml)$/i, '')}.${(node.dosyaUzantisi || 'csv').replace(/^\./, '')}`
+        ? `${(node.dosyaAdi || 'fiyat_farki_tablosu').replace(/\.(csv|json|txt|md|xml)$/i, '')}.${(
+            node.dosyaUzantisi || 'csv'
+          ).replace(/^\./, '')}`
         : undefined;
       const scriptTargetLabel = isScriptIslem
-        ? `${node.kaynakDosyaAdi || 'fiyat_farki_tablosu.csv'} → ${node.aracKodu || 'erp_create_document'}`
+        ? `${node.kaynakDosyaAdi || 'fiyat_farki_tablosu.csv'} → JSON (${node.varlikKodu || 'BshFiyatFarki'})`
         : undefined;
+      const belgeTargetLabel = isBelgeOlustur
+        ? `${node.varlikAdi || node.varlikKodu || t('belge_secilmedi', 'Belge Seçilmedi')} • ${
+            node.taslakOlarakOlustur !== false ? t('taslak', 'Taslak') : t('kesin_kayit', 'Kesin Kayıt')
+          }`
+        : undefined;
+      const kararTargetLabel = isKararOnay
+        ? (node.kullaniciMesaji || node.prompt || '').trim().slice(0, 72) || undefined
+        : undefined;
+
       const resolvedUiActionLabel = isHafiza
         ? hafizaFileLabel
         : isScriptIslem
           ? scriptTargetLabel
-          : node.varlikAdi
-            ? `${node.varlikAdi}${node.modulAdi ? ` • ${node.modulAdi}` : ''}`
-            : (node.uiAksiyonu && node.uiAksiyonu !== 'YOK' ? (uiOpt ? t(uiOpt.badge) : node.uiAksiyonu) : undefined);
+          : isBelgeOlustur
+            ? belgeTargetLabel
+            : isKararOnay
+              ? kararTargetLabel
+              : node.varlikAdi
+                ? `${node.varlikAdi}${node.modulAdi ? ` • ${node.modulAdi}` : ''}`
+                : node.uiAksiyonu && node.uiAksiyonu !== 'YOK'
+                  ? uiOpt
+                    ? t(uiOpt.badge)
+                    : node.uiAksiyonu
+                  : undefined;
+
+      const resolvedWarningText =
+        isFormAc && !node.varlikKodu && !node.mcpVarlikId && !node.hedefRota
+          ? t('uyari_acilacak_ekran_secilmedi', 'Açılacak ekran seçilmedi')
+          : isAiIslem && !(node.prompt || '').trim()
+            ? t('uyari_ai_prompt_girilmedi', 'İşlem promptu girilmedi')
+            : isBelgeOlustur && !node.varlikKodu && !node.mcpVarlikId
+              ? t('uyari_belge_turu_secilmedi', 'Hedef belge seçilmedi')
+              : isKararOnay && !(node.kullaniciMesaji || node.prompt || '').trim()
+                ? t('uyari_onay_mesaji_girilmedi', 'Onay mesajı girilmedi')
+                : undefined;
+
+      const immutableTitle = getImmutableNodeTitle(upperTip, node.baslik);
 
       return {
         id: node.id,
-        type: node.tip,
-        title: isAiIslem
-          ? t('ai_islem', 'AI İşlemi')
-          : isHafiza
-            ? t('hafiza', 'Hafıza')
-            : isScriptIslem
-              ? t('script_islem', 'Script İşlemi')
-              : node.baslik,
-        shapeBadgeText: isFormAc
-          ? t('form_ac', 'Form Aç')
-          : isAiIslem
-            ? t('ai_islem', 'AI İşlemi')
-            : isHafiza
-              ? t('hafiza', 'Hafıza')
-              : isScriptIslem
-                ? t('script_islem', 'Script İşlemi')
-                : (typeInfo ? t(typeInfo.shortLabel) : node.tip),
+        type: upperTip,
+        title: immutableTitle,
+        shapeBadgeText: isBasla
+          ? t('tetikleyici', 'Tetikleyici')
+          : isFormAc
+            ? t('ekran_girdi', 'Ekran / Girdi')
+            : isAiIslem
+              ? t('llm_islem', 'LLM İşlem')
+              : isHafiza
+                ? t('dosya_hafiza', 'Dosya Hafıza')
+                : isScriptIslem
+                  ? t('js_donusturucu', 'JS Dönüştürücü')
+                  : isBelgeOlustur
+                    ? t('mcp_belge', 'MCP Belge')
+                    : isKararOnay
+                      ? t('dallanma', 'Dallanma')
+                      : typeInfo
+                        ? t(typeInfo.shortLabel)
+                        : upperTip,
+        summaryText:
+          resolvedUiActionLabel ||
+          (isBasla
+            ? (node.dugmeBasligi || node.prompt || t('gorev_akisi_baslangici', 'Görev Akışı Başlangıcı'))
+                .trim()
+                .slice(0, 72)
+            : (node.prompt || node.kullaniciMesaji || '').trim().slice(0, 72) || undefined),
+        warningText: resolvedWarningText,
+        inactive: node.aktifMi === false,
         prompt: isHafiza
           ? hafizaFileLabel
           : isScriptIslem
-            ? (node.scriptKodu || node.prompt)
-            : (node.prompt || node.kullaniciMesaji),
+            ? node.scriptKodu || node.prompt
+            : node.prompt || node.kullaniciMesaji,
         toolCode: node.aracKodu,
         uiAction: node.uiAksiyonu,
         uiActionLabel: resolvedUiActionLabel,
@@ -415,24 +533,35 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         nextStepId: node.sonrakiDugumId,
         yesStepId: node.evetDugumId,
         noStepId: node.hayirDugumId,
+        position:
+          typeof node.pozisyonX === 'number' && typeof node.pozisyonY === 'number'
+            ? { x: node.pozisyonX, y: node.pozisyonY }
+            : undefined,
         supportsTools: isAiIslem,
         attachedTools:
           isAiIslem && Array.isArray(node.bagliAraclar)
-            ? node.bagliAraclar.map((toolItem: AiBagliAracDugumu): FlowchartAttachedToolItem => ({
-                id: toolItem.id,
-                type: toolItem.tip || 'RAG_ARAC',
-                title: t('rag_sorgu_araci', 'RAG Sorgu Aracı'),
-                summary: buildRagAracSummaryText(toolItem, t),
-                toolCode: toolItem.aracKodu || 'erp_rag_search',
-                icon: <Search size={13} />
-              }))
+            ? node.bagliAraclar.map(
+                (toolItem: AiBagliAracDugumu): FlowchartAttachedToolItem => ({
+                  id: toolItem.id,
+                  type: toolItem.tip || 'RAG_ARAC',
+                  title: t('rag_sorgu_araci', 'RAG Sorgu Aracı'),
+                  summary: buildRagAracSummaryText(toolItem, t),
+                  toolCode: toolItem.aracKodu || 'erp_rag_search',
+                  active: toolItem.aktifMi !== false,
+                  position:
+                    typeof toolItem.pozisyonX === 'number' && typeof toolItem.pozisyonY === 'number'
+                      ? { x: toolItem.pozisyonX, y: toolItem.pozisyonY }
+                      : undefined,
+                  icon: <Search size={13} />
+                })
+              )
             : undefined
       };
     });
-  }, [formState.akisDugumleri, t]);
+  }, [formState.akisDugumleri, getImmutableNodeTitle, t]);
 
   const handleAttachToolToStep = useCallback(
-    (parentStepId: string, _toolType: string = 'RAG_ARAC') => {
+    (parentStepId: string, _toolType: string = 'RAG_ARAC', customPos?: FlowchartPoint) => {
       let createdOrExistingId = '';
       let alreadyExisted = false;
 
@@ -453,10 +582,25 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
           return prev;
         }
 
-        const newTool = createDefaultRagAracDugumu({
-          parentNodeId: parentStepId,
-          title: t('rag_sorgu_araci', 'RAG Sorgu Aracı')
-        });
+        const defaultToolX =
+          customPos?.x ??
+          (typeof parentNode.pozisyonX === 'number'
+            ? snapCoord(parentNode.pozisyonX + 24 + currentTools.length * 240)
+            : undefined);
+        const defaultToolY =
+          customPos?.y ??
+          (typeof parentNode.pozisyonY === 'number'
+            ? snapCoord(parentNode.pozisyonY + 176)
+            : undefined);
+
+        const newTool: AiBagliAracDugumu = {
+          ...createDefaultRagAracDugumu({
+            parentNodeId: parentStepId,
+            title: t('rag_sorgu_araci', 'RAG Sorgu Aracı')
+          }),
+          pozisyonX: defaultToolX,
+          pozisyonY: defaultToolY
+        };
         createdOrExistingId = newTool.id;
         existing[parentIdx] = {
           ...parentNode,
@@ -509,29 +653,130 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     [selectedToolId]
   );
 
-  const handleAddFlowNode = (nodeType: string = 'FORM_AC', insertAtIndex?: number) => {
+  const handleNodePositionChange = useCallback((stepId: string, pos: FlowchartPoint) => {
+    setFormState((prev) => ({
+      ...prev,
+      akisDugumleri: (prev.akisDugumleri || []).map((n) =>
+        n.id === stepId ? { ...n, pozisyonX: pos.x, pozisyonY: pos.y } : n
+      )
+    }));
+  }, []);
+
+  const handleToolPositionChange = useCallback(
+    (parentStepId: string, toolId: string, pos: FlowchartPoint) => {
+      setFormState((prev) => ({
+        ...prev,
+        akisDugumleri: (prev.akisDugumleri || []).map((n) => {
+          if (n.id !== parentStepId || !Array.isArray(n.bagliAraclar)) return n;
+          return {
+            ...n,
+            bagliAraclar: n.bagliAraclar.map((toolItem) =>
+              toolItem.id === toolId
+                ? { ...toolItem, pozisyonX: pos.x, pozisyonY: pos.y }
+                : toolItem
+            )
+          };
+        })
+      }));
+    },
+    []
+  );
+
+  const handleAutoLayout = useCallback(
+    (
+      nodePositions: Record<string, FlowchartPoint>,
+      toolPositions: Record<string, FlowchartPoint>
+    ) => {
+      setFormState((prev) => ({
+        ...prev,
+        akisDugumleri: (prev.akisDugumleri || []).map((n) => {
+          const nextPos = nodePositions[n.id];
+          const updatedTools = Array.isArray(n.bagliAraclar)
+            ? n.bagliAraclar.map((toolItem) => {
+                const tPos = toolPositions[`${n.id}::${toolItem.id}`] || toolPositions[toolItem.id];
+                return tPos
+                  ? { ...toolItem, pozisyonX: tPos.x, pozisyonY: tPos.y }
+                  : toolItem;
+              })
+            : n.bagliAraclar;
+          return {
+            ...n,
+            pozisyonX: nextPos ? nextPos.x : n.pozisyonX,
+            pozisyonY: nextPos ? nextPos.y : n.pozisyonY,
+            bagliAraclar: updatedTools
+          };
+        })
+      }));
+      toast.success(t('otomatik_yerlesim_uygulandi', 'Düğümler akış yönüne göre otomatik hizalandı.'));
+    },
+    [t]
+  );
+
+  const handleConnectSteps = useCallback(
+    (sourceId: string, targetId: string, branch: FlowchartConnectionBranch) => {
+      if (!sourceId || !targetId || sourceId === targetId) return;
+      if (targetId === 'BASLA' || targetId === START_NODE_ID) return;
+
+      setFormState((prev) => ({
+        ...prev,
+        akisDugumleri: (prev.akisDugumleri || []).map((n) => {
+          if (n.id !== sourceId) return n;
+          if (branch === 'yes') {
+            return { ...n, evetDugumId: targetId };
+          }
+          if (branch === 'no') {
+            return { ...n, hayirDugumId: targetId };
+          }
+          return { ...n, sonrakiDugumId: targetId };
+        })
+      }));
+    },
+    []
+  );
+
+  const handleDisconnectSteps = useCallback(
+    (sourceId: string, branch: FlowchartConnectionBranch) => {
+      setFormState((prev) => ({
+        ...prev,
+        akisDugumleri: (prev.akisDugumleri || []).map((n, idx) => {
+          const ensuredX = typeof n.pozisyonX === 'number' ? n.pozisyonX : 64 + idx * 352;
+          const ensuredY = typeof n.pozisyonY === 'number' ? n.pozisyonY : 160;
+          if (n.id !== sourceId) {
+            return { ...n, pozisyonX: ensuredX, pozisyonY: ensuredY };
+          }
+          if (branch === 'yes') {
+            return { ...n, pozisyonX: ensuredX, pozisyonY: ensuredY, evetDugumId: '' };
+          }
+          if (branch === 'no') {
+            return { ...n, pozisyonX: ensuredX, pozisyonY: ensuredY, hayirDugumId: '' };
+          }
+          return { ...n, pozisyonX: ensuredX, pozisyonY: ensuredY, sonrakiDugumId: '' };
+        })
+      }));
+    },
+    []
+  );
+
+  const handleAddFlowNode = (
+    nodeType: string = 'FORM_AC',
+    insertAtIndex?: number,
+    position?: FlowchartPoint,
+    connectFrom?: { sourceId: string; branch: FlowchartConnectionBranch; previousTargetId?: string }
+  ) => {
     // RAG_ARAC bir ana akış adımı değil, "AI İşlemi" (AI_ISLEM) düğümüne bağlanan araç alt düğümüdür
     if (nodeType === 'RAG_ARAC') {
       const existingNodes = formStateRef.current?.akisDugumleri || formState.akisDugumleri || [];
       const selectedNode = existingNodes.find((n) => n.id === selectedFlowNodeId);
-      const nearBefore =
-        typeof insertAtIndex === 'number' && insertAtIndex > 0
-          ? existingNodes[insertAtIndex - 1]
-          : undefined;
-      const nearAt =
-        typeof insertAtIndex === 'number' && insertAtIndex < existingNodes.length
-          ? existingNodes[insertAtIndex]
-          : undefined;
+      const fromSource = connectFrom?.sourceId
+        ? existingNodes.find((n) => n.id === connectFrom.sourceId)
+        : undefined;
       const aiNodes = existingNodes.filter((n) => (n.tip || '').toUpperCase() === 'AI_ISLEM');
 
       const targetAiNode =
+        (fromSource && (fromSource.tip || '').toUpperCase() === 'AI_ISLEM' ? fromSource : undefined) ||
         (selectedNode && (selectedNode.tip || '').toUpperCase() === 'AI_ISLEM'
           ? selectedNode
           : undefined) ||
-        (nearBefore && (nearBefore.tip || '').toUpperCase() === 'AI_ISLEM'
-          ? nearBefore
-          : undefined) ||
-        (nearAt && (nearAt.tip || '').toUpperCase() === 'AI_ISLEM' ? nearAt : undefined) ||
         aiNodes[aiNodes.length - 1];
 
       if (!targetAiNode) {
@@ -544,68 +789,144 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         return;
       }
 
-      handleAttachToolToStep(targetAiNode.id, 'RAG_ARAC');
+      handleAttachToolToStep(targetAiNode.id, 'RAG_ARAC', position);
       return;
     }
 
-    setFormState(prev => {
+    setFormState((prev) => {
       const existing = [...(prev.akisDugumleri || [])];
-      const hasBasla = existing.some(n => n.id === 'BASLA' || n.tip === 'BASLA');
+      const hasBasla = existing.some((n) => n.id === 'BASLA' || n.tip === 'BASLA');
 
-      // Eğer akışta zaten Başla düğümü varsa mükerrer Başla ekleme, mevcut Başla düğümünü seç
       if (nodeType === 'BASLA' && hasBasla) {
         setSelectedFlowNodeId('BASLA');
         return prev;
       }
 
       const nextNum = existing.length + 1;
-      const newId = nodeType === 'BASLA'
-        ? 'BASLA'
-        : `${nodeType}_${nextNum}_${Date.now().toString(36).slice(-4).toUpperCase()}`;
-      const newNode: AiAkisDugumu = {
-        id: newId,
-        tip: nodeType,
-        baslik: nodeType === 'BASLA'
-          ? t('basla', 'Başla')
-          : nodeType === 'FORM_AC'
-            ? t('form_ac', 'Form Aç')
-            : nodeType === 'AI_ISLEM'
-              ? t('ai_islem', 'AI İşlemi')
-              : nodeType === 'HAFIZA'
-                ? t('hafiza', 'Hafıza')
-                : nodeType === 'SCRIPT_ISLEM'
-                  ? t('script_islem', 'Script İşlemi')
-                  : nodeType === 'KARAR_ONAY'
-                    ? `${t('karar_onay_adimi', 'Kullanıcı Onayı')} (${nextNum}. ${t('adim', 'Adım')})`
-                    : nodeType === 'BELGE_OLUSTUR'
-                      ? `${t('belge_olusturma_adimi', 'Belge Taslağı Oluştur')} (${nextNum}. ${t('adim', 'Adım')})`
-                      : nodeType === 'EKRAN_AC'
-                        ? `${t('ekran_acma_adimi', 'ERP Ekranı Aç')} (${nextNum}. ${t('adim', 'Adım')})`
-                        : `${nextNum}. ${t('islem_adimi', 'İşlem Adımı')}`,
-        prompt: '',
-        dosyaAdi: nodeType === 'HAFIZA' ? 'fiyat_farki_tablosu' : undefined,
-        dosyaUzantisi: nodeType === 'HAFIZA' ? 'csv' : undefined,
-        veriKaynagi: nodeType === 'HAFIZA' ? 'ONCEKI_AI_CIKTISI' : undefined,
-        yazmaModu: nodeType === 'HAFIZA' ? 'UZERINE_YAZ' : undefined,
-        kaynakDosyaAdi: nodeType === 'SCRIPT_ISLEM' ? 'fiyat_farki_tablosu.csv' : undefined,
-        varlikKodu: nodeType === 'SCRIPT_ISLEM' ? 'BshFiyatFarki' : undefined,
-        scriptKodu: nodeType === 'SCRIPT_ISLEM' ? DEFAULT_CSV_TO_MCP_SCRIPT : undefined,
-        aracKodu: nodeType === 'FORM_AC' || nodeType === 'EKRAN_AC'
-          ? 'erp_navigate'
-          : nodeType === 'KARAR_ONAY'
-            ? 'erp_request_confirmation'
-            : (nodeType === 'BELGE_OLUSTUR' || nodeType === 'SCRIPT_ISLEM' ? 'erp_create_document' : (nodeType === 'MCP_SORGULA' ? 'erp_query_data' : '')),
-        uiAksiyonu: nodeType === 'FORM_AC' || nodeType === 'EKRAN_AC' ? 'OZEL_ROTA' : 'YOK',
-        hedefRota: '',
-        kayitBekle: nodeType === 'FORM_AC' || nodeType === 'AI_ISLEM' || nodeType === 'HAFIZA' || nodeType === 'SCRIPT_ISLEM' ? true : undefined,
-        kayitSonrasiTeyitEt: nodeType === 'FORM_AC' || nodeType === 'AI_ISLEM' || nodeType === 'SCRIPT_ISLEM' ? true : undefined,
-        sonrakiDugumId: '',
-        evetDugumId: '',
-        hayirDugumId: ''
-      };
+      const newId =
+        nodeType === 'BASLA'
+          ? 'BASLA'
+          : `${nodeType}_${nextNum}_${Date.now().toString(36).slice(-4).toUpperCase()}`;
 
-      if (typeof insertAtIndex === 'number' && insertAtIndex >= 0 && insertAtIndex <= existing.length) {
-        const safeInsertIdx = nodeType !== 'BASLA' && insertAtIndex === 0 && hasBasla ? 1 : insertAtIndex;
+      // Yeni düğümün 2B tuval koordinatını hesapla
+      const anchorNode =
+        (connectFrom?.sourceId && existing.find((n) => n.id === connectFrom.sourceId)) ||
+        existing.find((n) => n.id === selectedFlowNodeId) ||
+        existing[existing.length - 1];
+
+      const anchorIdx = anchorNode ? Math.max(0, existing.indexOf(anchorNode)) : existing.length - 1;
+      const anchorX =
+        typeof anchorNode?.pozisyonX === 'number'
+          ? anchorNode.pozisyonX
+          : 64 + Math.max(0, anchorIdx) * 352;
+      const anchorY = typeof anchorNode?.pozisyonY === 'number' ? anchorNode.pozisyonY : 160;
+
+      const resolvedX = position ? snapCoord(position.x) : snapCoord(anchorX + 352);
+      const resolvedY = position ? snapCoord(position.y) : snapCoord(anchorY);
+
+      let newNode: AiAkisDugumu;
+
+      if (nodeType === 'BELGE_OLUSTUR') {
+        newNode = createDefaultBelgeOlusturDugumu({
+          id: newId,
+          title: t('belge_olustur', 'Belge Oluştur'),
+          existing: {
+            pozisyonX: resolvedX,
+            pozisyonY: resolvedY
+          }
+        });
+      } else if (nodeType === 'KARAR_ONAY') {
+        newNode = createDefaultKararOnayDugumu({
+          id: newId,
+          title: t('karar_onay', 'Karar / Onay'),
+          existing: {
+            pozisyonX: resolvedX,
+            pozisyonY: resolvedY
+          }
+        });
+      } else {
+        newNode = {
+          id: newId,
+          tip: nodeType,
+          baslik: getImmutableNodeTitle(nodeType),
+          aktifMi: true,
+          prompt: '',
+          dosyaAdi: nodeType === 'HAFIZA' ? 'fiyat_farki_tablosu' : undefined,
+          dosyaUzantisi: nodeType === 'HAFIZA' ? 'csv' : undefined,
+          veriKaynagi: nodeType === 'HAFIZA' ? 'ONCEKI_AI_CIKTISI' : undefined,
+          yazmaModu: nodeType === 'HAFIZA' ? 'UZERINE_YAZ' : undefined,
+          kaynakDosyaAdi: nodeType === 'SCRIPT_ISLEM' ? 'fiyat_farki_tablosu.csv' : undefined,
+          varlikKodu: nodeType === 'SCRIPT_ISLEM' ? 'BshFiyatFarki' : undefined,
+          scriptKodu: nodeType === 'SCRIPT_ISLEM' ? DEFAULT_CSV_TO_MCP_SCRIPT : undefined,
+          aracKodu:
+            nodeType === 'FORM_AC' || nodeType === 'EKRAN_AC'
+              ? 'erp_navigate'
+              : nodeType === 'SCRIPT_ISLEM'
+                ? 'SADECE_JSON_URET'
+                : '',
+          uiAksiyonu: nodeType === 'FORM_AC' || nodeType === 'EKRAN_AC' ? 'OZEL_ROTA' : 'YOK',
+          hedefRota: '',
+          kayitBekle: nodeType === 'FORM_AC' || nodeType === 'HAFIZA' ? true : false,
+          kayitSonrasiTeyitEt: nodeType === 'AI_ISLEM' ? true : false,
+          pozisyonX: resolvedX,
+          pozisyonY: resolvedY,
+          sonrakiDugumId: '',
+          evetDugumId: '',
+          hayirDugumId: ''
+        };
+      }
+
+      // 1. Durum: Mevcut bir kablonun ortasındaki '+' düğmesinden veya porttan sürüklenerek eklendiyse
+      if (connectFrom?.sourceId) {
+        const srcIdx = existing.findIndex((n) => n.id === connectFrom.sourceId);
+        if (srcIdx !== -1) {
+          const srcNode = { ...existing[srcIdx] };
+          const oldTargetId =
+            connectFrom.previousTargetId ||
+            (connectFrom.branch === 'yes'
+              ? srcNode.evetDugumId
+              : connectFrom.branch === 'no'
+                ? srcNode.hayirDugumId
+                : srcNode.sonrakiDugumId) ||
+            '';
+
+          if (connectFrom.branch === 'yes') {
+            srcNode.evetDugumId = newId;
+          } else if (connectFrom.branch === 'no') {
+            srcNode.hayirDugumId = newId;
+          } else {
+            srcNode.sonrakiDugumId = newId;
+          }
+          existing[srcIdx] = srcNode;
+
+          if (oldTargetId && oldTargetId !== newId) {
+            if (nodeType === 'KARAR_ONAY') {
+              newNode.evetDugumId = oldTargetId;
+            } else {
+              newNode.sonrakiDugumId = oldTargetId;
+            }
+          }
+        }
+      } else if (!position && anchorNode && anchorNode.id !== newId) {
+        // 2. Durum: Sol paletten tıklandığında seçili düğümün sağ çıkış portu boşsa otomatik bağla
+        const anchorUpper = (anchorNode.tip || '').toUpperCase();
+        const anchorIndexInArr = existing.findIndex((n) => n.id === anchorNode.id);
+        if (anchorIndexInArr !== -1) {
+          if (anchorUpper === 'KARAR_ONAY' && !existing[anchorIndexInArr].evetDugumId) {
+            existing[anchorIndexInArr] = { ...existing[anchorIndexInArr], evetDugumId: newId };
+          } else if (anchorUpper !== 'KARAR_ONAY' && !existing[anchorIndexInArr].sonrakiDugumId) {
+            existing[anchorIndexInArr] = { ...existing[anchorIndexInArr], sonrakiDugumId: newId };
+          }
+        }
+      }
+
+      if (
+        typeof insertAtIndex === 'number' &&
+        insertAtIndex >= 0 &&
+        insertAtIndex <= existing.length
+      ) {
+        const safeInsertIdx =
+          nodeType !== 'BASLA' && insertAtIndex === 0 && hasBasla ? 1 : insertAtIndex;
         existing.splice(safeInsertIdx, 0, newNode);
       } else {
         existing.push(newNode);
@@ -613,6 +934,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
 
       const normalized = normalizeFlowNodes(existing, prev);
       setSelectedFlowNodeId(newId);
+      setSelectedToolId(undefined);
       return {
         ...prev,
         akisDugumleri: normalized
@@ -733,13 +1055,16 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
           baslik: formStateRef.current?.baslik ?? formState.baslik
         };
         const cleanedNodes = (currentState.akisDugumleri || []).filter(
-          n =>
+          (n) =>
             n.baslik?.trim() ||
             n.prompt?.trim() ||
             n.tip === 'FORM_AC' ||
+            n.tip === 'EKRAN_AC' ||
             n.tip === 'AI_ISLEM' ||
             n.tip === 'HAFIZA' ||
             n.tip === 'SCRIPT_ISLEM' ||
+            n.tip === 'BELGE_OLUSTUR' ||
+            n.tip === 'KARAR_ONAY' ||
             n.tip === 'BASLA' ||
             n.id === 'BASLA'
         );
@@ -930,9 +1255,25 @@ const flowchartPaletteItems = useMemo<FlowchartPaletteItem[]>(() => [
     id: 'palette_script_islem',
     type: 'SCRIPT_ISLEM',
     title: t('script_islem', 'Script İşlemi'),
-    subTitle: t('js_ile_mcp_json_olustur', 'JavaScript ile MCP JSON Veri Yapısı Oluştur'),
+    subTitle: t('js_ile_yapisal_json_olustur', 'JavaScript ile Yapısal JSON Üret'),
     shape: 'script' as any,
     icon: <Code2 size={13} />
+  },
+  {
+    id: 'palette_belge_olustur',
+    type: 'BELGE_OLUSTUR',
+    title: t('belge_olustur', 'Belge Oluştur'),
+    subTitle: t('json_ile_erp_belgesi_olustur', 'Yapısal JSON ile ERP Belgesi Oluştur'),
+    shape: 'document',
+    icon: <FileText size={13} />
+  },
+  {
+    id: 'palette_karar_onay',
+    type: 'KARAR_ONAY',
+    title: t('karar_onay', 'Karar / Onay'),
+    subTitle: t('evet_hayir_onay_dallanmasi', 'Kullanıcı Onayı & Evet / Hayır Dallanması'),
+    shape: 'decision',
+    icon: <GitBranch size={13} />
   },
   {
     id: 'palette_rag_arac',
@@ -940,7 +1281,7 @@ const flowchartPaletteItems = useMemo<FlowchartPaletteItem[]>(() => [
     title: t('rag_sorgu_araci', 'RAG Sorgu Aracı'),
     subTitle: t(
       'ai_islem_bulut_tablo_vektor_araci',
-      'AI İşlemi Düğümüne Bağlı Bulut Belge & Tablo RAG Aracı'
+      'AI İşlemi Alt Tool Portuna Bağlı RAG Aracı'
     ),
     shape: 'tool',
     category: 'tool',
@@ -971,8 +1312,15 @@ const tabs: BaseTabItem[] = useMemo(() => [
           }}
           onDoubleClickStep={handleNodeDoubleClick}
           onDoubleClickTool={handleToolDoubleClick}
-          onAddStep={(stepType, insertAtIndex) => handleAddFlowNode(stepType, insertAtIndex)}
+          onAddStep={(stepType, insertAtIndex, position, connectFrom) =>
+            handleAddFlowNode(stepType, insertAtIndex, position, connectFrom)
+          }
           onAddToolToStep={(parentStepId, toolType) => handleAttachToolToStep(parentStepId, toolType)}
+          onNodePositionChange={handleNodePositionChange}
+          onToolPositionChange={handleToolPositionChange}
+          onAutoLayout={handleAutoLayout}
+          onConnectSteps={handleConnectSteps}
+          onDisconnectSteps={handleDisconnectSteps}
           onMoveStep={handleMoveFlowNode}
           onDeleteStep={handleDeleteFlowNode}
           onDeleteTool={handleDeleteAttachedTool}
@@ -987,6 +1335,11 @@ const tabs: BaseTabItem[] = useMemo(() => [
   selectedFlowNodeId,
   selectedToolId,
   handleAttachToolToStep,
+  handleNodePositionChange,
+  handleToolPositionChange,
+  handleAutoLayout,
+  handleConnectSteps,
+  handleDisconnectSteps,
   handleDeleteAttachedTool,
   t
 ]);

@@ -40,9 +40,11 @@ import {
   Files,
   Cloud,
   X,
-  Filter
+  Filter,
+  Power
 } from 'lucide-react';
 import {
+  BaseButton,
   BaseCardPage,
   BaseSwitch,
   JsonView,
@@ -1130,6 +1132,126 @@ export const getNodeFixedOutputJsonSchema = (
         belgeVerisi: openedEntitySchema.example,
         eklenenBelgeler: properties.eklenenBelgeler.example,
         belgeMetinIcerigi: properties.belgeMetinIcerigi.example
+      }
+    };
+  }
+
+  if (nType === 'BELGE_OLUSTUR') {
+    const openedEntitySchema = getOpenedEntityFixedJsonSchema(node, prefix, tFn);
+    const varlikAdiOrnek = openedEntitySchema.entityTitle;
+    const isDraftFlag = node?.taslakOlarakOlustur !== false;
+
+    const properties: Record<string, FlowchartNodeJsonSchemaProperty> = {
+      dugumId: {
+        type: 'string',
+        title: tr('schema_prop_dugum_id', 'Düğüm Kimliği (ID)'),
+        description: tr('schema_prop_belge_olustur_dugum_id_desc', 'Belge Oluştur düğümünün benzersiz akış kimliği'),
+        expression: `{{ ${prefix}.dugumId }}`,
+        required: true,
+        example: nodeId
+      },
+      dugumTipi: {
+        type: 'string',
+        title: tr('schema_prop_dugum_tipi', 'Düğüm Tipi'),
+        description: tr('schema_prop_belge_olustur_dugum_tipi_desc', 'Sabit düğüm türü kodu (BELGE_OLUSTUR)'),
+        expression: `{{ ${prefix}.dugumTipi }}`,
+        required: true,
+        example: 'BELGE_OLUSTUR'
+      },
+      basariliMi: {
+        type: 'boolean',
+        title: tr('schema_prop_basarili_mi', 'Belge Oluşturma Başarı Durumu'),
+        description: tr(
+          'schema_prop_belge_olustur_basarili_mi_desc',
+          'Yapısal JSON verisiyle ERP belge/kart kaydının veya taslağının başarıyla oluşturulup oluşturulmadığı'
+        ),
+        expression: `{{ ${prefix}.basariliMi }}`,
+        required: true,
+        example: true
+      },
+      belgeTuru: {
+        type: 'string',
+        title: tr('schema_prop_belge_turu', 'Oluşturulan ERP Belge / Kart Kodu'),
+        description: tr('schema_prop_belge_turu_desc', 'Hedef ERP belge veya kart türü kodu (varlikKodu)'),
+        expression: `{{ ${prefix}.belgeTuru }}`,
+        required: true,
+        example: openedEntitySchema.entityCode
+      },
+      taslakMi: {
+        type: 'boolean',
+        title: tr('schema_prop_taslak_mi', 'Taslak Olarak mı Oluşturuldu?'),
+        description: tr(
+          'schema_prop_taslak_mi_desc',
+          'Belgenin kullanıcı incelemesi için taslak modunda mı yoksa doğrudan kesin kayıt olarak mı üretildiği'
+        ),
+        expression: `{{ ${prefix}.taslakMi }}`,
+        required: true,
+        example: isDraftFlag
+      },
+      olusturulanBelge: {
+        type: 'object',
+        format: 'json',
+        title: tr('schema_prop_olusturulan_belge', 'Oluşturulan Belge Meta Bilgisi'),
+        description: tr('schema_prop_olusturulan_belge_desc', 'Oluşturulan ERP belgesinin modül, ad ve rota bilgisi'),
+        expression: `{{ ${prefix}.olusturulanBelge }}`,
+        required: true,
+        properties: {
+          varlikKodu: {
+            type: 'string',
+            title: tr('schema_prop_varlik_kodu', 'Varlık Kodu'),
+            description: tr('schema_prop_varlik_kodu_desc', 'ERP belge/kart teknik kodu'),
+            expression: `{{ ${prefix}.olusturulanBelge.varlikKodu }}`,
+            required: true,
+            example: openedEntitySchema.entityCode
+          },
+          varlikAdi: {
+            type: 'string',
+            title: tr('schema_prop_varlik_adi', 'Belge / Kart Adı'),
+            description: tr('schema_prop_varlik_adi_desc', 'Oluşturulan ERP belgesinin görünen adı'),
+            expression: `{{ ${prefix}.olusturulanBelge.varlikAdi }}`,
+            required: true,
+            example: varlikAdiOrnek
+          }
+        },
+        example: {
+          varlikKodu: openedEntitySchema.entityCode,
+          varlikAdi: varlikAdiOrnek,
+          hedefRota: node?.hedefRota || ''
+        }
+      },
+      belgeVerisi: {
+        type: 'object',
+        format: 'json',
+        title: `${tr('schema_prop_belge_verisi', 'Oluşturulan Belge JSON Verisi')} (${varlikAdiOrnek})`,
+        description: openedEntitySchema.description,
+        expression: `{{ ${prefix}.belgeVerisi }}`,
+        required: true,
+        properties: openedEntitySchema.properties,
+        example: openedEntitySchema.example
+      }
+    };
+
+    return {
+      $schema: 'https://json-schema.org/draft/2020-12/schema',
+      schemaId: `https://webakus.ai/schemas/flowchart/belge-olustur-${openedEntitySchema.entityCode.toLowerCase()}.schema.json`,
+      title: `${tr('schema_title_belge_olustur', 'Belge Oluştur Düğümü Sabit Çıktı Şeması')} • ${varlikAdiOrnek}`,
+      description: tr(
+        'schema_desc_belge_olustur',
+        'Belge Oluştur düğümünün önceki adımdan gelen yapısal JSON ile ürettiği "{{varlikAdi}}" belgesi/kartı (belgeVerisi) sabit çıktı şeması.',
+        { varlikAdi: varlikAdiOrnek }
+      ),
+      nodeType: 'BELGE_OLUSTUR',
+      type: 'object',
+      required: ['dugumId', 'dugumTipi', 'basariliMi', 'belgeTuru', 'taslakMi', 'olusturulanBelge', 'belgeVerisi'],
+      properties,
+      examplePayload: {
+        dugumId: nodeId,
+        dugumTipi: 'BELGE_OLUSTUR',
+        basariliMi: true,
+        belgeTuru: openedEntitySchema.entityCode,
+        taslakMi: isDraftFlag,
+        olusturulanBelge: properties.olusturulanBelge.example,
+        belgeVerisi: openedEntitySchema.example
       }
     };
   }
@@ -2643,7 +2765,7 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
     );
   }, [showPreviousNodeInput, id, effectiveNodeType, effectiveNodeId]);
 
-  // Kendisinden önce gelen düğümleri (Upstream Nodes) çözümle
+  // Kendisinden önce gelen düğümleri (Upstream Graph Nodes) yönlü bağlantı grafiği üzerinden çözümle
   const previousNodes = useMemo<AiAkisDugumu[]>(() => {
     if (isStartNode) return [];
     const allNodes: AiAkisDugumu[] = Array.isArray(resolvedIstekData?.akisDugumleri)
@@ -2680,6 +2802,63 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
       );
     }
 
+    const targetGraphNodeId = currentIdx !== -1 ? allNodes[currentIdx]?.id : effectiveNodeId;
+    const hasExplicitEdges = allNodes.some((n) =>
+      Boolean(n?.sonrakiDugumId || n?.evetDugumId || n?.hayirDugumId)
+    );
+
+    // 1. Öncelik: Sol Giriş -> Sağ Çıkış bağlantı grafiğinden (incoming edges) yukarı doğru tüm ata düğümleri çözümle
+    if (hasExplicitEdges && targetGraphNodeId) {
+      const nodeById = new Map<string, AiAkisDugumu>();
+      const incomingMap = new Map<string, string[]>();
+
+      allNodes.forEach((n) => {
+        if (!n || !n.id) return;
+        nodeById.set(n.id, n);
+      });
+
+      allNodes.forEach((n) => {
+        if (!n || !n.id) return;
+        const targets = [n.sonrakiDugumId, n.evetDugumId, n.hayirDugumId].filter(
+          (tid): tid is string => Boolean(tid && nodeById.has(tid))
+        );
+        targets.forEach((tid) => {
+          const prevList = incomingMap.get(tid) || [];
+          if (!prevList.includes(n.id)) {
+            prevList.push(n.id);
+          }
+          incomingMap.set(tid, prevList);
+        });
+      });
+
+      const directParents = incomingMap.get(String(targetGraphNodeId)) || [];
+      if (directParents.length > 0) {
+        const visited = new Set<string>([String(targetGraphNodeId)]);
+        const orderedAncestors: AiAkisDugumu[] = [];
+
+        const collectUpstream = (nid: string) => {
+          if (visited.has(nid)) return;
+          visited.add(nid);
+          const parents = incomingMap.get(nid) || [];
+          parents.forEach((pid) => collectUpstream(pid));
+          const nodeObj = nodeById.get(nid);
+          if (nodeObj) {
+            orderedAncestors.push(nodeObj);
+          }
+        };
+
+        directParents.forEach((pid) => collectUpstream(pid));
+
+        if (orderedAncestors.length > 0) {
+          const hasStartInGraph = orderedAncestors.some(
+            (n) => (n.tip || '').toUpperCase() === 'BASLA' || n.id === 'BASLA'
+          );
+          return hasStartInGraph ? orderedAncestors : [startNodeFallback, ...orderedAncestors];
+        }
+      }
+    }
+
+    // 2. Geriye Dönük Uyumluluk / Henüz Kablo Bağlanmamış Düğüm Yedeği
     const sliced =
       currentIdx > 0 ? allNodes.slice(0, currentIdx) : currentIdx === -1 ? allNodes : [];
 
@@ -2687,7 +2866,6 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
       return [startNodeFallback];
     }
 
-    // İlk düğüm BASLA değilse zincirin en başına BASLA düğümünü ekle
     const hasStart = sliced.some((n) => (n.tip || '').toUpperCase() === 'BASLA' || n.id === 'BASLA');
     if (!hasStart) {
       return [startNodeFallback, ...sliced];
@@ -2789,8 +2967,18 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
       const ext = (node.dosyaUzantisi || 'csv').replace(/^\./, '').trim();
       return `${node.baslik || t('hafiza', 'Hafıza')} (${node.dosyaAdi.trim()}.${ext})`;
     }
-    if (upperTip === 'SCRIPT_ISLEM' && node.aracKodu?.trim()) {
-      return `${node.baslik || t('script_islem', 'Script İşlemi')} (${node.aracKodu.trim()})`;
+    if (upperTip === 'SCRIPT_ISLEM') {
+      const targetEntity = node.varlikKodu?.trim() || 'JSON';
+      return `${t('script_islem', 'Script İşlemi')} (${targetEntity})`;
+    }
+    if (upperTip === 'BELGE_OLUSTUR') {
+      const docLabel = node.varlikAdi?.trim() || node.varlikKodu?.trim();
+      return docLabel
+        ? `${t('belge_olustur', 'Belge Oluştur')} (${docLabel})`
+        : t('belge_olustur', 'Belge Oluştur');
+    }
+    if (upperTip === 'KARAR_ONAY') {
+      return t('karar_onay', 'Karar / Onay');
     }
     if (node.varlikAdi?.trim()) {
       return `${node.baslik || t('form_ac', 'Form Aç')} (${node.varlikAdi.trim()})`;
@@ -2881,6 +3069,7 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
     if (upper === 'FORM_AC' || upper === 'EKRAN_AC') return <Monitor size={13} />;
     if (upper === 'HAFIZA') return <Database size={13} />;
     if (upper === 'SCRIPT_ISLEM') return <Code2 size={13} />;
+    if (upper === 'BELGE_OLUSTUR') return <FileText size={13} />;
     if (upper === 'KARAR_ONAY') return <GitBranch size={13} />;
     return <Cpu size={13} />;
   };
@@ -2978,68 +3167,233 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
     return availableInputVariables.filter((v) => !v.isNested);
   }, [availableInputVariables, showNestedInSettings]);
 
-  // "Ayarlar" sekmesi içeriği: Düğümün kendi ayarları (children)
+  // 2. Sekme: "Parametreler" (ayarlar) sekmesi içeriği — Düğümün kendi atomik ayarları (children)
   const renderAyarlarTabContent = () => (
     <div ref={ayarlarTabContainerRef} className="flowchart-ayarlar-tab-pane">
       {children}
     </div>
   );
 
-  // "Önceki Düğüm" sekmesi içeriği: Sadece önceki düğümün JSON verisini sade bir şekilde gösterir
+  // 1. Sekme: "Girdi (Önceki Düğüm)" sekmesi içeriği — Bağlı kaynak düğüm seçici + JSON verisi
   const renderOncekiDugumTabContent = () => {
-    const jsonData = !isStartNode && previousNodeJsonSchema ? previousNodeJsonSchema.examplePayload : null;
+    const jsonData =
+      !isStartNode && previousNodeJsonSchema
+        ? schemaViewMode === 'json_schema'
+          ? previousNodeJsonSchema
+          : previousNodeJsonSchema.examplePayload
+        : null;
 
     return (
       <div className="basla-ayar-page-container n8n-onceki-dugum-tab-container">
+        {previousNodes.length > 1 && (
+          <div className="n8n-schema-toolbar-bar">
+            <div className="n8n-schema-toolbar-left">
+              <span className="n8n-input-pipeline-label">
+                {t('bagli_ust_dugumler', 'Bağlı Üst Düğümler')}:
+              </span>
+              <div className="n8n-input-source-pills">
+                {previousNodes.map((pNode, pIdx) => {
+                  const isSelected = activeSourceNodeInfo.node?.id === pNode.id;
+                  return (
+                    <BaseButton
+                      key={pNode.id}
+                      variant={isSelected ? 'tonal' : 'outline'}
+                      className="btn-sm"
+                      icon={renderNodeSmallIcon(pNode.tip)}
+                      onClick={() => updateOncekiDugumGirdisi({ kaynakDugumId: pNode.id })}
+                      text={formatNodeDisplayTitle(pNode, pIdx)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+            <div className="n8n-schema-toolbar-actions">
+              <BaseButton
+                variant={schemaViewMode === 'example_payload' ? 'tonal' : 'outline'}
+                className="btn-sm"
+                icon={<Layers size={13} />}
+                onClick={() => setSchemaViewMode('example_payload')}
+                text={t('ornek_veri_gorunumu', 'Örnek Veri')}
+              />
+              <BaseButton
+                variant={schemaViewMode === 'json_schema' ? 'tonal' : 'outline'}
+                className="btn-sm"
+                icon={<Braces size={13} />}
+                onClick={() => setSchemaViewMode('json_schema')}
+                text={t('json_schema_gorunumu', 'JSON Şema')}
+              />
+              {jsonData && (
+                <BaseButton
+                  variant="outline"
+                  className="btn-sm"
+                  icon={<Copy size={13} />}
+                  onClick={() => handleCopyJsonSchema(jsonData)}
+                  text={t('kopyala', 'Kopyala')}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
         <JsonView
           id={`${id}_oncekiDugumJsonView`}
           title={
             !isStartNode && activeSourceDisplayName
-              ? `${activeSourceDisplayName} - ${t('json_verisi', 'JSON Verisi')}`
+              ? `${activeSourceDisplayName} • ${t('girdi_json_verisi', 'Girdi JSON Verisi')}`
               : t('onceki_dugum_json_verisi', 'Önceki Düğüm JSON Verisi')
           }
           data={jsonData}
-          emptyText={t('onceki_dugum_json_verisi_yok', 'Bu düğümden önce çalışan bir düğüm bulunmuyor.')}
+          emptyText={t(
+            'onceki_dugum_json_verisi_yok',
+            'Bu düğümün sol giriş portuna bağlı bir önceki düğüm bulunmuyor.'
+          )}
         />
       </div>
     );
   };
 
-  // TabLayout sekmelerini oluştur ("Önceki Düğüm" her zaman ilk sekme, "Ayarlar" ikinci sekme)
+  // 3. Sekme: "Çıktı (JSON Şeması)" sekmesi içeriği — Bu düğümün sağ çıkış portundan taahhüt ettiği JSON sözleşmesi
+  const renderCiktiSemasiTabContent = () => {
+    const outputData =
+      schemaViewMode === 'json_schema'
+        ? currentNodeOutputJsonSchema
+        : currentNodeOutputJsonSchema.examplePayload;
+
+    return (
+      <div className="basla-ayar-page-container n8n-cikti-semasi-tab-container">
+        <div className="n8n-schema-toolbar-bar">
+          <div className="n8n-schema-toolbar-left">
+            <span className="n8n-current-node-badge">
+              {renderNodeSmallIcon(effectiveNodeType)}
+              <span>{currentNodeOutputJsonSchema.title}</span>
+            </span>
+          </div>
+          <div className="n8n-schema-toolbar-actions">
+            <BaseButton
+              variant={schemaViewMode === 'example_payload' ? 'tonal' : 'outline'}
+              className="btn-sm"
+              icon={<Layers size={13} />}
+              onClick={() => setSchemaViewMode('example_payload')}
+              text={t('ornek_cikti_verisi', 'Örnek Çıktı Verisi')}
+            />
+            <BaseButton
+              variant={schemaViewMode === 'json_schema' ? 'tonal' : 'outline'}
+              className="btn-sm"
+              icon={<Braces size={13} />}
+              onClick={() => setSchemaViewMode('json_schema')}
+              text={t('tam_json_semasi', 'Tam JSON Şeması')}
+            />
+            <BaseButton
+              variant="outline"
+              className="btn-sm"
+              icon={<Copy size={13} />}
+              onClick={() => handleCopyJsonSchema(outputData)}
+              text={t('json_kopyala', 'JSON Kopyala')}
+            />
+          </div>
+        </div>
+
+        <JsonView
+          id={`${id}_ciktiSemasiJsonView`}
+          title={`${pageDisplayName} • ${t('taahhut_edilen_cikti_json', 'Taahhüt Edilen Çıktı JSON Verisi')}`}
+          data={outputData}
+          emptyText={t('cikti_json_semasi_yok', 'Bu düğüm için tanımlı çıktı şeması bulunamadı.')}
+        />
+      </div>
+    );
+  };
+
+  // Standart 3 Sekmeli n8n Düğüm Ayar Mimarisi: Girdi (Önceki Düğüm) | Parametreler | Çıktı (JSON Şeması)
   const layoutTabs = useMemo<BaseTabItem[]>(() => {
     if (customTabs && customTabs.length > 0) {
       return customTabs;
     }
 
-    return [
-      {
+    const tabsList: BaseTabItem[] = [];
+
+    if (!isStartNode) {
+      tabsList.push({
         id: 'onceki_dugum',
-        label: t('onceki_dugum', 'Önceki Düğüm'),
+        label: t('girdi_onceki_dugum', 'Girdi (Önceki Düğüm)'),
         icon: <Workflow size={16} />,
         content: renderOncekiDugumTabContent()
-      },
-      {
-        id: 'ayarlar',
-        label: t('ayarlar', 'Ayarlar'),
-        icon: <Sliders size={16} />,
-        content: renderAyarlarTabContent()
-      }
-    ];
+      });
+    }
+
+    tabsList.push({
+      id: 'ayarlar',
+      label: t('parametreler', 'Parametreler'),
+      icon: <Sliders size={16} />,
+      content: renderAyarlarTabContent()
+    });
+
+    tabsList.push({
+      id: 'cikti_semasi',
+      label: t('cikti_json_semasi', 'Çıktı (JSON Şeması)'),
+      icon: <Braces size={16} />,
+      content: renderCiktiSemasiTabContent()
+    });
+
+    return tabsList;
   }, [
     customTabs,
     isStartNode,
+    previousNodes,
+    activeSourceNodeInfo,
     previousNodeJsonSchema,
     currentNodeOutputJsonSchema,
     visibleSettingsVariables,
     showNestedInSettings,
     oncekiDugumGirdisi,
     effectiveFormData,
+    effectiveNodeType,
+    pageDisplayName,
     schemaViewMode,
     activeSourceDisplayName,
     immediatePrevDisplayName,
     children,
     t
   ]);
+
+  // Header ActionMenu içerisindeki standart Düğüm Aktif / Pasif anahtarı (Başla düğümü hariç)
+  const resolvedDropdownActions = useMemo(() => {
+    if (extraDropdownActions && extraDropdownActions.length > 0) {
+      return extraDropdownActions;
+    }
+    if (isStartNode) {
+      return undefined;
+    }
+    const isNodeActive = effectiveFormData?.aktifMi !== false;
+    return [
+      {
+        custom: (
+          <BaseSwitch
+            id={`${id}_nodeActiveMenuSwitch`}
+            checked={isNodeActive}
+            onChange={(e: any) => {
+              const checked = typeof e === 'boolean' ? e : e?.target?.checked;
+              setFormData((prev: any) => ({ ...prev, aktifMi: Boolean(checked) }));
+            }}
+            label={
+              <span className="flex items-center gap-8">
+                <Power size={15} className={isNodeActive ? 'text-success' : 'text-secondary'} />
+                <span className="font-medium">{t('dugum_durumu', 'Düğüm Durumu')}:</span>
+                <span
+                  className={
+                    isNodeActive ? 'text-success font-semibold' : 'text-secondary font-semibold'
+                  }
+                >
+                  {isNodeActive ? t('aktif', 'Aktif') : t('pasif', 'Pasif')}
+                </span>
+              </span>
+            }
+            className="action-menu-switch-item"
+          />
+        ),
+        dividerBelow: false
+      }
+    ];
+  }, [extraDropdownActions, isStartNode, effectiveFormData?.aktifMi, id, t]);
 
   const contextValue = useMemo<FlowchartOgeAyarContextValue>(
     () => ({
@@ -3086,7 +3440,7 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
         onClose={handleClose}
         onSave={handleSave}
         isSaving={effectiveIsSaving}
-        extraDropdownActions={extraDropdownActions}
+        extraDropdownActions={resolvedDropdownActions}
         subTrail={subTrail}
         className={`fade-in ${className}`}
       >
