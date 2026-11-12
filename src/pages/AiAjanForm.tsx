@@ -17,7 +17,7 @@ import {
   Bot, Sparkles, Cpu, Code2, Search, Copy,
   Compass, FilePlus, Database, Layers, Terminal, Info,
   Zap, RotateCcw, Plus, Trash2, Eye, CheckCircle2,
-  SlidersHorizontal, GitBranch, ArrowUp, ArrowDown, X, Shield, ShieldAlert,
+  SlidersHorizontal, GitBranch, ArrowUp, ArrowDown, X, Shield,
   BookOpen, FileSpreadsheet, FileText, Users, AlertCircle, TrendingUp, FolderOpen,
   Power, Package, Edit2, Boxes, CreditCard, Table, Wrench
 } from 'lucide-react';
@@ -857,35 +857,6 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     } else {
       setFormData((prev: any) => ({ ...prev, ustAjanId: selectedId }));
     }
-  };
-
-  // ─── SABİT SİSTEM İSTEMİ (KATMAN 1) YARDIMCILARI ──────────────────────────────
-  const handleAppendGuardrailToSystemPrompt = (snippetTitle: string, snippetBody: string) => {
-    setFormData((prev: any) => {
-      const current = (prev.sistemIstemi || '').trim();
-      const block = `[${snippetTitle.toLocaleUpperCase('tr-TR')}]:\n${snippetBody}`;
-      const nextSystemPrompt = current ? `${current}\n\n${block}` : block;
-      const syncedRules = parsePromptToRules(nextSystemPrompt, prev.kurallar);
-      return {
-        ...prev,
-        sistemIstemi: nextSystemPrompt,
-        kurallar: syncedRules
-      };
-    });
-    toast.success(t('sistem_istemine_eklendi', `'${snippetTitle}' sistem istemine eklendi.`));
-  };
-
-  const handleSyncRulesToSystemPrompt = () => {
-    const compiled = compilePromptPreview(formData.kurallar);
-    if (!compiled) {
-      toast.error(t('aktif_kural_bulunamadi', 'Derlenecek aktif kural maddesi bulunamadı.'));
-      return;
-    }
-    setFormData((prev: any) => ({
-      ...prev,
-      sistemIstemi: compiled
-    }));
-    toast.success(t('maddeler_sistem_istemine_aktarildi', 'Kural maddeleri Sabit Sistem İstemine aktarıldı.'));
   };
 
   // ─── HIZLI İSTEK & GÖREV AKIŞI SAYFASINA YÖNLENDİRME (KATMAN 3) ───────────────
@@ -2769,58 +2740,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
               </button>
             </div>
 
-            {systemPromptViewMode === 'sabitPrompt' ? (
-              <div className="ai-guardrail-quick-actions">
-                <button
-                  type="button"
-                  className="ai-guardrail-chip-btn"
-                  onClick={() =>
-                    handleAppendGuardrailToSystemPrompt(
-                      'YETKİ SINIRLARI VE KONU DIŞI REDDİ',
-                      'Görev ve yetki alanın yalnızca Webakus ERP işlemleri, ticari belgeler, cari hesaplar, stok/ürün yönetimi ve şirket içi analizlerle sınırlıdır. Kullanıcı bu kapsamın dışında (genel kültür, yemek tarifi, spor, siyaset, sohbet vb.) bir soru sorduğunda nazik bir dille yalnızca Webakus ERP süreçlerinde yardımcı olabileceğini belirterek geri çevir.'
-                    )
-                  }
-                >
-                  <ShieldAlert size={13} />
-                  <span>{t('konu_disi_reddi_ekle', '+ Yetki Sınırı & Konu Dışı Reddi Ekle')}</span>
-                </button>
-                <button
-                  type="button"
-                  className="ai-guardrail-chip-btn"
-                  onClick={() =>
-                    handleAppendGuardrailToSystemPrompt(
-                      'OTONOM MCP VE FLOWCHART ÇALIŞMA İLKESİ',
-                      'Yetki sınırların içerisindeki genel taleplerde tanımlı MCP araçlarının açıklamalarını okuyarak kendi zekanla doğru aracı çalıştır. Ancak tanımlı bir Görev Akışı (Flowchart) tetiklendiğinde ilgili akış diyagramındaki adım yönergelerini sırasıyla takip et.'
-                    )
-                  }
-                >
-                  <Sparkles size={13} />
-                  <span>{t('otonom_mcp_ilkesi_ekle', '+ Otonom MCP & Flowchart İlkesi Ekle')}</span>
-                </button>
-                <button
-                  type="button"
-                  className="ai-guardrail-chip-btn"
-                  onClick={() =>
-                    handleAppendGuardrailToSystemPrompt(
-                      'THINKPORT PGVECTOR HAFIZA VE TOOL CALL PROTOKOLÜ',
-                      'Kimliğin (app_id, agent_id) ikilisi ile ThinkPort API üzerinde izole edilmiştir. Geçmiş konuşmaları, önceki kararları veya kullanıcı tercihlerini hatırlaman gerektiğinde tahmin yürütme; önce `thinkport_memory_search` aracını (tool_call) çağırarak pgvector hafızanı tara. Gelecekte hatırlanması gereken kritik kararları ise `thinkport_memory_save` aracıyla hafızana kaydet.'
-                    )
-                  }
-                >
-                  <Database size={13} />
-                  <span>{t('thinkport_hafiza_ilkesi_ekle', '+ ThinkPort Hafıza Tarama (pgvector) İlkesi Ekle')}</span>
-                </button>
-                <button
-                  type="button"
-                  className="ai-guardrail-chip-btn"
-                  onClick={handleSyncRulesToSystemPrompt}
-                  title={t('maddelerden_aktar_aciklama', 'Madde bazlı kuralları birleştirip bu alana yazar')}
-                >
-                  <RotateCcw size={13} />
-                  <span>{t('maddelerden_aktar', 'Maddelerden Derle')}</span>
-                </button>
-              </div>
-            ) : (
+            {systemPromptViewMode === 'kurallar' && (
               <div className="ai-rules-toolbar-actions">
                 <div className="ai-rules-stats-group">
                   <span className="ai-rules-stat-label">{t('maddeler', 'Maddeler')}:</span>
@@ -2850,47 +2770,32 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
           </div>
 
           {systemPromptViewMode === 'sabitPrompt' ? (
-            <>
-              <div className="ai-guardrail-banner">
-                <div className="ai-guardrail-banner-info">
-                  <Shield size={18} />
-                  <div className="ai-guardrail-banner-text">
-                    <strong>{t('katman_1_sabit_sistem_istemi_baslik', 'Katman 1 — Sabit Sistem İstemi (Ajan Anayasası & Yetki Sınırları):')}</strong>{' '}
-                    {t(
-                      'katman_1_sabit_sistem_istemi_aciklama',
-                      'Burada ajanın kimliğini, yetki sınırlarını ve konu dışı soruları nazikçe reddetme kuralını belirleyin. Ajan, standart ERP sorularını MCP araçlarını okuyarak kendi zekasıyla bu sınırlar içinde çözer; çok adımlı tanımlı görevlerde ise "Görev Akışları & Hızlı İstekler (Flowchart)" sekmesindeki diyagramı takip eder.'
-                    )}
-                  </div>
-                </div>
+            <div className="ai-system-prompt-editor-box">
+              <textarea
+                className="ai-system-prompt-textarea"
+                value={formData.sistemIstemi || ''}
+                onChange={e => {
+                  const nextPrompt = e.target.value;
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    sistemIstemi: nextPrompt,
+                    kurallar: parsePromptToRules(nextPrompt, prev.kurallar)
+                  }));
+                }}
+                placeholder={t(
+                  'sabit_sistem_istemi_placeholder',
+                  'Örn: Sen Webakus ERP sisteminde görev yapan uzman Satış ve Fatura Asistanısın. Yalnızca ERP kapsamındaki cari, stok, sipariş ve fatura işlemlerinde yardımcı olabilirsin. Kullanıcı konu dışı bir şey sorduğunda nazikçe yalnızca Webakus ERP işlemleri konusunda yardımcı olabileceğini belirt...'
+                )}
+              />
+              <div className="ai-system-prompt-footer">
+                <span>
+                  {t('sabit_prompt_notu', 'Kaydettiğinizde bu metin doğrudan ajanın Sabit Sistem İstemi (System Prompt) olarak veritabanına yazılır.')}
+                </span>
+                <span>
+                  {(formData.sistemIstemi || '').length} {t('karakter', 'Karakter')} • ~{Math.round(((formData.sistemIstemi || '').length) / 4)} Token
+                </span>
               </div>
-
-              <div className="ai-system-prompt-editor-box">
-                <textarea
-                  className="ai-system-prompt-textarea"
-                  value={formData.sistemIstemi || ''}
-                  onChange={e => {
-                    const nextPrompt = e.target.value;
-                    setFormData((prev: any) => ({
-                      ...prev,
-                      sistemIstemi: nextPrompt,
-                      kurallar: parsePromptToRules(nextPrompt, prev.kurallar)
-                    }));
-                  }}
-                  placeholder={t(
-                    'sabit_sistem_istemi_placeholder',
-                    'Örn: Sen Webakus ERP sisteminde görev yapan uzman Satış ve Fatura Asistanısın. Yalnızca ERP kapsamındaki cari, stok, sipariş ve fatura işlemlerinde yardımcı olabilirsin. Kullanıcı konu dışı bir şey sorduğunda nazikçe yalnızca Webakus ERP işlemleri konusunda yardımcı olabileceğini belirt...'
-                  )}
-                />
-                <div className="ai-system-prompt-footer">
-                  <span>
-                    {t('sabit_prompt_notu', 'Kaydettiğinizde bu metin doğrudan ajanın Sabit Sistem İstemi (System Prompt) olarak veritabanına yazılır.')}
-                  </span>
-                  <span>
-                    {(formData.sistemIstemi || '').length} {t('karakter', 'Karakter')} • ~{Math.round(((formData.sistemIstemi || '').length) / 4)} Token
-                  </span>
-                </div>
-              </div>
-            </>
+            </div>
           ) : (
             <>
               {showPresetsModal && (
