@@ -44,6 +44,7 @@ import {
   YZModelSecici,
   FieldError,
   useAlertDialog,
+  normalizeIdValue,
   type BaseTabItem,
   type ActionMenuItem
 } from '@akalin/ui';
@@ -206,7 +207,7 @@ export const ThinkPortAyarlari: React.FC<ThinkPortAyarlariProps> = ({
         aiProtokolId: formData.aiProtokolId,
         baseUrl: formData.baseUrl.trim(),
         apiKey: formData.apiKey.trim() || undefined,
-        appId: formData.appId?.trim() || undefined,
+        appId: normalizeIdValue(formData.appId || '') || undefined,
         varsayilanModel: formData.varsayilanModel.trim(),
         desteklenenModeller: formData.desteklenenModeller,
         timeoutSaniye: Number(formData.timeoutSaniye) || 60,
@@ -517,8 +518,23 @@ export const ThinkPortAyarlari: React.FC<ThinkPortAyarlariProps> = ({
               <IdOlusturucuInput
                 id="thinkport-appid"
                 value={formData.appId}
-                onChange={e => handleFieldChange('appId', e.target.value)}
                 onValueChange={val => handleFieldChange('appId', val)}
+                onBlur={e => {
+                  const normalized = normalizeIdValue(e?.target?.value ?? formData.appId ?? '');
+                  if (normalized !== formData.appId) {
+                    handleFieldChange('appId', normalized);
+                  }
+                  const err = validateThinkPortField('appId', normalized, t);
+                  setErrors(prev => {
+                    const next = { ...prev };
+                    if (err) {
+                      next.appId = err;
+                    } else {
+                      delete next.appId;
+                    }
+                    return next;
+                  });
+                }}
                 idPrefix="APP"
                 idLength={16}
                 hideGenerateWhenFilled={true}

@@ -5,6 +5,8 @@
  * sınırlarını saf (pure) TypeScript fonksiyonları ile doğrular.
  */
 
+import { formatIdInput, normalizeIdValue } from '@akalin/ui';
+
 export interface AiAjanValidationInput {
   id?: number | string | null;
   ad?: string;
@@ -21,23 +23,11 @@ export interface AiAjanValidationOptions {
 }
 
 export const formatAgentCodeInput = (raw: string): string => {
-  return (raw || '')
-    .toLocaleUpperCase('tr-TR')
-    .replace(/İ/g, 'I')
-    .replace(/İ/g, 'I')
-    .replace(/Ğ/g, 'G')
-    .replace(/Ü/g, 'U')
-    .replace(/Ş/g, 'S')
-    .replace(/Ö/g, 'O')
-    .replace(/Ç/g, 'C')
-    .replace(/\s+/g, '-')
-    .replace(/[^A-Z0-9_-]+/g, '')
-    .replace(/-{2,}/g, '-');
+  return formatIdInput(raw, 'upper');
 };
 
 export const normalizeAgentCode = (raw: string): string => {
-  return formatAgentCodeInput((raw || '').trim())
-    .replace(/^[-_]+|[-_]+$/g, '');
+  return normalizeIdValue(raw, 'upper');
 };
 
 export const validateAiAjanField = (

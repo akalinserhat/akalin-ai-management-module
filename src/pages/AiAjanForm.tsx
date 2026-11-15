@@ -2483,43 +2483,34 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
                 hideGenerateWhenFilled={true}
                 showCopyButton={true}
                 value={formData.kod || formData.ajanId || ''}
-                onChange={(e: any, val?: string) => {
-                  const raw = val !== undefined ? val : e?.target?.value || '';
-                  const formatted = formatAgentCodeInput(raw);
-                  setFormData((prev: any) => {
-                    const next = { ...prev, kod: formatted, ajanId: formatted };
-                    formDataRef.current = next;
-                    return next;
-                  });
-                  const err = validateAiAjanField('kod', raw.includes(':') ? raw : formatted, t, {
-                    existingAgents: internalAllAgents,
-                    currentAgentId: effectiveId || localInitialData?.id || null
-                  });
-                  setValidationErrors(prev => ({ ...prev, kod: err, ajanId: err }));
-                }}
                 onValueChange={(val: string) => {
-                  const formatted = formatAgentCodeInput(val);
+                  const normalized = formatAgentCodeInput(val);
                   setFormData((prev: any) => {
-                    const next = { ...prev, kod: formatted, ajanId: formatted };
+                    const next = { ...prev, kod: normalized, ajanId: normalized };
                     formDataRef.current = next;
                     return next;
                   });
-                  const err = validateAiAjanField('kod', val.includes(':') ? val : formatted, t, {
+                  const err = validateAiAjanField('kod', val.includes(':') ? val : normalized, t, {
                     existingAgents: internalAllAgents,
                     currentAgentId: effectiveId || localInitialData?.id || null
                   });
                   setValidationErrors(prev => ({ ...prev, kod: err, ajanId: err }));
                 }}
-                onBlur={() => {
-                  const currentVal = formDataRef.current?.kod || formDataRef.current?.ajanId || '';
+                onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
+                  const currentVal = e?.target?.value ?? formDataRef.current?.kod ?? formDataRef.current?.ajanId ?? '';
                   const normalized = normalizeAgentCode(currentVal);
-                  if (normalized !== currentVal) {
+                  if (normalized !== (formDataRef.current?.kod || formDataRef.current?.ajanId || '')) {
                     setFormData((prev: any) => {
                       const next = { ...prev, kod: normalized, ajanId: normalized };
                       formDataRef.current = next;
                       return next;
                     });
                   }
+                  const err = validateAiAjanField('kod', normalized, t, {
+                    existingAgents: internalAllAgents,
+                    currentAgentId: effectiveId || localInitialData?.id || null
+                  });
+                  setValidationErrors(prev => ({ ...prev, kod: err, ajanId: err }));
                 }}
                 placeholder={t('ajan_id_placeholder', 'Örn: AGENT_7K9P2X4M1Q8Z3W5R veya STOK_ASISTANI')}
                 required
