@@ -20,9 +20,8 @@ export interface AiAjanValidationOptions {
   currentAgentId?: number | string | null;
 }
 
-export const normalizeAgentCode = (raw: string): string => {
+export const formatAgentCodeInput = (raw: string): string => {
   return (raw || '')
-    .trim()
     .toLocaleUpperCase('tr-TR')
     .replace(/İ/g, 'I')
     .replace(/İ/g, 'I')
@@ -31,8 +30,14 @@ export const normalizeAgentCode = (raw: string): string => {
     .replace(/Ş/g, 'S')
     .replace(/Ö/g, 'O')
     .replace(/Ç/g, 'C')
-    .replace(/[^A-Z0-9_]+/g, '_')
-    .replace(/^_+|_+$/g, '');
+    .replace(/\s+/g, '-')
+    .replace(/[^A-Z0-9_-]+/g, '')
+    .replace(/-{2,}/g, '-');
+};
+
+export const normalizeAgentCode = (raw: string): string => {
+  return formatAgentCodeInput((raw || '').trim())
+    .replace(/^[-_]+|[-_]+$/g, '');
 };
 
 export const validateAiAjanField = (
