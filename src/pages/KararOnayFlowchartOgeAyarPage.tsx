@@ -9,7 +9,7 @@
  *   Sıfır Inline CSS, Sıfır Native HTML Form Elemanı ve %100 i18n kurallarına tam uyum sağlamak
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -39,6 +39,10 @@ import {
   FlowchartPromptMentionInput,
   type BaseAiAjanFlowchartOgeAyarPageProps
 } from './BaseAiAjanFlowchartOgeAyarPage';
+import {
+  resolveAiAgentRouteContext,
+  buildAiAgentSubTrail
+} from '../utils/aiAgentBreadcrumb';
 
 export interface KararOnayFlowchartOgeAyarPageProps
   extends Partial<BaseAiAjanFlowchartOgeAyarPageProps> {
@@ -182,19 +186,7 @@ export const KararOnayFlowchartOgeAyarPage: React.FC<KararOnayFlowchartOgeAyarPa
     return [endOption, ...candidates];
   }, [istekData, incomingIstekData, formData.id, t]);
 
-  const isUnderAyarlar = location.pathname.startsWith('/ayarlar');
-  const isUnderSettingsAiAgents = location.pathname.startsWith('/settings/ai/agents');
-  const isUnderSettingsAiAjanlar = location.pathname.startsWith('/settings/ai/AiAjanlar');
-  const isUnderSettingsAgents = location.pathname.startsWith('/settings/agents');
-  const baseAgentRoute = isUnderSettingsAiAgents
-    ? '/settings/ai/agents'
-    : isUnderSettingsAiAjanlar
-      ? '/settings/ai/AiAjanlar'
-      : isUnderSettingsAgents
-        ? '/settings/agents'
-        : isUnderAyarlar
-          ? '/ayarlar/YapayZekaAyarlari/AiAjanlar'
-          : '/ai-ajanlar';
+  const { baseAgentRoute } = resolveAiAgentRouteContext(location.pathname);
 
   const effectiveBackRoute = useMemo(() => {
     if (backRoute) return backRoute;
@@ -373,34 +365,36 @@ export const KararOnayFlowchartOgeAyarPage: React.FC<KararOnayFlowchartOgeAyarPa
     }
   };
 
-  const agentTitle =
-    agentData?.ad ||
-    incomingAgentData?.ad ||
-    (effectiveAgentId ? `#${effectiveAgentId}` : t('ai_ajani', 'AI Ajanı'));
-  const istekTitle =
-    istekData?.baslik || incomingIstekData?.baslik || t('gorev_akisi', 'Görev Akışı');
-  const agentRoute = `${baseAgentRoute}/${effectiveAgentId}`;
+  const handleBackOrCloseRef = useRef<() => void>(() => {});
+  handleBackOrCloseRef.current = handleBackOrClose;
 
   const subTrail = useMemo(
-    () => [
-      {
-        label: t('ai_ajanlar_baslik', 'Ajanlar'),
-        onClick: () => navigate(baseAgentRoute)
-      },
-      {
-        label: agentTitle,
-        onClick: () => navigate(agentRoute, { state: { activeTabId: 'hizliIstekler' } })
-      },
-      {
-        label: istekTitle,
-        onClick: handleBackOrClose
-      },
-      {
-        label: defaultNodeTitle,
-        active: true
-      }
-    ],
-    [t, navigate, baseAgentRoute, agentTitle, agentRoute, istekTitle, defaultNodeTitle]
+    () =>
+      buildAiAgentSubTrail({
+        pathname: location.pathname,
+        t,
+        navigate,
+        agentId: effectiveAgentId,
+        agentTitle: agentData?.ad || incomingAgentData?.ad,
+        istekId: effectiveIstekId,
+        istekTitle: istekData?.baslik || incomingIstekData?.baslik,
+        agentData: agentData || incomingAgentData,
+        istekData: istekData || incomingIstekData,
+        onIstekClick: () => handleBackOrCloseRef.current(),
+        activeLabel: defaultNodeTitle
+      }),
+    [
+      location.pathname,
+      t,
+      navigate,
+      effectiveAgentId,
+      effectiveIstekId,
+      agentData,
+      incomingAgentData,
+      istekData,
+      incomingIstekData,
+      defaultNodeTitle
+    ]
   );
 
   return (

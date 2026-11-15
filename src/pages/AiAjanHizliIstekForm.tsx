@@ -44,6 +44,10 @@ import {
 } from '@akalin/ui';
 import type { AiAkisDugumu, AiBagliAracDugumu } from '../types';
 import {
+  resolveAiAgentRouteContext,
+  buildAiAgentSubTrail
+} from '../utils/aiAgentBreadcrumb';
+import {
   createDefaultRagAracDugumu,
   buildRagAracSummaryText
 } from '../defaults/ragAracFlowchartDefaultValue';
@@ -99,19 +103,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     return match ? match[1] : null;
   }, [propIstekId, params.istekId, location.pathname]);
 
-  const isUnderAyarlar = location.pathname.startsWith('/ayarlar');
-  const isUnderSettingsAiAgents = location.pathname.startsWith('/settings/ai/agents');
-  const isUnderSettingsAiAjanlar = location.pathname.startsWith('/settings/ai/AiAjanlar');
-  const isUnderSettingsAgents = location.pathname.startsWith('/settings/agents');
-  const baseAgentRoute = isUnderSettingsAiAgents
-    ? '/settings/ai/agents'
-    : isUnderSettingsAiAjanlar
-      ? '/settings/ai/AiAjanlar'
-      : isUnderSettingsAgents
-        ? '/settings/agents'
-        : isUnderAyarlar
-          ? '/ayarlar/YapayZekaAyarlari/AiAjanlar'
-          : '/ai-ajanlar';
+  const { baseAgentRoute } = resolveAiAgentRouteContext(location.pathname);
   const defaultBackRoute = effectiveAgentId
     ? `${baseAgentRoute}/${effectiveAgentId}`
     : baseAgentRoute;
@@ -1184,26 +1176,19 @@ const pageDisplayName = useMemo(() => {
   return t('yeni_gorev_akisi', 'Yeni Görev Akışı (Flowchart)');
 }, [formState.baslik, formState.dugmeBasligi, formState.akisDugumleri, t]);
 
-const ajanlarListRoute = baseAgentRoute;
-const ajanlarListLabel = t('ai_ajanlar_baslik', 'Ajanlar');
-
-const agentTitle = agentData?.ad || (effectiveAgentId ? `#${effectiveAgentId}` : t('ai_ajani', 'AI Ajanı'));
-const agentRoute = `${baseAgentRoute}/${effectiveAgentId}`;
-
-const subTrail = useMemo(() => [
-  {
-    label: ajanlarListLabel,
-    onClick: () => navigate(ajanlarListRoute)
-  },
-  {
-    label: agentTitle,
-    onClick: () => navigate(agentRoute, { state: { activeTabId: 'hizliIstekler' } })
-  },
-  {
-    label: pageDisplayName,
-    active: true
-  }
-], [ajanlarListLabel, ajanlarListRoute, agentTitle, agentRoute, pageDisplayName, navigate]);
+const subTrail = useMemo(
+  () =>
+    buildAiAgentSubTrail({
+      pathname: location.pathname,
+      t,
+      navigate,
+      agentId: effectiveAgentId,
+      agentTitle: agentData?.ad,
+      activeLabel: pageDisplayName,
+      isIstekActive: true
+    }),
+  [location.pathname, t, navigate, effectiveAgentId, agentData?.ad, pageDisplayName]
+);
 
 useEffect(() => {
   if (setHeaderBreadcrumbOptions) {

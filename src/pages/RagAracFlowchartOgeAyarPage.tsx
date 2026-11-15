@@ -55,6 +55,10 @@ import {
   FlowchartPromptMentionInput,
   type BaseAiAjanFlowchartOgeAyarPageProps
 } from './BaseAiAjanFlowchartOgeAyarPage';
+import {
+  resolveAiAgentRouteContext,
+  buildAiAgentSubTrail
+} from '../utils/aiAgentBreadcrumb';
 
 export interface RagAracFlowchartOgeAyarPageProps extends Partial<BaseAiAjanFlowchartOgeAyarPageProps> {
   parentNodeId?: string;
@@ -183,19 +187,7 @@ export const RagAracFlowchartOgeAyarPage: React.FC<RagAracFlowchartOgeAyarPagePr
     defaultNodeTitle
   ]);
 
-  const isUnderAyarlar = location.pathname.startsWith('/ayarlar');
-  const isUnderSettingsAiAgents = location.pathname.startsWith('/settings/ai/agents');
-  const isUnderSettingsAiAjanlar = location.pathname.startsWith('/settings/ai/AiAjanlar');
-  const isUnderSettingsAgents = location.pathname.startsWith('/settings/agents');
-  const baseAgentRoute = isUnderSettingsAiAgents
-    ? '/settings/ai/agents'
-    : isUnderSettingsAiAjanlar
-      ? '/settings/ai/AiAjanlar'
-      : isUnderSettingsAgents
-        ? '/settings/agents'
-        : isUnderAyarlar
-          ? '/ayarlar/YapayZekaAyarlari/AiAjanlar'
-          : '/ai-ajanlar';
+  const { baseAgentRoute } = resolveAiAgentRouteContext(location.pathname);
 
   const effectiveBackRoute = useMemo(() => {
     if (backRoute) return backRoute;
@@ -485,78 +477,56 @@ export const RagAracFlowchartOgeAyarPage: React.FC<RagAracFlowchartOgeAyarPagePr
     [t]
   );
 
-  const ajanlarListRoute = baseAgentRoute;
-  const ajanlarListLabel = t('ai_ajanlar_baslik', 'Ajanlar');
-  const agentTitle =
-    agentData?.ad ||
-    incomingAgentData?.ad ||
-    (effectiveAgentId ? `#${effectiveAgentId}` : t('ai_ajani', 'AI Ajanı'));
-  const istekTitle =
-    istekData?.baslik || incomingIstekData?.baslik || t('gorev_akisi', 'Görev Akışı');
-  const parentAiTitle = t('ai_islem', 'AI İşlemi');
-  const agentRoute = `${baseAgentRoute}/${effectiveAgentId}`;
   const istekRoute = `${baseAgentRoute}/${effectiveAgentId}/hizli-istek/${effectiveIstekId}`;
   const parentNodeRoute = resolvedParentNodeId
     ? `${istekRoute}/adim/${resolvedParentNodeId}`
     : istekRoute;
 
   const subTrail = useMemo(
-    () => [
-      {
-        label: ajanlarListLabel,
-        onClick: () => navigate(ajanlarListRoute)
-      },
-      {
-        label: agentTitle,
-        onClick: () => navigate(agentRoute, { state: { activeTabId: 'hizliIstekler' } })
-      },
-      {
-        label: istekTitle,
-        onClick: () =>
-          navigate(istekRoute, {
-            state: {
-              agentData: agentData || incomingAgentData,
-              hizliIstekItem: istekData || incomingIstekData
+    () =>
+      buildAiAgentSubTrail({
+        pathname: location.pathname,
+        t,
+        navigate,
+        agentId: effectiveAgentId,
+        agentTitle: agentData?.ad || incomingAgentData?.ad,
+        istekId: effectiveIstekId,
+        istekTitle: istekData?.baslik || incomingIstekData?.baslik,
+        agentData: agentData || incomingAgentData,
+        istekData: istekData || incomingIstekData,
+        activeLabel: defaultNodeTitle,
+        extraItemsBeforeActive: [
+          {
+            label: t('ai_islem', 'AI İşlemi'),
+            onClick: () => {
+              const currentIstek = istekData || incomingIstekData;
+              const parentNode = Array.isArray(currentIstek?.akisDugumleri)
+                ? currentIstek.akisDugumleri.find((n: any) => n.id === resolvedParentNodeId)
+                : undefined;
+              navigate(parentNodeRoute, {
+                state: {
+                  agentData: agentData || incomingAgentData,
+                  istekData: currentIstek,
+                  nodeData: parentNode
+                }
+              });
             }
-          })
-      },
-      {
-        label: parentAiTitle,
-        onClick: () => {
-          const currentIstek = istekData || incomingIstekData;
-          const parentNode = Array.isArray(currentIstek?.akisDugumleri)
-            ? currentIstek.akisDugumleri.find((n: any) => n.id === resolvedParentNodeId)
-            : undefined;
-          navigate(parentNodeRoute, {
-            state: {
-              agentData: agentData || incomingAgentData,
-              istekData: currentIstek,
-              nodeData: parentNode
-            }
-          });
-        }
-      },
-      {
-        label: defaultNodeTitle,
-        active: true
-      }
-    ],
+          }
+        ]
+      }),
     [
-      ajanlarListLabel,
-      ajanlarListRoute,
-      agentTitle,
-      agentRoute,
-      istekTitle,
-      istekRoute,
-      parentAiTitle,
+      location.pathname,
+      t,
+      navigate,
+      effectiveAgentId,
+      effectiveIstekId,
       parentNodeRoute,
       resolvedParentNodeId,
       defaultNodeTitle,
       agentData,
       incomingAgentData,
       istekData,
-      incomingIstekData,
-      navigate
+      incomingIstekData
     ]
   );
 

@@ -49,6 +49,7 @@ import {
   type AiModelConfig
 } from '@akalin/ai-assistants';
 import type { AiAkisDugumu } from '../types';
+import { resolveAiAgentRouteContext } from '../utils/aiAgentBreadcrumb';
 import AiAjanHizliIstekForm from './AiAjanHizliIstekForm';
 import BaseAiAjanFlowchartOgeAyarPage from './BaseAiAjanFlowchartOgeAyarPage';
 import BaslaFlowchartOgeAyarPage from './BaslaFlowchartOgeAyarPage';
@@ -489,19 +490,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
   const { showAlert } = useAlertDialog();
   const { setHeaderBreadcrumbOptions } = useHeaderApi() || {};
 
-  const isUnderAyarlar = location.pathname.startsWith('/ayarlar');
-  const isUnderSettingsAiAgents = location.pathname.startsWith('/settings/ai/agents');
-  const isUnderSettingsAiAjanlar = location.pathname.startsWith('/settings/ai/AiAjanlar');
-  const isUnderSettingsAgents = location.pathname.startsWith('/settings/agents');
-  const baseAgentRoute = isUnderSettingsAiAgents
-    ? '/settings/ai/agents'
-    : isUnderSettingsAiAjanlar
-      ? '/settings/ai/AiAjanlar'
-      : isUnderSettingsAgents
-        ? '/settings/agents'
-        : isUnderAyarlar
-          ? '/ayarlar/YapayZekaAyarlari/AiAjanlar'
-          : '/ai-ajanlar';
+  const { baseAgentRoute } = resolveAiAgentRouteContext(location.pathname);
   const defaultBackRoute = baseAgentRoute;
   const effectiveBackRoute = backRoute || defaultBackRoute;
 
@@ -3031,7 +3020,13 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     return t('auto_yeni_ai_ajani', 'Yeni Yapay Zeka Ajanı');
   }, [formData.ad, localInitialData?.ad, effectiveId, t]);
 
+  const isMcpSecimRoute = location.pathname.includes('/mcp-secim');
+  const isAdimRoute = location.pathname.includes('/adim/');
+  const isHizliIstekRoute = location.pathname.includes('/hizli-istek');
+  const hasActiveSubView = isMcpSecimRoute || isMcpSelectionOpen || isAdimRoute || isHizliIstekRoute;
+
   useEffect(() => {
+    if (hasActiveSubView) return;
     if (setHeaderBreadcrumbOptions) {
       setHeaderBreadcrumbOptions({
         recordTitle: agentDisplayName
@@ -3042,7 +3037,7 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         setHeaderBreadcrumbOptions(null);
       }
     };
-  }, [agentDisplayName, setHeaderBreadcrumbOptions]);
+  }, [agentDisplayName, hasActiveSubView, setHeaderBreadcrumbOptions]);
 
   const extraDropdownActions = useMemo(() => {
     const isSistemYonetimi = formData.kapsam === 2;
@@ -3194,7 +3189,6 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
   }
 
   // ─── ALT SAYFA: MCP YETKİSİ SEÇİM LİSTESİ (MCPSelectionList) ──────────────────
-  const isMcpSecimRoute = location.pathname.includes('/mcp-secim');
   if (isMcpSecimRoute || isMcpSelectionOpen) {
     return (
       <MCPSelectionList
@@ -3210,7 +3204,6 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
   }
 
   // ─── ALT SAYFA: FLOWCHART ADIM / ÖĞE AYARLARI SAYFASI ──────────────────────────
-  const isAdimRoute = location.pathname.includes('/adim/');
   if (isAdimRoute) {
     const istekMatch = location.pathname.match(/\/hizli-istek\/([^/?#]+)/i);
     const ogeMatch = location.pathname.match(/\/adim\/([^/?#]+)/i);
@@ -3317,7 +3310,6 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
   }
 
   // ─── ALT SAYFA: GÖREV AKIŞI (FLOWCHART) & HIZLI İSTEK DÜZENLEME ──────────────
-  const isHizliIstekRoute = location.pathname.includes('/hizli-istek');
   if (isHizliIstekRoute) {
     const targetParentRoute = effectiveId
       ? `${baseAgentRoute}/${effectiveId}`

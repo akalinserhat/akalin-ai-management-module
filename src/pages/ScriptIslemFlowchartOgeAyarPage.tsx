@@ -7,7 +7,7 @@
  * - Sabit Düğüm Başlığı ("Script İşlemi"), Zero Bottom Button, Zero Inline CSS, Sıfır Native HTML Input ve %100 i18n kurallarına uygun çalışmak
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -33,6 +33,10 @@ import {
   FlowchartPromptMentionInput,
   type BaseAiAjanFlowchartOgeAyarPageProps
 } from './BaseAiAjanFlowchartOgeAyarPage';
+import {
+  resolveAiAgentRouteContext,
+  buildAiAgentSubTrail
+} from '../utils/aiAgentBreadcrumb';
 
 export interface ScriptIslemFlowchartOgeAyarPageProps extends Partial<BaseAiAjanFlowchartOgeAyarPageProps> {
   onSuccess?: () => void;
@@ -245,19 +249,7 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
     }
   }, [agentData, effectiveAgentId, effectiveIstekId, effectiveOgeId, incomingNodeFromState, defaultNodeTitle]);
 
-  const isUnderAyarlar = location.pathname.startsWith('/ayarlar');
-  const isUnderSettingsAiAgents = location.pathname.startsWith('/settings/ai/agents');
-  const isUnderSettingsAiAjanlar = location.pathname.startsWith('/settings/ai/AiAjanlar');
-  const isUnderSettingsAgents = location.pathname.startsWith('/settings/agents');
-  const baseAgentRoute = isUnderSettingsAiAgents
-    ? '/settings/ai/agents'
-    : isUnderSettingsAiAjanlar
-      ? '/settings/ai/AiAjanlar'
-      : isUnderSettingsAgents
-        ? '/settings/agents'
-        : isUnderAyarlar
-          ? '/ayarlar/YapayZekaAyarlari/AiAjanlar'
-          : '/ai-ajanlar';
+  const { baseAgentRoute } = resolveAiAgentRouteContext(location.pathname);
 
   const effectiveBackRoute = useMemo(() => {
     if (backRoute) return backRoute;
@@ -404,31 +396,37 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
     }
   };
 
-  const subTrail = useMemo(() => {
-    const items: any[] = [
-      {
-        label: t('ai_ajanlar_baslik', 'Ajanlar'),
-        onClick: () => navigate(baseAgentRoute)
-      }
-    ];
-    if (agentData?.ad) {
-      items.push({
-        label: agentData.ad,
-        onClick: () => effectiveAgentId && navigate(`${baseAgentRoute}/${effectiveAgentId}`, { state: { activeTabId: 'hizliIstekler' } })
-      });
-    }
-    if (istekData?.baslik) {
-      items.push({
-        label: istekData.baslik,
-        onClick: handleBackOrClose
-      });
-    }
-    items.push({
-      label: defaultNodeTitle,
-      active: true
-    });
-    return items;
-  }, [t, navigate, baseAgentRoute, agentData, effectiveAgentId, istekData, defaultNodeTitle]);
+  const handleBackOrCloseRef = useRef<() => void>(() => {});
+  handleBackOrCloseRef.current = handleBackOrClose;
+
+  const subTrail = useMemo(
+    () =>
+      buildAiAgentSubTrail({
+        pathname: location.pathname,
+        t,
+        navigate,
+        agentId: effectiveAgentId,
+        agentTitle: agentData?.ad || incomingAgentData?.ad,
+        istekId: effectiveIstekId,
+        istekTitle: istekData?.baslik || incomingIstekData?.baslik,
+        agentData: agentData || incomingAgentData,
+        istekData: istekData || incomingIstekData,
+        onIstekClick: () => handleBackOrCloseRef.current(),
+        activeLabel: defaultNodeTitle
+      }),
+    [
+      location.pathname,
+      t,
+      navigate,
+      effectiveAgentId,
+      effectiveIstekId,
+      agentData,
+      incomingAgentData,
+      istekData,
+      incomingIstekData,
+      defaultNodeTitle
+    ]
+  );
 
   return (
     <BaseAiAjanFlowchartOgeAyarPage

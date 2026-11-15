@@ -39,6 +39,10 @@ import {
   type AgentActiveMcpEntity
 } from './AiMcpYonetimi';
 import { MCPSelectionList } from './MCPSelectionList';
+import {
+  resolveAiAgentRouteContext,
+  buildAiAgentSubTrail
+} from '../utils/aiAgentBreadcrumb';
 
 export interface FormAcFlowchartOgeAyarPageProps extends Partial<BaseAiAjanFlowchartOgeAyarPageProps> {
   onSuccess?: () => void;
@@ -240,19 +244,7 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
     }));
   };
 
-  const isUnderAyarlar = location.pathname.startsWith('/ayarlar');
-  const isUnderSettingsAiAgents = location.pathname.startsWith('/settings/ai/agents');
-  const isUnderSettingsAiAjanlar = location.pathname.startsWith('/settings/ai/AiAjanlar');
-  const isUnderSettingsAgents = location.pathname.startsWith('/settings/agents');
-  const baseAgentRoute = isUnderSettingsAiAgents
-    ? '/settings/ai/agents'
-    : isUnderSettingsAiAjanlar
-      ? '/settings/ai/AiAjanlar'
-      : isUnderSettingsAgents
-        ? '/settings/agents'
-        : isUnderAyarlar
-          ? '/ayarlar/YapayZekaAyarlari/AiAjanlar'
-          : '/ai-ajanlar';
+  const { baseAgentRoute } = resolveAiAgentRouteContext(location.pathname);
   const effectiveBackRoute = useMemo(() => {
     if (backRoute) return backRoute;
     if (effectiveAgentId && effectiveIstekId) {
@@ -537,61 +529,31 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
     }
   };
 
-  const ajanlarListRoute = baseAgentRoute;
-  const ajanlarListLabel = t('ai_ajanlar_baslik', 'Ajanlar');
-
-  const agentTitle =
-    agentData?.ad ||
-    incomingAgentData?.ad ||
-    (effectiveAgentId ? `#${effectiveAgentId}` : t('ai_ajani', 'AI Ajanı'));
-  const istekTitle =
-    istekData?.baslik ||
-    incomingIstekData?.baslik ||
-    t('gorev_akisi', 'Görev Akışı');
-  const nodeTitle = defaultFormTitle;
-
-  const agentRoute = `${baseAgentRoute}/${effectiveAgentId}`;
-
-  const istekRoute = `${baseAgentRoute}/${effectiveAgentId}/hizli-istek/${effectiveIstekId}`;
-
   const subTrail = useMemo(
-    () => [
-      {
-        label: ajanlarListLabel,
-        onClick: () => navigate(ajanlarListRoute)
-      },
-      {
-        label: agentTitle,
-        onClick: () => navigate(agentRoute, { state: { activeTabId: 'hizliIstekler' } })
-      },
-      {
-        label: istekTitle,
-        onClick: () =>
-          navigate(istekRoute, {
-            state: {
-              agentData: agentData || incomingAgentData,
-              hizliIstekItem: istekData || incomingIstekData
-            }
-          })
-      },
-      {
-        label: nodeTitle,
-        active: true
-      }
-    ],
+    () =>
+      buildAiAgentSubTrail({
+        pathname: location.pathname,
+        t,
+        navigate,
+        agentId: effectiveAgentId,
+        agentTitle: agentData?.ad || incomingAgentData?.ad,
+        istekId: effectiveIstekId,
+        istekTitle: istekData?.baslik || incomingIstekData?.baslik,
+        agentData: agentData || incomingAgentData,
+        istekData: istekData || incomingIstekData,
+        activeLabel: defaultFormTitle
+      }),
     [
-      ajanlarListLabel,
-      ajanlarListRoute,
-      agentTitle,
-      agentRoute,
-      istekTitle,
-      istekRoute,
-      nodeTitle,
+      location.pathname,
+      t,
+      navigate,
+      effectiveAgentId,
+      effectiveIstekId,
+      defaultFormTitle,
       agentData,
       incomingAgentData,
       istekData,
-      incomingIstekData,
-      navigate
+      incomingIstekData
     ]
   );
 
@@ -606,7 +568,7 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
       istekData={istekData || incomingIstekData}
       title={t('form_ac_oge_ayarlari', 'Form Aç Düğümü Ayarları')}
       pageTitle={t('form_ac_oge_ayarlari', 'Form Aç Düğümü Ayarları')}
-      recordTitle={nodeTitle}
+      recordTitle={defaultFormTitle}
       subTrail={subTrail}
       icon={<Monitor size={24} color="#06b6d4" />}
       subtitleLeft={t(
