@@ -236,6 +236,7 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
       currentReq.hizliErisimDugmesi = payloadNode.hizliErisimDugmesi !== false;
       currentReq.dugmeBasligi = payloadNode.dugmeBasligi || '';
       currentReq.prompt = payloadNode.prompt ?? currentReq.prompt ?? '';
+      currentReq.tetiklemeAnahtarlari = payloadNode.tetiklemeAnahtarlari ?? currentReq.tetiklemeAnahtarlari ?? '';
 
       const updatedReq: any = currentReq;
       if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined' && effectiveAgentId && currentReq?.id) {
