@@ -615,6 +615,14 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         nextStepId: node.sonrakiDugumId,
         yesStepId: node.evetDugumId,
         noStepId: node.hayirDugumId,
+        loopStepId: isLoop ? node.donguGirisDugumId : undefined,
+        doneStepId: isLoop ? node.sonrakiDugumId : undefined,
+        loopTargetTitle: isLoop && node.donguGirisDugumId
+          ? (() => {
+              const target = (formState.akisDugumleri || []).find((other) => other.id === node.donguGirisDugumId);
+              return target ? (target.baslik || target.tip) : undefined;
+            })()
+          : undefined,
         position:
           typeof node.pozisyonX === 'number' && typeof node.pozisyonY === 'number'
             ? { x: node.pozisyonX, y: node.pozisyonY }
@@ -809,6 +817,12 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
           if (branch === 'no') {
             return { ...n, hayirDugumId: targetId };
           }
+          if (branch === 'loop') {
+            return { ...n, donguGirisDugumId: targetId };
+          }
+          if (branch === 'done') {
+            return { ...n, sonrakiDugumId: targetId };
+          }
           return { ...n, sonrakiDugumId: targetId };
         })
       }));
@@ -831,6 +845,12 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
           }
           if (branch === 'no') {
             return { ...n, pozisyonX: ensuredX, pozisyonY: ensuredY, hayirDugumId: '' };
+          }
+          if (branch === 'loop') {
+            return { ...n, pozisyonX: ensuredX, pozisyonY: ensuredY, donguGirisDugumId: '' };
+          }
+          if (branch === 'done') {
+            return { ...n, pozisyonX: ensuredX, pozisyonY: ensuredY, sonrakiDugumId: '' };
           }
           return { ...n, pozisyonX: ensuredX, pozisyonY: ensuredY, sonrakiDugumId: '' };
         })
