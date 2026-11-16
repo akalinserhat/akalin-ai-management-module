@@ -27,7 +27,8 @@ import {
   Database,
   Code2,
   FileText,
-  Search
+  Search,
+  Repeat
 } from 'lucide-react';
 import {
   BaseCardPage,
@@ -53,6 +54,7 @@ import {
 } from '../defaults/ragAracFlowchartDefaultValue';
 import { createDefaultBelgeOlusturDugumu } from '../defaults/belgeOlusturFlowchartDefaultValue';
 import { createDefaultKararOnayDugumu } from '../defaults/kararOnayFlowchartDefaultValue';
+import { createDefaultLoopDugumu } from '../defaults/loopFlowchartDefaultValue';
 import {
   UI_ACTION_OPTIONS,
   FLOWCHART_NODE_TYPES
@@ -233,6 +235,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       if (upper === 'HAFIZA') return t('hafiza', 'Hafıza');
       if (upper === 'SCRIPT_ISLEM') return t('script_islem', 'Script İşlemi');
       if (upper === 'BELGE_OLUSTUR') return t('belge_olustur', 'Belge Oluştur');
+      if (upper === 'LOOP' || upper === 'DONGU') return t('loop_dongu', 'Döngü (Loop)');
       if (upper === 'KARAR_ONAY') return t('karar_onay', 'Karar / Onay');
       return fallback || upper || t('islem_adimi', 'İşlem Adımı');
     },
@@ -512,6 +515,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       const isHafiza = upperTip === 'HAFIZA';
       const isScriptIslem = upperTip === 'SCRIPT_ISLEM';
       const isBelgeOlustur = upperTip === 'BELGE_OLUSTUR';
+      const isLoop = upperTip === 'LOOP' || upperTip === 'DONGU';
       const isKararOnay = upperTip === 'KARAR_ONAY';
 
       const hafizaFileLabel = isHafiza
@@ -527,6 +531,9 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
             node.taslakOlarakOlustur !== false ? t('taslak', 'Taslak') : t('kesin_kayit', 'Kesin Kayıt')
           }`
         : undefined;
+      const loopTargetLabel = isLoop
+        ? `${node.donguModu === 'ASENKRON' ? t('asenkron', 'Asenkron') : t('senkron', 'Senkron')} • ${node.donguKaynagi || 'SAYFA_SAYISI'} (${node.donguDegiskeniAdi || 'sayfa'})`
+        : undefined;
       const kararTargetLabel = isKararOnay
         ? (node.kullaniciMesaji || node.prompt || '').trim().slice(0, 72) || undefined
         : undefined;
@@ -537,15 +544,17 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
           ? scriptTargetLabel
           : isBelgeOlustur
             ? belgeTargetLabel
-            : isKararOnay
-              ? kararTargetLabel
-              : node.varlikAdi
-                ? `${node.varlikAdi}${node.modulAdi ? ` • ${node.modulAdi}` : ''}`
-                : node.uiAksiyonu && node.uiAksiyonu !== 'YOK'
-                  ? uiOpt
-                    ? t(uiOpt.badge)
-                    : node.uiAksiyonu
-                  : undefined;
+            : isLoop
+              ? loopTargetLabel
+              : isKararOnay
+                ? kararTargetLabel
+                : node.varlikAdi
+                  ? `${node.varlikAdi}${node.modulAdi ? ` • ${node.modulAdi}` : ''}`
+                  : node.uiAksiyonu && node.uiAksiyonu !== 'YOK'
+                    ? uiOpt
+                      ? t(uiOpt.badge)
+                      : node.uiAksiyonu
+                    : undefined;
 
       const resolvedWarningText =
         isFormAc && !node.varlikKodu && !node.mcpVarlikId && !node.hedefRota
@@ -554,9 +563,11 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
             ? t('uyari_ai_prompt_girilmedi', 'İşlem promptu girilmedi')
             : isBelgeOlustur && !node.varlikKodu && !node.mcpVarlikId
               ? t('uyari_belge_turu_secilmedi', 'Hedef belge seçilmedi')
-              : isKararOnay && !(node.kullaniciMesaji || node.prompt || '').trim()
-                ? t('uyari_onay_mesaji_girilmedi', 'Onay mesajı girilmedi')
-                : undefined;
+              : isLoop && !node.donguGirisDugumId
+                ? t('uyari_dongu_govdesi_secilmedi', 'Döngü gövdesi (ilk düğüm) seçilmedi')
+                : isKararOnay && !(node.kullaniciMesaji || node.prompt || '').trim()
+                  ? t('uyari_onay_mesaji_girilmedi', 'Onay mesajı girilmedi')
+                  : undefined;
 
       const immutableTitle = getImmutableNodeTitle(upperTip, node.baslik);
 
@@ -576,8 +587,10 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
                   ? t('js_donusturucu', 'JS Dönüştürücü')
                   : isBelgeOlustur
                     ? t('mcp_belge', 'MCP Belge')
-                    : isKararOnay
-                      ? t('dallanma', 'Dallanma')
+                    : isLoop
+                      ? (node.donguModu === 'ASENKRON' ? t('asenkron_dongu', 'Asenkron Döngü') : t('senkron_dongu', 'Senkron Döngü'))
+                      : isKararOnay
+                        ? t('dallanma', 'Dallanma')
                       : typeInfo
                         ? t(typeInfo.shortLabel)
                         : upperTip,
@@ -904,6 +917,15 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
             pozisyonY: resolvedY
           }
         });
+      } else if (nodeType === 'LOOP' || nodeType === 'DONGU') {
+        newNode = createDefaultLoopDugumu({
+          id: newId,
+          title: t('loop_dongu', 'Döngü (Loop)'),
+          existing: {
+            pozisyonX: resolvedX,
+            pozisyonY: resolvedY
+          }
+        });
       } else if (nodeType === 'KARAR_ONAY') {
         newNode = createDefaultKararOnayDugumu({
           id: newId,
@@ -1133,6 +1155,8 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
             n.tip === 'HAFIZA' ||
             n.tip === 'SCRIPT_ISLEM' ||
             n.tip === 'BELGE_OLUSTUR' ||
+            n.tip === 'LOOP' ||
+            n.tip === 'DONGU' ||
             n.tip === 'KARAR_ONAY' ||
             n.tip === 'BASLA' ||
             n.id === 'BASLA'
@@ -1304,6 +1328,14 @@ const flowchartPaletteItems = useMemo<FlowchartPaletteItem[]>(() => [
     subTitle: t('ai_analiz_sorgu_belge_islem', 'AI Analiz, Sorgu veya Belge İşlemi'),
     shape: 'process',
     icon: <Cpu size={13} />
+  },
+  {
+    id: 'palette_loop',
+    type: 'LOOP',
+    title: t('loop_dongu', 'Döngü (Loop)'),
+    subTitle: t('dongu_senkron_asenkron_islem', 'Sync / Async Liste & Sayfa Döngüsü'),
+    shape: 'loop' as any,
+    icon: <Repeat size={13} />
   },
   {
     id: 'palette_hafiza',

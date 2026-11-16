@@ -144,6 +144,8 @@ export type AiAkisDugumuTipi =
   | 'KARAR_ONAY'
   | 'EKRAN_AC'
   | 'BELGE_OLUSTUR'
+  | 'LOOP'
+  | 'DONGU'
   | 'SONUC'
   | string;
 
@@ -327,6 +329,22 @@ export interface AiAkisDugumu {
   tumDugumlereIzinVer?: boolean;
   /** Script İşlemi (SCRIPT_ISLEM) düğümünden erişimi bilhassa kapatılan / engellenen düğüm ID'leri (kara liste) */
   kisitlananDugumIdleri?: string[];
+  /** Döngü (LOOP) düğümü için çalışma modu: 'SENKRON' (Sync / Sıralı) | 'ASENKRON' (Async / Paralel) */
+  donguModu?: 'SENKRON' | 'ASENKRON' | string;
+  /** Döngü (LOOP) düğümü için veri kaynağı: 'ONCEKI_CIKTI_LISTESI' | 'SAYFA_SAYISI' | 'SAYI_ARALIGI' | 'METIN_PARCALARI' */
+  donguKaynagi?: 'ONCEKI_CIKTI_LISTESI' | 'SAYFA_SAYISI' | 'SAYI_ARALIGI' | 'METIN_PARCALARI' | string;
+  /** Döngü (LOOP) düğümü için iterasyon değişken adı (örn: 'item', 'sayfa', 'parca') */
+  donguDegiskeniAdi?: string;
+  /** Döngü (LOOP) düğümü için maksimum tekrar / iterasyon sayısı (güvenlik sınırı, varsayılan 50) */
+  donguMaksimumTekrar?: number;
+  /** Döngü (LOOP) düğümü ASENKRON modda iken eşzamanlı çalışacak paralel worker / concurrency sayısı (varsayılan: 3) */
+  donguEsZamanliGorevSayisi?: number;
+  /** Döngü (LOOP) düğümü hata durumunda devam etsin mi? ('DURDUR' | 'DEVAM_ET') */
+  donguHataDavranisi?: 'DURDUR' | 'DEVAM_ET' | string;
+  /** Döngü (LOOP) düğümünün her iterasyonda çalıştıracağı alt düğümün / gövde düğümünün ID'si */
+  donguGirisDugumId?: string;
+  /** Döngü tamamlandığında sonuçların birleştirilme formatı: 'DIZI' | 'METIN_BIRLESTIR' | 'NESNE_LISTESI' */
+  donguBirlestirmeModu?: 'DIZI' | 'METIN_BIRLESTIR' | 'NESNE_LISTESI' | string;
 }
 
 export interface AiHizliIstek {

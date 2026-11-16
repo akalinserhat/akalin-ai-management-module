@@ -25,10 +25,12 @@ export * from './validators/thinkPortAyarlariValidation';
 export * from './validators/aiAjanValidation';
 export * from './validators/ragAracFlowchartValidation';
 export * from './validators/belgeOlusturFlowchartValidation';
+export * from './validators/loopFlowchartValidation';
 export * from './validators/kararOnayFlowchartValidation';
 export * from './defaults/flowchartOgeAyarDefaultValue';
 export * from './defaults/ragAracFlowchartDefaultValue';
 export * from './defaults/belgeOlusturFlowchartDefaultValue';
+export * from './defaults/loopFlowchartDefaultValue';
 export * from './defaults/kararOnayFlowchartDefaultValue';
 export * from './hooks/useFlowchartOgeAyarAutoFocus';
 
@@ -63,6 +65,7 @@ export { default as AiIslemFlowchartOgeAyarPage, AiIslemFlowchartOgeAyarPage as 
 export { default as HafizaFlowchartOgeAyarPage, HafizaFlowchartOgeAyarPage as NamedHafizaFlowchartOgeAyarPage, type HafizaFlowchartOgeAyarPageProps } from './pages/HafizaFlowchartOgeAyarPage';
 export { default as ScriptIslemFlowchartOgeAyarPage, ScriptIslemFlowchartOgeAyarPage as NamedScriptIslemFlowchartOgeAyarPage, DEFAULT_CSV_TO_MCP_SCRIPT, type ScriptIslemFlowchartOgeAyarPageProps } from './pages/ScriptIslemFlowchartOgeAyarPage';
 export { default as BelgeOlusturFlowchartOgeAyarPage, BelgeOlusturFlowchartOgeAyarPage as NamedBelgeOlusturFlowchartOgeAyarPage, type BelgeOlusturFlowchartOgeAyarPageProps } from './pages/BelgeOlusturFlowchartOgeAyarPage';
+export { default as LoopFlowchartOgeAyarPage, LoopFlowchartOgeAyarPage as NamedLoopFlowchartOgeAyarPage, type LoopFlowchartOgeAyarPageProps } from './pages/LoopFlowchartOgeAyarPage';
 export { default as KararOnayFlowchartOgeAyarPage, KararOnayFlowchartOgeAyarPage as NamedKararOnayFlowchartOgeAyarPage, type KararOnayFlowchartOgeAyarPageProps } from './pages/KararOnayFlowchartOgeAyarPage';
 export { default as RagAracFlowchartOgeAyarPage, RagAracFlowchartOgeAyarPage as NamedRagAracFlowchartOgeAyarPage, type RagAracFlowchartOgeAyarPageProps } from './pages/RagAracFlowchartOgeAyarPage';
 export { McpVarlikSeciciInput, McpVarlikSeciciInput as NamedMcpVarlikSeciciInput, type McpVarlikSeciciInputProps, type McpVarlikEntity } from '@akalin/ui';

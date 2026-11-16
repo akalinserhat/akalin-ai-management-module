@@ -27,6 +27,7 @@ const AiIslemFlowchartOgeAyarPage = lazy(() => import('./pages/AiIslemFlowchartO
 const HafizaFlowchartOgeAyarPage = lazy(() => import('./pages/HafizaFlowchartOgeAyarPage'));
 const ScriptIslemFlowchartOgeAyarPage = lazy(() => import('./pages/ScriptIslemFlowchartOgeAyarPage'));
 const BelgeOlusturFlowchartOgeAyarPage = lazy(() => import('./pages/BelgeOlusturFlowchartOgeAyarPage'));
+const LoopFlowchartOgeAyarPage = lazy(() => import('./pages/LoopFlowchartOgeAyarPage'));
 const KararOnayFlowchartOgeAyarPage = lazy(() => import('./pages/KararOnayFlowchartOgeAyarPage'));
 const RagAracFlowchartOgeAyarPage = lazy(() => import('./pages/RagAracFlowchartOgeAyarPage'));
 const AiMcpYonetimiPage = lazy(() => import('./pages/AiMcpYonetimi'));
@@ -55,6 +56,9 @@ const FlowchartOgeAyarDispatcher: React.FC = () => {
   }
   if (nodeTip === 'BELGE_OLUSTUR' || idUpper.startsWith('BELGE_OLUSTUR')) {
     return <BelgeOlusturFlowchartOgeAyarPage />;
+  }
+  if (nodeTip === 'LOOP' || nodeTip === 'DONGU' || idUpper.startsWith('LOOP') || idUpper.startsWith('DONGU')) {
+    return <LoopFlowchartOgeAyarPage />;
   }
   if (nodeTip === 'KARAR_ONAY' || idUpper.startsWith('KARAR_ONAY')) {
     return <KararOnayFlowchartOgeAyarPage />;

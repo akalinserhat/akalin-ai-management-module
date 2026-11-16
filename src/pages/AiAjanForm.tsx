@@ -79,14 +79,15 @@ export const FLOWCHART_NODE_TYPES = [
   { id: 'BASLA', label: '▶️ Başla', shortLabel: 'Başla' },
   { id: 'FORM_AC', label: '🖥️ Form Aç (Belge / Kart / Liste)', shortLabel: 'Form Aç' },
   { id: 'AI_ISLEM', label: '🤖 AI İşlemi (Analiz / Sorgu / Belge Oluşturma)', shortLabel: 'AI İşlemi' },
+  { id: 'LOOP', label: '🔁 Döngü (Senkron / Asenkron)', shortLabel: 'Döngü' },
   { id: 'HAFIZA', label: '💾 Hafıza (Veri & Dosya Depolama)', shortLabel: 'Hafıza' },
   { id: 'SCRIPT_ISLEM', label: '💻 Script İşlemi (JavaScript & MCP Besleme)', shortLabel: 'Script İşlemi' },
+  { id: 'BELGE_OLUSTUR', label: '📄 Belge / Taslak Oluştur', shortLabel: 'Belge Oluştur' },
+  { id: 'KARAR_ONAY', label: '⚖️ Kullanıcı Onayı & Seçim (Evet / Hayır)', shortLabel: 'Karar / Onay (E/H)' },
   { id: 'RAG_ARAC', label: '🔍 RAG Sorgu Aracı (AI İşlemi Alt Aracı)', shortLabel: 'RAG Sorgu Aracı' },
   { id: 'BASLANGIC_GIRDI', label: '🏁 Başlangıç & Girdi Al', shortLabel: 'Başlangıç / Girdi' },
   { id: 'MCP_SORGULA', label: '🔍 MCP Veri Sorgulama (Cari / Ürün)', shortLabel: 'MCP Sorgu' },
-  { id: 'KARAR_ONAY', label: '⚖️ Kullanıcı Onayı & Seçim (Evet / Hayır)', shortLabel: 'Karar / Onay (E/H)' },
   { id: 'EKRAN_AC', label: '🖥️ ERP Ekranı Aç & Kayıt Bekle (Handshake)', shortLabel: 'Ekran Aç' },
-  { id: 'BELGE_OLUSTUR', label: '📄 Belge / Taslak Oluştur', shortLabel: 'Belge Oluştur' },
   { id: 'SONUC', label: '✅ Tamamlama & Yönetici Özeti', shortLabel: 'Sonuç' }
 ];
 
