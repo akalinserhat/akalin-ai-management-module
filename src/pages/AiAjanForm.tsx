@@ -718,7 +718,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
     hafizaMaxKayit: localInitialData?.hafizaMaxKayit ?? 1000,
     hafizaSaklamaGun: localInitialData?.hafizaSaklamaGun ?? 30,
     hafizaAramaTopK: localInitialData?.hafizaAramaTopK ?? 5,
-    gozlemciAktifMi: localInitialData?.gozlemciAktifMi ?? true,
+    gozlemciDevreDisi: localInitialData?.gozlemciDevreDisi ?? (localInitialData?.gozlemciAktifMi !== undefined ? !localInitialData.gozlemciAktifMi : false),
+    gozlemciAktifMi: localInitialData?.gozlemciAktifMi ?? (localInitialData?.gozlemciDevreDisi !== undefined ? !localInitialData.gozlemciDevreDisi : true),
     seciliAracKodlari: Array.isArray(localInitialData?.seciliAracKodlari)
       ? localInitialData.seciliAracKodlari
       : (localInitialData?.ajanAraclari?.map((a: any) => a.aracKodu) || []),
@@ -779,7 +780,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         hafizaMaxKayit: localInitialData.hafizaMaxKayit ?? prev.hafizaMaxKayit,
         hafizaSaklamaGun: localInitialData.hafizaSaklamaGun ?? prev.hafizaSaklamaGun,
         hafizaAramaTopK: localInitialData.hafizaAramaTopK ?? prev.hafizaAramaTopK,
-        gozlemciAktifMi: localInitialData.gozlemciAktifMi ?? prev.gozlemciAktifMi,
+        gozlemciDevreDisi: localInitialData.gozlemciDevreDisi ?? (localInitialData.gozlemciAktifMi !== undefined ? !localInitialData.gozlemciAktifMi : prev.gozlemciDevreDisi),
+        gozlemciAktifMi: localInitialData.gozlemciAktifMi ?? (localInitialData.gozlemciDevreDisi !== undefined ? !localInitialData.gozlemciDevreDisi : prev.gozlemciAktifMi),
         seciliAracKodlari: Array.isArray(localInitialData.seciliAracKodlari)
           ? localInitialData.seciliAracKodlari
           : (localInitialData.ajanAraclari ? localInitialData.ajanAraclari.map((a: any) => a.aracKodu) : prev.seciliAracKodlari),
@@ -1293,7 +1295,8 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
         hafizaMaxKayit: Math.max(10, Math.min(50000, parseInt(String(currentFormData.hafizaMaxKayit), 10) || 1000)),
         hafizaSaklamaGun: Math.max(1, Math.min(3650, parseInt(String(currentFormData.hafizaSaklamaGun), 10) || 30)),
         hafizaAramaTopK: Math.max(1, Math.min(20, parseInt(String(currentFormData.hafizaAramaTopK), 10) || 5)),
-        gozlemciAktifMi: Boolean(currentFormData.gozlemciAktifMi ?? true),
+        gozlemciDevreDisi: Boolean(currentFormData.gozlemciDevreDisi ?? (!currentFormData.gozlemciAktifMi)),
+        gozlemciAktifMi: Boolean(currentFormData.gozlemciAktifMi ?? (!currentFormData.gozlemciDevreDisi)),
         kurallar: finalKurallar,
         seciliAracKodlari,
         kapsam: parseInt(currentFormData.kapsam, 10) || 1,
@@ -2575,20 +2578,20 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
 
               <div>
                 <BaseSwitch
-                  id="ajanGozlemciAktifSwitch"
-                  checked={Boolean(formData.gozlemciAktifMi ?? true)}
+                  id="ajanGozlemciDevreDisiSwitch"
+                  checked={Boolean(formData.gozlemciDevreDisi ?? (!formData.gozlemciAktifMi))}
                   onChange={(e: any) => {
                     const val = typeof e === 'boolean' ? e : Boolean(e?.target?.checked);
                     setFormData((prev: any) => {
-                      const next = { ...prev, gozlemciAktifMi: val };
+                      const next = { ...prev, gozlemciDevreDisi: val, gozlemciAktifMi: !val };
                       formDataRef.current = next;
                       return next;
                     });
                   }}
-                  label={t('ajan_gozlemci_aktif_label', 'Yarıda Kesilen Yanıtları Gözlemci Ajan İle Otomatik Tamamla')}
+                  label={t('ajan_gozlemci_devre_disi_label', 'Gözlemci Ajanı Devre Dışı Bırak')}
                 />
                 <div className="ai-ajan-hint-text">
-                  {t('ajan_gozlemci_aktif_aciklama', 'Token sınırı (length) veya açık kalan kod/JSON blokları tespit edildiğinde Gözlemci Ajan (GOZLEMCI_AJAN) yanıtı otomatik tamamlar.')}
+                  {t('ajan_gozlemci_devre_disi_aciklama', 'Token sınırı (length) veya açık kalan kod/JSON blokları tespit edildiğinde çalışan Gözlemci Ajanı (GOZLEMCI_AJAN) devre dışı bırakır. Chunking ve teknik analiz işlemlerinde hız kazanmak için önerilir.')}
                 </div>
               </div>
             </div>

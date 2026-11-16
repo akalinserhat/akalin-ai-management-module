@@ -357,6 +357,7 @@ export interface AiAjan {
   hafizaSaklamaGun?: number;
   hafizaAramaTopK?: number;
   gozlemciAktifMi?: boolean;
+  gozlemciDevreDisi?: boolean;
   aktifMi: boolean;
   sistemKaydiMi: boolean;
   ajanAraclari?: any[];
