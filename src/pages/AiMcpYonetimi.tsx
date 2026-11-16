@@ -233,6 +233,42 @@ function buildEntityMcpFunctions(
       parametreSemasi: { type: 'object', properties: {} },
       ornekIstek: `{"name":"erp_get_page_context","arguments":{}}`
     });
+
+    mcpFunctions.push({
+      id: `mcp_${modKod}_${entKod}_update_items`,
+      kademe,
+      ad: `${t('mcp_func_update_items_title', 'Açık Form Satırlarını Güncelleme & Silme (UPDATE_ACTIVE_FORM_ITEMS)')}${suffixText}`,
+      kod: 'erp_update_active_form_items',
+      kategori: 'mcp',
+      modulKodu: modKod,
+      varlikKodu: entKod,
+      varlikTuru: 'Belge',
+      isSistem: true,
+      isleyici: 'UpdateActiveFormItemsTool',
+      rota: entRoute,
+      aciklama: t(
+        'mcp_func_update_items_desc',
+        'Kullanıcının ekranında açık olan taslak belgedeki satırları filtreler, siler, günceller veya yeni satırlar ekler.'
+      ),
+      parametreSemasi: {
+        type: 'object',
+        properties: {
+          islemTipi: {
+            type: 'string',
+            enum: ['SIL', 'FILTRELE', 'GUNCELLE', 'EKLE', 'TEMIZLE', 'YENIDEN_YAZ'],
+            description: 'Yapılacak işlem türü: SIL, FILTRELE, GUNCELLE, EKLE, TEMIZLE, YENIDEN_YAZ'
+          },
+          hedefAlan: { type: 'string', description: 'Eşleştirilecek satır alanı (örn: kampanyaIsmi, urunKodu)' },
+          eslesmeDegeri: { type: 'string', description: 'Aranan / eşleşecek değer' },
+          eslesmeTipi: { type: 'string', enum: ['esittir', 'icerir', 'ile_baslar', 'ile_biter', 'regex'] },
+          guncellenecekDegerler: { type: 'object' },
+          yeniKalemler: { type: 'array' },
+          belgeTuru: { type: 'string', default: entKod }
+        },
+        required: ['islemTipi']
+      },
+      ornekIstek: `{"name":"erp_update_active_form_items","arguments":{"islemTipi":"SIL","hedefAlan":"kampanyaIsmi","eslesmeDegeri":"Aile Bakanlığı Modelleri"}}`
+    });
   } else if (entCat === 'kart') {
     mcpFunctions.push({
       id: `mcp_${modKod}_${entKod}_create_card`,
@@ -376,6 +412,42 @@ function buildEntityMcpFunctions(
       ),
       parametreSemasi: { type: 'object', properties: {} },
       ornekIstek: `{"name":"erp_get_page_context","arguments":{}}`
+    });
+
+    mcpFunctions.push({
+      id: `mcp_${modKod}_${entKod}_update_items`,
+      kademe,
+      ad: `${t('mcp_func_update_items_title', 'Açık Form Satırlarını Güncelleme & Silme (UPDATE_ACTIVE_FORM_ITEMS)')}${suffixText}`,
+      kod: 'erp_update_active_form_items',
+      kategori: 'mcp',
+      modulKodu: modKod,
+      varlikKodu: entKod,
+      varlikTuru: 'Belge',
+      isSistem: true,
+      isleyici: 'UpdateActiveFormItemsTool',
+      rota: entRoute,
+      aciklama: t(
+        'mcp_func_update_items_desc',
+        'Kullanıcının ekranında açık olan taslak belgedeki satırları filtreler, siler, günceller veya yeni satırlar ekler.'
+      ),
+      parametreSemasi: {
+        type: 'object',
+        properties: {
+          islemTipi: {
+            type: 'string',
+            enum: ['SIL', 'FILTRELE', 'GUNCELLE', 'EKLE', 'TEMIZLE', 'YENIDEN_YAZ'],
+            description: 'Yapılacak işlem türü: SIL, FILTRELE, GUNCELLE, EKLE, TEMIZLE, YENIDEN_YAZ'
+          },
+          hedefAlan: { type: 'string', description: 'Eşleştirilecek satır alanı (örn: kampanyaIsmi, urunKodu)' },
+          eslesmeDegeri: { type: 'string', description: 'Aranan / eşleşecek değer' },
+          eslesmeTipi: { type: 'string', enum: ['esittir', 'icerir', 'ile_baslar', 'ile_biter', 'regex'] },
+          guncellenecekDegerler: { type: 'object' },
+          yeniKalemler: { type: 'array' },
+          belgeTuru: { type: 'string', default: entKod }
+        },
+        required: ['islemTipi']
+      },
+      ornekIstek: `{"name":"erp_update_active_form_items","arguments":{"islemTipi":"SIL","hedefAlan":"kampanyaIsmi","eslesmeDegeri":"Aile Bakanlığı Modelleri"}}`
     });
   }
 
