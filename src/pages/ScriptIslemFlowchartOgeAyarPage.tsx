@@ -430,6 +430,7 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
       navigate(effectiveBackRoute, {
         state: {
           agentData: agentData || incomingAgentData,
+          fromNodeEdit: true,
           hizliIstekItem: currentIstek
             ? {
               ...currentIstek,
@@ -487,6 +488,7 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
           navigate(effectiveBackRoute, {
             state: {
               agentData: payload,
+              fromNodeEdit: true,
               hizliIstekItem: updatedIstek
             }
           });

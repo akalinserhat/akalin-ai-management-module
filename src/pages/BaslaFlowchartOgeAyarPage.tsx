@@ -148,6 +148,7 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
       navigate(effectiveBackRoute, {
         state: {
           agentData: incomingAgentData,
+          fromNodeEdit: true,
           hizliIstekItem: incomingIstekData ? {
             ...incomingIstekData,
             baslik: resolvedBaslik,
@@ -283,6 +284,7 @@ export const BaslaFlowchartOgeAyarPage: React.FC<BaslaFlowchartOgeAyarPageProps>
           navigate(effectiveBackRoute, {
             state: {
               agentData: agentToUpdate,
+              fromNodeEdit: true,
               hizliIstekItem: updatedReq || incomingIstekData
             }
           });

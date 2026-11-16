@@ -860,12 +860,10 @@ export const AiAjanForm: React.FC<AiAjanFormProps> = ({
 
     navigate(`${basePath}/hizli-istek/${targetId}`, {
       state: {
-        agentData: formDataRef.current || formData,
-        hizliIstekItem: item,
         activeTabId: 'hizliIstekler'
       }
     });
-  }, [effectiveId, baseAgentRoute, location.pathname, formData, navigate]);
+  }, [effectiveId, baseAgentRoute, location.pathname, navigate]);
 
   const handleAddHizliIstek = (preset: any = null) => {
     const newItem = preset ? {

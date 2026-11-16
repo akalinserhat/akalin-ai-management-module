@@ -303,6 +303,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
       navigate(effectiveBackRoute, {
         state: {
           agentData: agentData || incomingAgentData,
+          fromNodeEdit: true,
           hizliIstekItem: currentIstek
             ? {
               ...currentIstek,
@@ -424,6 +425,7 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
         navigate(effectiveBackRoute, {
           state: {
             agentData: agentToUpdate,
+            fromNodeEdit: true,
             hizliIstekItem: updatedReq || istekData || incomingIstekData
           }
         });

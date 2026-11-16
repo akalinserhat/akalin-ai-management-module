@@ -288,6 +288,7 @@ export const RagAracFlowchartOgeAyarPage: React.FC<RagAracFlowchartOgeAyarPagePr
       navigate(effectiveBackRoute, {
         state: {
           agentData: agentData || incomingAgentData,
+          fromNodeEdit: true,
           hizliIstekItem: currentIstek
             ? {
                 ...currentIstek,
@@ -414,6 +415,7 @@ export const RagAracFlowchartOgeAyarPage: React.FC<RagAracFlowchartOgeAyarPagePr
         navigate(effectiveBackRoute, {
           state: {
             agentData: agentToUpdate,
+            fromNodeEdit: true,
             hizliIstekItem: currentReq
           }
         });

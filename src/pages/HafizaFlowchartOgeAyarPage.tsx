@@ -232,6 +232,7 @@ export const HafizaFlowchartOgeAyarPage: React.FC<HafizaFlowchartOgeAyarPageProp
       navigate(effectiveBackRoute, {
         state: {
           agentData: agentData || incomingAgentData,
+          fromNodeEdit: true,
           hizliIstekItem: currentIstek
             ? {
               ...currentIstek,
@@ -349,6 +350,7 @@ export const HafizaFlowchartOgeAyarPage: React.FC<HafizaFlowchartOgeAyarPageProp
         navigate(effectiveBackRoute, {
           state: {
             agentData: agentToUpdate,
+            fromNodeEdit: true,
             hizliIstekItem: currentReq || istekData || incomingIstekData
           }
         });

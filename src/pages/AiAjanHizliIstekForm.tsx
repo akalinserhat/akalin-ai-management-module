@@ -111,7 +111,6 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
 
   const [agentData, setAgentData] = useState<any>(() => {
     if (initialAgentData) return initialAgentData;
-    if (location.state?.agentData) return location.state.agentData;
     return null;
   });
 
@@ -120,30 +119,88 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
 
   // Navigasyon durumundan güncel ajan verisi gelirse güncelle
   useEffect(() => {
-    if (location.state?.agentData) {
+    if (location.state?.agentData && location.state?.fromNodeEdit) {
       setAgentData(location.state.agentData);
     }
-  }, [location.state?.agentData]);
+  }, [location.state?.agentData, location.state?.fromNodeEdit]);
 
-  // Ajan verisi yoksa çek
+  // Ajan verisini sunucudan HER ZAMAN taze çek (Database Authority)
   useEffect(() => {
-    if (!agentData && effectiveAgentId) {
-      setIsLoading(true);
-      axios.get(`/api/AiAjanlar/${effectiveAgentId}`)
-        .then(res => {
-          if (res.data) setAgentData(res.data);
-        })
-        .catch(() => {
+    if (!effectiveAgentId) return;
+
+    let isMounted = true;
+    setIsLoading(true);
+
+    axios.get(`/api/AiAjanlar/${effectiveAgentId}`)
+      .then(res => {
+        if (!isMounted) return;
+        const freshAgent = res.data;
+        if (freshAgent) {
+          setAgentData(freshAgent);
+
+          if (effectiveIstekId && effectiveIstekId !== 'yeni' && Array.isArray(freshAgent.hizliIstekler)) {
+            const serverItem = freshAgent.hizliIstekler.find((x: any) => x.id === effectiveIstekId);
+            if (serverItem) {
+              if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined') {
+                try {
+                  sessionStorage.removeItem(`webakus_flow_draft_${effectiveAgentId}_${effectiveIstekId}`);
+                } catch {
+                  // ignore
+                }
+              }
+
+              // Alt düğüm düzenleme ekranından dönülmüyorsa, formu sunucudaki güncel ve yetkili veriye senkronize et
+              if (!location.state?.fromNodeEdit) {
+                const nodes = normalizeFlowNodes(serverItem.akisDugumleri, serverItem);
+                const baslaNode = nodes.find(n => n.id === 'BASLA' || n.tip === 'BASLA');
+                const resolvedBaslik =
+                  serverItem.baslik?.trim() ||
+                  baslaNode?.dugmeBasligi?.trim() ||
+                  serverItem.dugmeBasligi?.trim() ||
+                  '';
+
+                setFormState({
+                  id: serverItem.id || `req_${Date.now()}`,
+                  baslik: resolvedBaslik,
+                  prompt: serverItem.prompt || baslaNode?.prompt || '',
+                  ikon: serverItem.ikon || 'Sparkles',
+                  uiAksiyonu: serverItem.uiAksiyonu || 'YOK',
+                  aktifMi: serverItem.aktifMi !== false,
+                  hizliErisimDugmesi: serverItem.hizliErisimDugmesi !== false,
+                  dugmeBasligi: serverItem.dugmeBasligi || baslaNode?.dugmeBasligi || '',
+                  sira: serverItem.sira,
+                  tetiklemeAnahtarlari: serverItem.tetiklemeAnahtarlari || '',
+                  akisDugumleri: nodes
+                });
+                setSelectedFlowNodeId(nodes[0]?.id || START_NODE_ID);
+              }
+            }
+          }
+        }
+      })
+      .catch((err) => {
+        console.error('Ajan bilgisi yüklenirken hata oluştu:', err);
+        if (isMounted) {
           toast.error(t('auto_ajan_yukleme_hata', 'Ajan bilgisi yüklenirken hata oluştu.'));
-        })
-        .finally(() => setIsLoading(false));
-    }
-  }, [agentData, effectiveAgentId, t]);
+        }
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [effectiveAgentId, effectiveIstekId]);
 
   // Düzenlenecek öğeyi bul veya yeni oluştur
   const targetItem = useMemo(() => {
     if (initialItem) return initialItem;
-    if (location.state?.hizliIstekItem) return location.state.hizliIstekItem;
+
+    // Alt düğüm ayar sayfasından bir düzenleme ile dönüldüyse bu geçişi kullan
+    if (location.state?.fromNodeEdit && location.state?.hizliIstekItem) {
+      return location.state.hizliIstekItem;
+    }
 
     // Sunucudan (API / Veritabanı) gelen yetkili ajan verisi varsa öncelikle onu kullan ve eski oturum taslağını temizle
     if (agentData?.hizliIstekler && Array.isArray(agentData.hizliIstekler)) {
@@ -162,22 +219,8 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       }
     }
 
-    if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined' && effectiveAgentId && effectiveIstekId && effectiveIstekId !== 'yeni') {
-      try {
-        const draftRaw = sessionStorage.getItem(`webakus_flow_draft_${effectiveAgentId}_${effectiveIstekId}`);
-        if (draftRaw) {
-          const parsedDraft = JSON.parse(draftRaw);
-          if (parsedDraft && parsedDraft.id === effectiveIstekId) {
-            return parsedDraft;
-          }
-        }
-      } catch {
-        // ignore sessionStorage error
-      }
-    }
-
     return null;
-  }, [initialItem, location.state?.hizliIstekItem, agentData, effectiveAgentId, effectiveIstekId]);
+  }, [initialItem, location.state?.fromNodeEdit, location.state?.hizliIstekItem, agentData, effectiveAgentId, effectiveIstekId]);
 
   const snapCoord = (val: number): number => Math.max(24, Math.round(val / 16) * 16);
 
@@ -383,29 +426,35 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
 
   // targetItem sonradan API'den yüklendiğinde formState'i senkronize et
   useEffect(() => {
-    if (!location.state?.hizliIstekItem && targetItem && formState.id !== targetItem.id) {
+    if (!location.state?.fromNodeEdit && targetItem) {
       const nodes = normalizeFlowNodes(targetItem.akisDugumleri, targetItem);
+      const baslaNode = nodes.find(n => n.id === 'BASLA' || n.tip === 'BASLA');
+      const resolvedBaslik =
+        targetItem.baslik?.trim() ||
+        baslaNode?.dugmeBasligi?.trim() ||
+        targetItem.dugmeBasligi?.trim() ||
+        '';
 
       setFormState({
         id: targetItem.id || `req_${Date.now()}`,
-        baslik: targetItem.baslik || '',
-        prompt: targetItem.prompt || '',
+        baslik: resolvedBaslik,
+        prompt: targetItem.prompt || baslaNode?.prompt || '',
         ikon: targetItem.ikon || 'Sparkles',
         uiAksiyonu: targetItem.uiAksiyonu || 'YOK',
         aktifMi: targetItem.aktifMi !== false,
         hizliErisimDugmesi: targetItem.hizliErisimDugmesi !== false,
-        dugmeBasligi: targetItem.dugmeBasligi || '',
+        dugmeBasligi: targetItem.dugmeBasligi || baslaNode?.dugmeBasligi || '',
         sira: targetItem.sira,
         tetiklemeAnahtarlari: targetItem.tetiklemeAnahtarlari || '',
         akisDugumleri: nodes
       });
       setSelectedFlowNodeId(nodes[0]?.id || START_NODE_ID);
     }
-  }, [targetItem, location.state?.hizliIstekItem, formState.id, t]);
+  }, [targetItem, location.state?.fromNodeEdit]);
 
   // location.state'ten doğrudan güncel istek öğesi geldiyse (alt ayar sayfasından dönüş)
   useEffect(() => {
-    if (location.state?.hizliIstekItem) {
+    if (location.state?.fromNodeEdit && location.state?.hizliIstekItem) {
       const item = location.state.hizliIstekItem;
       const nodes = normalizeFlowNodes(item.akisDugumleri, item);
       const baslaNode = nodes.find(n => n.id === 'BASLA' || n.tip === 'BASLA');
@@ -429,8 +478,25 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         akisDugumleri: nodes
       });
       setSelectedFlowNodeId(nodes[0]?.id || START_NODE_ID);
+
+      // Tüketilen location.state'i history'den temizle (F5 yapıldığında DB otoritesi korunsun)
+      if (typeof window !== 'undefined' && window.history?.replaceState) {
+        try {
+          const currentState = window.history.state;
+          if (currentState && currentState.usr) {
+            window.history.replaceState({
+              ...currentState,
+              usr: {
+                ...currentState.usr,
+                fromNodeEdit: false,
+                hizliIstekItem: undefined
+              }
+            }, '');
+          }
+        } catch { }
+      }
     }
-  }, [location.state?.hizliIstekItem, t]);
+  }, [location.state?.fromNodeEdit, location.state?.hizliIstekItem]);
 
   // @akalin/ui BaseFlowchart (2B serbest tuval) için düğüm listesini dönüştür
   const flowchartSteps = useMemo<FlowchartStepItem[]>(() => {

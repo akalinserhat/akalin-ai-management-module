@@ -285,6 +285,7 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
       navigate(effectiveBackRoute, {
         state: {
           agentData: agentData || incomingAgentData,
+          fromNodeEdit: true,
           hizliIstekItem: currentIstek
             ? {
               ...currentIstek,
@@ -512,6 +513,7 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
         navigate(effectiveBackRoute, {
           state: {
             agentData: agentToUpdate,
+            fromNodeEdit: true,
             hizliIstekItem: updatedReq || istekData || incomingIstekData
           }
         });
