@@ -145,6 +145,23 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
     if (initialItem) return initialItem;
     if (location.state?.hizliIstekItem) return location.state.hizliIstekItem;
 
+    // Sunucudan (API / Veritabanı) gelen yetkili ajan verisi varsa öncelikle onu kullan ve eski oturum taslağını temizle
+    if (agentData?.hizliIstekler && Array.isArray(agentData.hizliIstekler)) {
+      if (effectiveIstekId && effectiveIstekId !== 'yeni') {
+        const found = agentData.hizliIstekler.find((x: any) => x.id === effectiveIstekId);
+        if (found) {
+          if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined' && effectiveAgentId) {
+            try {
+              sessionStorage.removeItem(`webakus_flow_draft_${effectiveAgentId}_${effectiveIstekId}`);
+            } catch {
+              // ignore
+            }
+          }
+          return found;
+        }
+      }
+    }
+
     if (typeof window !== 'undefined' && typeof sessionStorage !== 'undefined' && effectiveAgentId && effectiveIstekId && effectiveIstekId !== 'yeni') {
       try {
         const draftRaw = sessionStorage.getItem(`webakus_flow_draft_${effectiveAgentId}_${effectiveIstekId}`);
@@ -159,12 +176,6 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
       }
     }
 
-    if (agentData?.hizliIstekler && Array.isArray(agentData.hizliIstekler)) {
-      if (effectiveIstekId && effectiveIstekId !== 'yeni') {
-        const found = agentData.hizliIstekler.find((x: any) => x.id === effectiveIstekId);
-        if (found) return found;
-      }
-    }
     return null;
   }, [initialItem, location.state?.hizliIstekItem, agentData, effectiveAgentId, effectiveIstekId]);
 
