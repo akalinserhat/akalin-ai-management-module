@@ -317,6 +317,16 @@ export interface AiAkisDugumu {
   oncekiDugumGirdisi?: AiOncekiDugumGirdiAyarlari;
   /** Bu düğümün bir sonraki düğüme vermeyi taahhüt ettiği sabit JSON Schema sözleşmesi */
   ciktiJsonSemasi?: FlowchartNodeJsonSchema;
+  /** AI İşlemi (AI_ISLEM) düğümünün görev modu: 'STANDART_MUHAKEME' | 'SCRIPT_KODU_YAZ' */
+  islevTuru?: 'STANDART_MUHAKEME' | 'SCRIPT_KODU_YAZ' | string;
+  /** Script İşlemi (SCRIPT_ISLEM) için kod kaynağı: 'STATIK_KOD' | 'AI_ISLEMDEN_DINAMIK' */
+  scriptKaynagi?: 'STATIK_KOD' | 'AI_ISLEMDEN_DINAMIK' | string;
+  /** Script İşlemi (SCRIPT_ISLEM) kodu dinamik alacaksa kaynak AI_ISLEM düğümünün ID'si ('OTOMATIK_ONCEKI' veya spesifik düğüm id) */
+  kaynakAiDugumId?: string;
+  /** Script İşlemi (SCRIPT_ISLEM) düğümünün akıştaki tüm düğümlerin verisine getNode ile erişmesine izin verilsin mi (varsayılan true) */
+  tumDugumlereIzinVer?: boolean;
+  /** Script İşlemi (SCRIPT_ISLEM) düğümünden erişimi bilhassa kapatılan / engellenen düğüm ID'leri (kara liste) */
+  kisitlananDugumIdleri?: string[];
 }
 
 export interface AiHizliIstek {

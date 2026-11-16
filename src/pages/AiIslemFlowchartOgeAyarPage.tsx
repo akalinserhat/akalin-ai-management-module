@@ -22,13 +22,16 @@ import {
   Search,
   Plus,
   SlidersHorizontal,
-  Trash2
+  Trash2,
+  Code2
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
   BaseButton,
-  BaseSwitch
+  BaseSwitch,
+  BaseDropdownSecici,
+  type DropdownOption
 } from '@akalin/ui';
 import type { AiBagliAracDugumu } from '../types';
 import {
@@ -99,7 +102,8 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
         seciliDegiskenler: []
       },
       kayitBekle: baseNode.kayitBekle !== false,
-      kayitSonrasiTeyitEt: baseNode.kayitSonrasiTeyitEt !== false
+      kayitSonrasiTeyitEt: baseNode.kayitSonrasiTeyitEt !== false,
+      islevTuru: baseNode.islevTuru || 'STANDART_MUHAKEME'
     };
   });
 
@@ -135,7 +139,8 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
                         seciliDegiskenler: []
                       },
                       kayitBekle: foundNode.kayitBekle !== false,
-                      kayitSonrasiTeyitEt: foundNode.kayitSonrasiTeyitEt !== false
+                      kayitSonrasiTeyitEt: foundNode.kayitSonrasiTeyitEt !== false,
+                      islevTuru: foundNode.islevTuru || 'STANDART_MUHAKEME'
                     });
                   }
                 }
@@ -156,6 +161,19 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
     return -1 as any;
   }, [backRoute, effectiveAgentId, effectiveIstekId, baseAgentRoute]);
 
+  const islevTuruOptions = useMemo<DropdownOption[]>(() => [
+    {
+      id: 'STANDART_MUHAKEME',
+      value: 'STANDART_MUHAKEME',
+      label: t('ai_islev_standart_muhakeme', 'Standart Muhakeme / Metin & Belge Analizi')
+    },
+    {
+      id: 'SCRIPT_KODU_YAZ',
+      value: 'SCRIPT_KODU_YAZ',
+      label: t('ai_islev_script_kodu_yaz', 'Script Düğümü İçin JavaScript Kodu Yazma')
+    }
+  ], [t]);
+
   const buildUpdatedNodePayload = (overrideData?: any) => {
     const rawTools =
       overrideData?.bagliAraclar !== undefined ? overrideData.bagliAraclar : formData.bagliAraclar;
@@ -172,7 +190,8 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
       kayitSonrasiTeyitEt:
         (overrideData?.kayitSonrasiTeyitEt !== undefined
           ? overrideData.kayitSonrasiTeyitEt
-          : formData.kayitSonrasiTeyitEt) !== false
+          : formData.kayitSonrasiTeyitEt) !== false,
+      islevTuru: (overrideData?.islevTuru !== undefined ? overrideData.islevTuru : formData.islevTuru) || 'STANDART_MUHAKEME'
     };
     return merged;
   };
@@ -476,7 +495,63 @@ export const AiIslemFlowchartOgeAyarPage: React.FC<AiIslemFlowchartOgeAyarPagePr
       onBack={handleBackOrClose}
     >
       <div className="basla-ayar-page-container">
-        {/* 1. BÖLÜM: YAPAY ZEKA İŞLEM YÖNERGESİ (ADIM PROMPTU) */}
+        {/* 1. BÖLÜM: AI GÖREV MODU & İŞLEV TÜRÜ */}
+        <section className="basla-ayar-card">
+          <div className="basla-ayar-card-header">
+            <div className="basla-ayar-card-header-left">
+              <div className="basla-ayar-icon-box cyan">
+                <Code2 size={18} />
+              </div>
+              <div className="basla-ayar-header-text">
+                <h3 className="basla-ayar-card-title">
+                  {t('ai_islem_turu_baslik', 'AI Görev Modu & İşlev Türü')}
+                </h3>
+                <p className="basla-ayar-card-subtitle">
+                  {t(
+                    'ai_islem_turu_aciklama',
+                    'Bu düğümün metin/belge muhakemesi mi yapacağını yoksa akıştaki Script düğümü için dinamik JavaScript kodu mu üreteceğini belirleyin.'
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="basla-ayar-card-body">
+            <div className="form-group mb-0">
+              <label className="basla-ayar-field-label" htmlFor="ai-node-islev-turu">
+                {t('ai_islev_turu_etiket', 'Görev Modu')}
+              </label>
+              <BaseDropdownSecici
+                id="ai-node-islev-turu"
+                value={formData.islevTuru || 'STANDART_MUHAKEME'}
+                options={islevTuruOptions}
+                onChange={(val: string | number | (string | number)[]) =>
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    islevTuru: String(val || 'STANDART_MUHAKEME')
+                  }))
+                }
+                clearable={false}
+              />
+            </div>
+
+            {formData.islevTuru === 'SCRIPT_KODU_YAZ' && (
+              <div className="basla-ayar-card-footer mt-16">
+                <span className="basla-ayar-footer-hint text-primary">
+                  <Sparkles size={14} />
+                  <span>
+                    {t(
+                      'ai_islev_script_kodu_yaz_bilgi',
+                      'Script Kodu Yazma Modu: Model, Script motorunun çalışma zamanı şartnamesine uygun saf JavaScript kodu üretecektir. Akıştaki diğer düğümlerden veri almak için getNode("dugum_id", varsayilanDeger) fonksiyonunu kullanabilir.'
+                    )}
+                  </span>
+                </span>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* 2. BÖLÜM: YAPAY ZEKA İŞLEM YÖNERGESİ (ADIM PROMPTU) */}
         <section className="basla-ayar-card">
           <div className="basla-ayar-card-header">
             <div className="basla-ayar-card-header-left">

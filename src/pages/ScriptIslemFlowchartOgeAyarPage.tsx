@@ -17,7 +17,16 @@ import {
   Info,
   Sparkles,
   CheckCircle2,
-  Wand2
+  Wand2,
+  Layers,
+  ShieldCheck,
+  Copy,
+  AlertTriangle,
+  Play,
+  Monitor,
+  FileText,
+  GitBranch,
+  Bot
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -176,6 +185,18 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
 
   const defaultNodeTitle = t('script_islem', 'Script İşlemi');
 
+  const renderWorkflowNodeSmallIcon = (tip?: string) => {
+    const upper = (tip || '').toUpperCase();
+    if (upper === 'BASLA') return <Play size={14} />;
+    if (upper === 'FORM_AC' || upper === 'EKRAN_AC') return <Monitor size={14} />;
+    if (upper === 'HAFIZA') return <Database size={14} />;
+    if (upper === 'SCRIPT_ISLEM') return <Code2 size={14} />;
+    if (upper === 'BELGE_OLUSTUR') return <FileText size={14} />;
+    if (upper === 'KARAR_ONAY') return <GitBranch size={14} />;
+    if (upper === 'AI_ISLEM') return <Bot size={14} />;
+    return <Cpu size={14} />;
+  };
+
   const [formData, setFormData] = useState<any>(() => {
     const baseNode = incomingNodeFromState || {};
     return {
@@ -199,7 +220,11 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
         seciliDegiskenler: []
       },
       kayitBekle: baseNode.kayitBekle === true,
-      kayitSonrasiTeyitEt: false
+      kayitSonrasiTeyitEt: false,
+      scriptKaynagi: baseNode.scriptKaynagi || 'STATIK_KOD',
+      kaynakAiDugumId: baseNode.kaynakAiDugumId || 'OTOMATIK_ONCEKI',
+      tumDugumlereIzinVer: baseNode.tumDugumlereIzinVer !== false,
+      kisitlananDugumIdleri: Array.isArray(baseNode.kisitlananDugumIdleri) ? baseNode.kisitlananDugumIdleri : []
     };
   });
 
@@ -237,7 +262,11 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
                         seciliDegiskenler: []
                       },
                       kayitBekle: foundNode.kayitBekle === true,
-                      kayitSonrasiTeyitEt: false
+                      kayitSonrasiTeyitEt: false,
+                      scriptKaynagi: foundNode.scriptKaynagi || 'STATIK_KOD',
+                      kaynakAiDugumId: foundNode.kaynakAiDugumId || 'OTOMATIK_ONCEKI',
+                      tumDugumlereIzinVer: foundNode.tumDugumlereIzinVer !== false,
+                      kisitlananDugumIdleri: Array.isArray(foundNode.kisitlananDugumIdleri) ? foundNode.kisitlananDugumIdleri : []
                     });
                   }
                 }
@@ -267,12 +296,88 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
     { id: 'AlisFaturasi', value: 'AlisFaturasi', label: t('varlik_alis_faturasi', 'AlisFaturasi — Alış Faturası Şeması') }
   ], [t]);
 
+  const isDynamicCode = formData.scriptKaynagi === 'AI_ISLEMDEN_DINAMIK';
+
+  const scriptKaynagiOptions = useMemo<DropdownOption[]>(() => [
+    {
+      id: 'STATIK_KOD',
+      value: 'STATIK_KOD',
+      label: t('script_kaynagi_statik', 'Statik Kod (Manuel Yazılan Script)')
+    },
+    {
+      id: 'AI_ISLEMDEN_DINAMIK',
+      value: 'AI_ISLEMDEN_DINAMIK',
+      label: t('script_kaynagi_ai_dinamik', 'Dinamik Kod (AI İşlem Düğümünden Al)')
+    }
+  ], [t]);
+
+  const allWorkflowNodes: any[] = useMemo(() => {
+    const currentIstek = istekData || incomingIstekData;
+    return Array.isArray(currentIstek?.akisDugumleri) ? currentIstek.akisDugumleri : [];
+  }, [istekData, incomingIstekData]);
+
+  const otherWorkflowNodes = useMemo(() => {
+    return allWorkflowNodes.filter((n: any) => n.id !== formData.id);
+  }, [allWorkflowNodes, formData.id]);
+
+  const aiNodesInWorkflow = useMemo(() => {
+    return otherWorkflowNodes.filter((n: any) => (n.tip || '').toUpperCase() === 'AI_ISLEM');
+  }, [otherWorkflowNodes]);
+
+  const kaynakAiOptions = useMemo<DropdownOption[]>(() => {
+    const list: DropdownOption[] = [
+      {
+        id: 'OTOMATIK_ONCEKI',
+        value: 'OTOMATIK_ONCEKI',
+        label: t('script_kaynak_ai_otomatik', 'Otomatik (En Yakın Önceki AI İşlemi Düğümü)')
+      }
+    ];
+    aiNodesInWorkflow.forEach((node: any) => {
+      list.push({
+        id: node.id,
+        value: node.id,
+        label: `${node.baslik || t('ai_islem', 'AI İşlemi')} (${node.id})`
+      });
+    });
+    return list;
+  }, [aiNodesInWorkflow, t]);
+
+  const handleToggleNodeRestriction = (nodeId: string, isAllowed: boolean) => {
+    setFormData((prev: any) => {
+      const currentList: string[] = Array.isArray(prev.kisitlananDugumIdleri)
+        ? [...prev.kisitlananDugumIdleri]
+        : [];
+      if (!isAllowed) {
+        if (!currentList.includes(nodeId)) {
+          currentList.push(nodeId);
+        }
+      } else {
+        const idx = currentList.indexOf(nodeId);
+        if (idx !== -1) {
+          currentList.splice(idx, 1);
+        }
+      }
+      return {
+        ...prev,
+        kisitlananDugumIdleri: currentList
+      };
+    });
+  };
+
+  const handleCopySnippet = (nodeId: string) => {
+    const snippet = `const veri = getNode("${nodeId}", null);`;
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(snippet);
+      toast.success(
+        t('kod_parcacigi_kopyalandi', 'Snippet panoya kopyalandı: {{snippet}}', { snippet })
+      );
+    }
+  };
+
   // Akıştaki HAFIZA düğümlerinden gelen dosya adlarını otomatik öner
   const memoryFileSuggestions = useMemo(() => {
-    const currentIstek = istekData || incomingIstekData;
-    const allNodes: any[] = Array.isArray(currentIstek?.akisDugumleri) ? currentIstek.akisDugumleri : [];
     const files: string[] = [];
-    allNodes.forEach((n: any) => {
+    allWorkflowNodes.forEach((n: any) => {
       if ((n.tip || '').toUpperCase() === 'HAFIZA') {
         const name = (n.dosyaAdi || 'fiyat_farki_tablosu').replace(/\.(csv|json|txt|md|xml)$/i, '').trim() || 'fiyat_farki_tablosu';
         const ext = (n.dosyaUzantisi || 'csv').replace(/^\./, '').toLowerCase().trim() || 'csv';
@@ -280,7 +385,7 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
       }
     });
     return files;
-  }, [istekData, incomingIstekData]);
+  }, [allWorkflowNodes]);
 
   const buildUpdatedNodePayload = (overrideData?: any) => {
     const merged = {
@@ -299,7 +404,11 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
       scriptKodu: merged.scriptKodu || DEFAULT_CSV_TO_MCP_SCRIPT,
       uiAksiyonu: 'YOK',
       kayitBekle: Boolean(merged.kayitBekle),
-      kayitSonrasiTeyitEt: false
+      kayitSonrasiTeyitEt: false,
+      scriptKaynagi: merged.scriptKaynagi || 'STATIK_KOD',
+      kaynakAiDugumId: merged.kaynakAiDugumId || 'OTOMATIK_ONCEKI',
+      tumDugumlereIzinVer: merged.tumDugumlereIzinVer !== false,
+      kisitlananDugumIdleri: Array.isArray(merged.kisitlananDugumIdleri) ? merged.kisitlananDugumIdleri : []
     };
   };
 
@@ -454,7 +563,7 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
       onBack={handleBackOrClose}
     >
       <div className="basla-ayar-page-container">
-        {/* 1. BÖLÜM: KAYNAK HAFIZA DOSYASI VE HEDEF JSON ŞEMA TÜRÜ */}
+        {/* 1. BÖLÜM: SCRIPT KAYNAĞI VE HEDEF JSON ŞEMA TÜRÜ */}
         <section className="basla-ayar-card">
           <div className="basla-ayar-card-header">
             <div className="basla-ayar-card-header-left">
@@ -468,7 +577,7 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
                 <p className="basla-ayar-card-subtitle">
                   {t(
                     'script_veri_donusturucu_aciklama',
-                    'Tek Sorumluluk İlkesi: Script İşlemi düğümü yalnızca okunan veriyi JavaScript ile temizleyip yapısal JSON olarak sağ çıkış portuna (örn: Belge Oluştur düğümüne) aktarır.'
+                    'Tek Sorumluluk İlkesi: Script İşlemi düğümü veriyi JavaScript (Jint Sandbox) ile dönüştürerek sağ çıkış portuna yapısal JSON olarak aktarır.'
                   )}
                 </p>
               </div>
@@ -477,6 +586,44 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
 
           <div className="basla-ayar-card-body">
             <div className="form-grid">
+              <div className="form-group">
+                <label className="basla-ayar-field-label" htmlFor="script-node-kaynak-turu">
+                  {t('script_kaynak_turu_etiket', 'Script Kod Kaynağı')}
+                </label>
+                <BaseDropdownSecici
+                  id="script-node-kaynak-turu"
+                  value={formData.scriptKaynagi || 'STATIK_KOD'}
+                  options={scriptKaynagiOptions}
+                  onChange={(val: string | number | (string | number)[]) =>
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      scriptKaynagi: String(val || 'STATIK_KOD')
+                    }))
+                  }
+                  clearable={false}
+                />
+              </div>
+
+              {isDynamicCode ? (
+                <div className="form-group">
+                  <label className="basla-ayar-field-label" htmlFor="script-node-kaynak-ai-dugum">
+                    {t('script_kaynak_ai_dugum_etiket', 'Kodu Yazacak AI İşlem Düğümü')}
+                  </label>
+                  <BaseDropdownSecici
+                    id="script-node-kaynak-ai-dugum"
+                    value={formData.kaynakAiDugumId || 'OTOMATIK_ONCEKI'}
+                    options={kaynakAiOptions}
+                    onChange={(val: string | number | (string | number)[]) =>
+                      setFormData((prev: any) => ({
+                        ...prev,
+                        kaynakAiDugumId: String(val || 'OTOMATIK_ONCEKI')
+                      }))
+                    }
+                    clearable={false}
+                  />
+                </div>
+              ) : null}
+
               <div className="form-group">
                 <label className="basla-ayar-field-label" htmlFor="script-node-kaynak-dosya">
                   {t('script_kaynak_dosya_adi', 'Okunacak Hafıza Dosyası (Dosya Adı + Uzantısı)')}
@@ -516,6 +663,34 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
               </div>
             </div>
 
+            {isDynamicCode && (
+              <div className="basla-ayar-card-footer">
+                <span className="basla-ayar-footer-hint text-primary">
+                  <Sparkles size={14} />
+                  <span>
+                    {t(
+                      'script_dinamik_kod_bilgi',
+                      'Dinamik Kod Modu: LLM tarafından üretilen JavaScript kodu çalışma zamanında otomatik olarak ayıklanacak ve izole Jint Sandbox ortamında çalıştırılacaktır.'
+                    )}
+                  </span>
+                </span>
+              </div>
+            )}
+
+            {isDynamicCode && aiNodesInWorkflow.length === 0 && (
+              <div className="basla-ayar-card-footer">
+                <span className="basla-ayar-footer-hint text-warning">
+                  <AlertTriangle size={14} />
+                  <span>
+                    {t(
+                      'script_akista_ai_dugum_yok_uyari',
+                      'Dikkat: Akışta henüz tanımlı bir AI İşlemi düğümü bulunmuyor. Dinamik kod üretimi için akışa bir AI İşlemi düğümü ekleyin.'
+                    )}
+                  </span>
+                </span>
+              </div>
+            )}
+
             {memoryFileSuggestions.length > 0 && (
               <div className="basla-ayar-card-footer">
                 <span className="basla-ayar-footer-hint">
@@ -539,39 +714,48 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
               </div>
               <div className="basla-ayar-header-text">
                 <h3 className="basla-ayar-card-title">
-                  {t('script_js_kodu_etiket', 'Çalıştırılacak JavaScript Kodu (Jint Sandbox)')}
+                  {isDynamicCode
+                    ? t('script_dinamik_kod_baslik', 'Dinamik AI Kodu & Fallback Script (Jint Sandbox)')
+                    : t('script_js_kodu_etiket', 'Çalıştırılacak JavaScript Kodu (Jint Sandbox)')}
                 </h3>
                 <p className="basla-ayar-card-subtitle">
-                  {t(
-                    'script_js_kodu_ipucu',
-                    'Script içerisinde "input.content" (Hafıza dosyası içeriği), "input.fileName", "input.varlikKodu" ve "input.memory" nesnelerine doğrudan erişebilirsiniz. Dönüş değeri sağ çıkış portuna iletilecek JSON metni veya nesnesi olmalıdır.'
-                  )}
+                  {isDynamicCode
+                    ? t(
+                        'script_dinamik_kod_ipucu',
+                        'Kod akış anında seçilen AI İşlemi tarafından yazılacaktır. LLM çıktısı içindeki JavaScript kodu otomatik ayıklanır. İsteğe bağlı olarak aşağıda acil durum fallback scripti tanımlayabilirsiniz.'
+                      )
+                    : t(
+                        'script_js_kodu_ipucu',
+                        'Script içerisinde "input.content" (Hafıza dosyası içeriği), "input.fileName", "input.varlikKodu", "input.memory" ve diğer düğümlerden veri almak için "getNode(nodeId, defaultVal)" fonksiyonuna erişebilirsiniz.'
+                      )}
                 </p>
               </div>
             </div>
-            <div className="basla-ayar-card-header-right">
-              <BaseButton
-                variant="tonal"
-                icon={<Wand2 size={14} />}
-                onClick={() => {
-                  setFormData((prev: any) => ({
-                    ...prev,
-                    scriptKodu: DEFAULT_CSV_TO_MCP_SCRIPT
-                  }));
-                  toast.success(
-                    t('script_sablon_yuklendi', 'Varsayılan CSV → Yapısal JSON dönüştürücü script şablonu yüklendi.')
-                  );
-                }}
-              >
-                {t('script_varsayilan_sablonu_yukle', 'CSV → JSON Şablonunu Yükle')}
-              </BaseButton>
-            </div>
+            {!isDynamicCode && (
+              <div className="basla-ayar-card-header-right">
+                <BaseButton
+                  variant="tonal"
+                  icon={<Wand2 size={14} />}
+                  onClick={() => {
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      scriptKodu: DEFAULT_CSV_TO_MCP_SCRIPT
+                    }));
+                    toast.success(
+                      t('script_sablon_yuklendi', 'Varsayılan CSV → Yapısal JSON dönüştürücü script şablonu yüklendi.')
+                    );
+                  }}
+                >
+                  {t('script_varsayilan_sablonu_yukle', 'CSV → JSON Şablonunu Yükle')}
+                </BaseButton>
+              </div>
+            )}
           </div>
 
           <div className="basla-ayar-card-body">
             <FlowchartPromptMentionInput
               autoFocus
-              rows={16}
+              rows={isDynamicCode ? 8 : 16}
               value={formData.scriptKodu || ''}
               onChange={(e) =>
                 setFormData((prev: any) => ({
@@ -579,10 +763,17 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
                   scriptKodu: e.target.value
                 }))
               }
-              placeholder={t(
-                'script_js_kodu_placeholder',
-                '// input.content içerisindeki CSV veya metin verisini işleyip JSON.stringify({...}) döndürün...'
-              )}
+              placeholder={
+                isDynamicCode
+                  ? t(
+                      'script_dinamik_fallback_placeholder',
+                      '// Opsiyonel Fallback: AI İşlemi kod üretemezse veya hata oluşursa çalıştırılacak yedek JavaScript kodu...'
+                    )
+                  : t(
+                      'script_js_kodu_placeholder',
+                      '// input.content veya getNode(...) ile veriyi alıp işleyin ve JSON.stringify(...) döndürün...'
+                    )
+              }
             />
             <div className="basla-ayar-card-footer">
               <span className="basla-ayar-footer-hint">
@@ -590,12 +781,163 @@ export const ScriptIslemFlowchartOgeAyarPage: React.FC<ScriptIslemFlowchartOgeAy
                 <span>
                   {t(
                     'script_girdi_nesnesi_aciklama',
-                    'Kullanılabilir Alanlar: input.content (Hafıza Dosyası Metni) • input.fileName • input.varlikKodu • input.memory'
+                    'Kullanılabilir: getNode(nodeId, defaultValue) • isNodeExecuted(nodeId) • getNodeStatus(nodeId) • input.content • input.memory • input.document'
                   )}
                 </span>
               </span>
               <span className="basla-ayar-char-count">
                 <Sparkles size={12} /> JSON → {formData.varlikKodu || 'BshFiyatFarki'}
+              </span>
+            </div>
+          </div>
+        </section>
+
+        {/* 3. BÖLÜM: DÜĞÜM VERİ HAVUZU & GÜVENLİK KISITLAMALARI (CROSS-NODE DATA POOL) */}
+        <section className="basla-ayar-card">
+          <div className="basla-ayar-card-header">
+            <div className="basla-ayar-card-header-left">
+              <div className="basla-ayar-icon-box purple">
+                <Layers size={18} />
+              </div>
+              <div className="basla-ayar-header-text">
+                <h3 className="basla-ayar-card-title">
+                  {t('script_veri_havuzu_baslik', 'Düğüm Veri Havuzu & Güvenlik Kısıtlamaları')}
+                </h3>
+                <p className="basla-ayar-card-subtitle">
+                  {t(
+                    'script_veri_havuzu_aciklama',
+                    'Akıştaki tüm düğümlerin çalışma çıktıları merkezi havuzda toplanır. Script içerisinden getNode("DÜĞÜM_ID", defaultValue) ile verilere güvenle erişilebilir. İstenirse hassas düğümlere erişim sınırlandırılabilir.'
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="basla-ayar-card-body">
+            <div className="form-ac-wizard-options-grid mb-16">
+              <div
+                className={`form-ac-wizard-option-box ${formData.tumDugumlereIzinVer !== false ? 'is-active' : ''}`}
+              >
+                <div className="form-ac-wizard-option-texts">
+                  <div className="form-ac-wizard-option-title">
+                    <ShieldCheck size={16} />
+                    <span>
+                      {t('script_tum_dugumlere_izin_ver_baslik', 'Tüm Akış Düğümlerine Erişim İzni (Havuz Açık)')}
+                    </span>
+                  </div>
+                  <p className="form-ac-wizard-option-desc">
+                    {t(
+                      'script_tum_dugumlere_izin_ver_aciklama',
+                      'Aktif olduğunda script, aşağıdaki kara listede yer almayan tüm düğümlerin verisine getNode(...) ile erişebilir.'
+                    )}
+                  </p>
+                </div>
+                <BaseSwitch
+                  id="scriptTumDugumlereIzinVerSwitch"
+                  checked={formData.tumDugumlereIzinVer !== false}
+                  onChange={(e: any) => {
+                    const checked = typeof e === 'boolean' ? e : e?.target?.checked;
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      tumDugumlereIzinVer: Boolean(checked)
+                    }));
+                  }}
+                  label={
+                    <span className="text-sm font-semibold">
+                      {formData.tumDugumlereIzinVer !== false
+                        ? t('aktif', 'Aktif')
+                        : t('kisitli', 'Kısıtlı')}
+                    </span>
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="ai-islem-attached-tools-list">
+              {otherWorkflowNodes.length === 0 ? (
+                <div className="ai-islem-attached-tools-empty">
+                  <Info size={18} className="ai-islem-attached-tools-empty-icon" />
+                  <div className="ai-islem-attached-tools-empty-texts">
+                    <span className="ai-islem-attached-tools-empty-title">
+                      {t('akista_baska_dugum_yok', 'Bu akışta henüz başka bir düğüm tanımlanmamış.')}
+                    </span>
+                    <span className="ai-islem-attached-tools-empty-desc">
+                      {t(
+                        'akista_baska_dugum_yok_desc',
+                        'Akışa ekleyeceğiniz form, AI işlemi veya hafıza düğümleri burada listelenecek ve getNode() ile erişilebilecektir.'
+                      )}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                otherWorkflowNodes.map((n: any) => {
+                  const isBlocked =
+                    formData.tumDugumlereIzinVer === false ||
+                    (Array.isArray(formData.kisitlananDugumIdleri) &&
+                      formData.kisitlananDugumIdleri.includes(n.id));
+                  const isAllowed = !isBlocked;
+
+                  return (
+                    <div
+                      key={n.id}
+                      className={`ai-islem-attached-tool-row ${isAllowed ? 'is-active' : 'is-disabled'}`}
+                    >
+                      <div className="ai-islem-attached-tool-main">
+                        <div className="ai-islem-attached-tool-icon">
+                          {renderWorkflowNodeSmallIcon(n.tip)}
+                        </div>
+                        <div className="ai-islem-attached-tool-info">
+                          <div className="ai-islem-attached-tool-title-row">
+                            <span className="ai-islem-attached-tool-title">
+                              {n.baslik || n.tip}
+                            </span>
+                            <span className="ai-ajan-identity-badge">{n.tip}</span>
+                            <span className="rag-arac-summary-pill">{n.id}</span>
+                          </div>
+                          <p className="ai-islem-attached-tool-desc">
+                            <code>{`getNode("${n.id}", null)`}</code>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="ai-islem-attached-tool-controls">
+                        <BaseSwitch
+                          id={`nodeAccessSwitch_${n.id}`}
+                          disabled={formData.tumDugumlereIzinVer === false}
+                          checked={isAllowed}
+                          onChange={(e: any) => {
+                            const checked = typeof e === 'boolean' ? e : e?.target?.checked;
+                            handleToggleNodeRestriction(n.id, Boolean(checked));
+                          }}
+                          label={
+                            <span className="text-xs font-semibold">
+                              {isAllowed ? t('erisim_acik', 'İzinli') : t('engellendi', 'Engellendi')}
+                            </span>
+                          }
+                        />
+                        <BaseButton
+                          variant="outline"
+                          className="btn-sm"
+                          icon={<Copy size={13} />}
+                          onClick={() => handleCopySnippet(n.id)}
+                          text={t('kodu_kopyala', 'getNode() Kopyala')}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="basla-ayar-card-footer">
+              <span className="basla-ayar-footer-hint">
+                <CheckCircle2 size={13} />
+                <span>
+                  {t(
+                    'script_calismayan_dal_ipucu',
+                    'Güvenli Yürütme: Karar veya IF düğümlerinden sonra atlanan/çalışmayan dallar için getNode(nodeId, defaultValue) çağrısı hata vermez, güvenle tanımladığınız varsayılan değeri (null vb.) döndürür.'
+                  )}
+                </span>
               </span>
             </div>
           </div>
