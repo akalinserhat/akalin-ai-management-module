@@ -1220,7 +1220,7 @@ const effectiveBaslik =
   : (baslaNode?.prompt?.trim() || cleanedNodes[0]?.prompt || effectiveBaslik);
 const effectiveMainUiAction =
   firstActionNode?.tip === 'FORM_AC'
-    ? (firstActionNode.uiAksiyonu || 'OZEL_ROTA')
+    ? (firstActionNode.uiAksiyonu && firstActionNode.uiAksiyonu !== 'BULUT_DOSYA_SEC' ? firstActionNode.uiAksiyonu : 'OZEL_ROTA')
       : (currentState.uiAksiyonu && currentState.uiAksiyonu !== 'YOK')
         ? currentState.uiAksiyonu
         : (firstActionNode?.uiAksiyonu || cleanedNodes[0]?.uiAksiyonu || 'YOK');

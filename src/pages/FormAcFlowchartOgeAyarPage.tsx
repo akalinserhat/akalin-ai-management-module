@@ -18,10 +18,12 @@ import {
   ShieldCheck,
   MessageSquare,
   Tag,
-  ExternalLink
+  ExternalLink,
+  AlertTriangle
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { reportErrorToAdmin } from '@akalin/notification_module';
 import {
   BaseInput,
   BaseSwitch,
@@ -177,22 +179,17 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
 
   // Seçili MCP varlığını bul (önce ajanın aktif listesinde, bulunamazsa genel listede arar)
   const selectedEntity = useMemo<AgentActiveMcpEntity | null>(() => {
-    if (!formData.mcpVarlikId && !formData.varlikKodu) return null;
-    const foundInActive = activeMcpEntities.find(
-      (e) =>
-        e.id === formData.mcpVarlikId ||
-        (formData.varlikKodu && e.kod === formData.varlikKodu)
-    );
+    if (!formData.mcpVarlikId && !formData.varlikKodu && !formData.hedefRota) return null;
+    const matchEntity = (e: AgentActiveMcpEntity) =>
+      e.id === formData.mcpVarlikId ||
+      (formData.varlikKodu && e.kod === formData.varlikKodu) ||
+      (formData.hedefRota && (e.rota === formData.hedefRota || (e as any).route === formData.hedefRota));
+
+    const foundInActive = activeMcpEntities.find(matchEntity);
     if (foundInActive) return foundInActive;
 
-    return (
-      allMcpEntities.find(
-        (e) =>
-          e.id === formData.mcpVarlikId ||
-          (formData.varlikKodu && e.kod === formData.varlikKodu)
-      ) || null
-    );
-  }, [activeMcpEntities, allMcpEntities, formData.mcpVarlikId, formData.varlikKodu]);
+    return allMcpEntities.find(matchEntity) || null;
+  }, [activeMcpEntities, allMcpEntities, formData.mcpVarlikId, formData.varlikKodu, formData.hedefRota]);
 
   // Seçilen Belge veya Kartın bu düğümün JSON verisi (belgeVerisi) içine gömülecek sabit JSON Schema'sı
   const openedEntitySchema = useMemo(() => {
@@ -405,6 +402,22 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
     try {
       setIsSaving(true);
       const payloadNode = buildUpdatedNodePayload(dataToSave);
+
+      if (!payloadNode.mcpVarlikId && !payloadNode.varlikKodu && !payloadNode.hedefRota) {
+        reportErrorToAdmin({
+          url: window.location.href,
+          hataMesaji: `[Form Aç Düğümü Ayarları] Kaydedilmek istenen "${payloadNode.baslik || 'Form Aç'}" düğümünde açılacak form veya MCP varlığı seçilmemiş.`,
+          detay: JSON.stringify({ agentId: effectiveAgentId, istekId: effectiveIstekId, nodeId: payloadNode.id })
+        });
+        toast.error(
+          t(
+            'form_ac_lutfen_varlik_secin',
+            'Lütfen bu düğümün açacağı Belge, Kart veya Listeyi seçiniz. Açılacak form belirlenmeden kaydedilemez.'
+          )
+        );
+        setIsSaving(false);
+        return;
+      }
 
       let agentToUpdate = agentData || incomingAgentData;
       if (!agentToUpdate && effectiveAgentId) {
@@ -632,6 +645,22 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
                 onSelect={(entity) => handleSelectMcpEntity(entity)}
                 onClear={handleClearMcpEntity}
               />
+              {!selectedEntity && (
+                <div className="flowchart-unconfigured-entity-warning">
+                  <AlertTriangle size={18} className="flowchart-warning-icon" />
+                  <div className="flowchart-warning-content">
+                    <span className="flowchart-warning-title">
+                      {t('form_ac_hedef_secilmedi_baslik', 'Açılacak Form Henüz Seçilmedi')}
+                    </span>
+                    <span className="flowchart-warning-desc">
+                      {t(
+                        'form_ac_hedef_secilmedi_aciklama',
+                        'Bu adımın kullanıcıya hangi ekranı açacağını belirlemek için lütfen yukarıdaki listeden bir Belge, Kart veya Liste seçiniz. Seçim yapılmazsa görev akışı bu adımda durur ve kullanıcıya hata bildirilir.'
+                      )}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </section>
