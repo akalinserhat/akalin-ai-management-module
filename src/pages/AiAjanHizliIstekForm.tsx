@@ -524,7 +524,9 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
           ).replace(/^\./, '')}`
         : undefined;
       const scriptTargetLabel = isScriptIslem
-        ? `${node.kaynakDosyaAdi || 'fiyat_farki_tablosu.csv'} → JSON (${node.varlikKodu || 'BshFiyatFarki'})`
+        ? (node.scriptKaynagi === 'AI_ISLEMDEN_DINAMIK'
+            ? `${t('dinamik_ai_kodu', 'Dinamik AI Kodu')} → JSON (${node.varlikKodu || 'KampanyaBelgesi'})`
+            : `${node.kaynakDosyaAdi || (node.varlikKodu === 'KampanyaBelgesi' ? 'kampanya_metni.txt' : 'fiyat_farki_tablosu.csv')} → JSON (${node.varlikKodu || 'BshFiyatFarki'})`)
         : undefined;
       const belgeTargetLabel = isBelgeOlustur
         ? `${node.varlikAdi || node.varlikKodu || t('belge_secilmedi', 'Belge Seçilmedi')} • ${
@@ -580,11 +582,11 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
           : isFormAc
             ? t('ekran_girdi', 'Ekran / Girdi')
             : isAiIslem
-              ? t('llm_islem', 'LLM İşlem')
+              ? (node.islevTuru === 'SCRIPT_KODU_YAZ' ? t('script_kodlayici', 'Script Kodlayıcı') : t('llm_islem', 'LLM İşlem'))
               : isHafiza
                 ? t('dosya_hafiza', 'Dosya Hafıza')
                 : isScriptIslem
-                  ? t('js_donusturucu', 'JS Dönüştürücü')
+                  ? (node.scriptKaynagi === 'AI_ISLEMDEN_DINAMIK' ? t('dinamik_js', 'Dinamik JS') : t('js_donusturucu', 'JS Dönüştürücü'))
                   : isBelgeOlustur
                     ? t('mcp_belge', 'MCP Belge')
                     : isLoop
