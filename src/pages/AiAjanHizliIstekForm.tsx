@@ -540,27 +540,31 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         ? (node.kullaniciMesaji || node.prompt || '').trim().slice(0, 72) || undefined
         : undefined;
 
-      const resolvedUiActionLabel = isHafiza
-        ? hafizaFileLabel
-        : isScriptIslem
-          ? scriptTargetLabel
-          : isBelgeOlustur
-            ? belgeTargetLabel
-            : isLoop
-              ? loopTargetLabel
-              : isKararOnay
-                ? kararTargetLabel
-                : node.varlikAdi
-                  ? `${node.varlikAdi}${node.modulAdi ? ` • ${node.modulAdi}` : ''}`
-                  : node.uiAksiyonu && node.uiAksiyonu !== 'YOK'
-                    ? uiOpt
-                      ? t(uiOpt.badge)
-                      : node.uiAksiyonu
-                    : undefined;
+      const isFormAcUnconfigured = isFormAc && !node.varlikKodu && !node.mcpVarlikId && !node.hedefRota;
+
+      const resolvedUiActionLabel = isFormAcUnconfigured
+        ? undefined
+        : isHafiza
+          ? hafizaFileLabel
+          : isScriptIslem
+            ? scriptTargetLabel
+            : isBelgeOlustur
+              ? belgeTargetLabel
+              : isLoop
+                ? loopTargetLabel
+                : isKararOnay
+                  ? kararTargetLabel
+                  : node.varlikAdi
+                    ? `${node.varlikAdi}${node.modulAdi ? ` • ${node.modulAdi}` : ''}`
+                    : node.uiAksiyonu && node.uiAksiyonu !== 'YOK'
+                      ? uiOpt
+                        ? t(uiOpt.badge)
+                        : node.uiAksiyonu
+                      : undefined;
 
       const resolvedWarningText =
-        isFormAc && !node.varlikKodu && !node.mcpVarlikId && !node.hedefRota
-          ? t('uyari_acilacak_ekran_secilmedi', 'Açılacak ekran seçilmedi')
+        isFormAcUnconfigured
+          ? t('uyari_acilacak_form_secilmedi', 'Açılacak form seçilmedi')
           : isAiIslem && !(node.prompt || '').trim()
             ? t('uyari_ai_prompt_girilmedi', 'İşlem promptu girilmedi')
             : isBelgeOlustur && !node.varlikKodu && !node.mcpVarlikId
@@ -597,12 +601,14 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
                         ? t(typeInfo.shortLabel)
                         : upperTip,
         summaryText:
-          resolvedUiActionLabel ||
-          (isBasla
-            ? (node.dugmeBasligi || node.prompt || t('gorev_akisi_baslangici', 'Görev Akışı Başlangıcı'))
-                .trim()
-                .slice(0, 72)
-            : (node.prompt || node.kullaniciMesaji || '').trim().slice(0, 72) || undefined),
+          resolvedWarningText
+            ? `⚠️ ${resolvedWarningText}`
+            : resolvedUiActionLabel ||
+              (isBasla
+                ? (node.dugmeBasligi || node.prompt || t('gorev_akisi_baslangici', 'Görev Akışı Başlangıcı'))
+                    .trim()
+                    .slice(0, 72)
+                : (node.prompt || node.kullaniciMesaji || '').trim().slice(0, 72) || undefined),
         warningText: resolvedWarningText,
         inactive: node.aktifMi === false,
         prompt: isHafiza

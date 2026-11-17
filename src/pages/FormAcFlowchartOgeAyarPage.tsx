@@ -23,7 +23,6 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { reportErrorToAdmin } from '@akalin/notification_module';
 import {
   BaseInput,
   BaseSwitch,
@@ -402,22 +401,7 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
     try {
       setIsSaving(true);
       const payloadNode = buildUpdatedNodePayload(dataToSave);
-
-      if (!payloadNode.mcpVarlikId && !payloadNode.varlikKodu && !payloadNode.hedefRota) {
-        reportErrorToAdmin({
-          url: window.location.href,
-          hataMesaji: `[Form Aç Düğümü Ayarları] Kaydedilmek istenen "${payloadNode.baslik || 'Form Aç'}" düğümünde açılacak form veya MCP varlığı seçilmemiş.`,
-          detay: JSON.stringify({ agentId: effectiveAgentId, istekId: effectiveIstekId, nodeId: payloadNode.id })
-        });
-        toast.error(
-          t(
-            'form_ac_lutfen_varlik_secin',
-            'Lütfen bu düğümün açacağı Belge, Kart veya Listeyi seçiniz. Açılacak form belirlenmeden kaydedilemez.'
-          )
-        );
-        setIsSaving(false);
-        return;
-      }
+      const isFormConfigured = Boolean(payloadNode.mcpVarlikId || payloadNode.varlikKodu || payloadNode.hedefRota);
 
       let agentToUpdate = agentData || incomingAgentData;
       if (!agentToUpdate && effectiveAgentId) {
@@ -516,9 +500,19 @@ export const FormAcFlowchartOgeAyarPage: React.FC<FormAcFlowchartOgeAyarPageProp
         }
       }
 
-      toast.success(
-        t('form_ac_ayarlari_kaydedildi', 'Form Aç düğümü ayarları başarıyla kaydedildi.')
-      );
+      if (isFormConfigured) {
+        toast.success(
+          t('form_ac_ayarlari_kaydedildi', 'Form Aç düğümü ayarları başarıyla kaydedildi.')
+        );
+      } else {
+        toast(
+          t(
+            'form_ac_kaydedildi_form_eksik',
+            'Form Aç düğümü kaydedildi. Açılacak form seçilmediği için akış üzerinde uyarı gösterilecektir.'
+          ),
+          { icon: '⚠️' }
+        );
+      }
 
       if (onSuccess) {
         onSuccess();
