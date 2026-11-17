@@ -9,6 +9,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
+import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -20,14 +21,15 @@ import {
   ListOrdered,
   ShieldCheck,
   AlertCircle,
-  Workflow
+  GitBranch,
+  CheckCircle2,
+  Info
 } from 'lucide-react';
 import {
   BaseDropdownSecici,
   type DropdownOption,
   BasitInput,
   TamsayiInput,
-  BaseSwitch,
   FieldError
 } from '@akalin/ui';
 import {
@@ -71,12 +73,7 @@ export const LoopFlowchartOgeAyarPage: React.FC<LoopFlowchartOgeAyarPageProps> =
   const istekData = location.state?.istekData;
   const incomingNodeFromState = location.state?.nodeData || initialNodeData;
 
-  const defaultNodeTitle = useMemo(() => {
-    return (
-      incomingNodeFromState?.baslik ||
-      getDefaultLoopNodeTitle(t)
-    );
-  }, [incomingNodeFromState?.baslik, t]);
+  const defaultNodeTitle = useMemo(() => getDefaultLoopNodeTitle(t), [t]);
 
   const [formData, setFormData] = useState<AiAkisDugumu>(() => {
     return createDefaultLoopDugumu({
@@ -221,25 +218,50 @@ export const LoopFlowchartOgeAyarPage: React.FC<LoopFlowchartOgeAyarPageProps> =
     [t]
   );
 
-  // Akıştaki diğer düğümleri listele (Döngü Gövdesi hedefi için)
-  const availableTargetNodeOptions: DropdownOption[] = useMemo(() => {
+  // Akıştaki diğer düğümleri listele (Tamamlandı / done ve Her Öğe / loop hedefleri için)
+  const loopBodyTargetOptions: DropdownOption[] = useMemo(() => {
     const nodes = Array.isArray(istekData?.akisDugumleri) ? istekData.akisDugumleri : [];
     const opts: DropdownOption[] = [
-      { id: '', value: '', label: t('seciniz_otomatik_sonraki', '-- Sonraki Bağlı Düğümü Kullan --') }
+      {
+        id: '',
+        value: '',
+        label: t('loop_govde_secilmedi_secenegi', '-- Bağlı değil (Tuvalden "Her Öğe / loop" portunu bağlayın) --')
+      }
     ];
-    nodes.forEach((n: any) => {
-      if (n.id !== formData.id && n.tip !== 'BASLA') {
+    nodes.forEach((n: any, idx: number) => {
+      if (n.id !== formData.id && n.tip !== 'BASLA' && n.id !== 'BASLA') {
         opts.push({
           id: n.id,
           value: n.id,
-          label: `${n.baslik || n.tip} (${n.id})`
+          label: `#${idx} • ${n.baslik || n.tip} (${n.id})`
         });
       }
     });
     return opts;
   }, [istekData, formData.id, t]);
 
-  const buildUpdatedNodePayload = (overrideData?: any) => {
+  const doneTargetOptions: DropdownOption[] = useMemo(() => {
+    const nodes = Array.isArray(istekData?.akisDugumleri) ? istekData.akisDugumleri : [];
+    const opts: DropdownOption[] = [
+      {
+        id: '',
+        value: '',
+        label: t('loop_done_secilmedi_secenegi', '-- Akışı Sonlandır (Bağlı sonraki adım yok) --')
+      }
+    ];
+    nodes.forEach((n: any, idx: number) => {
+      if (n.id !== formData.id && n.tip !== 'BASLA' && n.id !== 'BASLA') {
+        opts.push({
+          id: n.id,
+          value: n.id,
+          label: `#${idx} • ${n.baslik || n.tip} (${n.id})`
+        });
+      }
+    });
+    return opts;
+  }, [istekData, formData.id, t]);
+
+  const buildUpdatedNodePayload = (overrideData?: any): AiAkisDugumu => {
     const merged = {
       ...formData,
       ...(overrideData || {})
@@ -256,19 +278,36 @@ export const LoopFlowchartOgeAyarPage: React.FC<LoopFlowchartOgeAyarPageProps> =
       donguMaksimumTekrar: Number(merged.donguMaksimumTekrar) || 50,
       donguEsZamanliGorevSayisi: Number(merged.donguEsZamanliGorevSayisi) || 3,
       donguHataDavranisi: merged.donguHataDavranisi || 'DURDUR',
-      donguGirisDugumId: (merged.donguGirisDugumId || '').trim(),
+      donguGirisDugumId: String(merged.donguGirisDugumId || '').trim(),
+      sonrakiDugumId: String(merged.sonrakiDugumId || '').trim(),
       donguBirlestirmeModu: merged.donguBirlestirmeModu || 'DIZI'
     };
   };
 
   const handleBackOrClose = () => {
     if (typeof effectiveBackRoute === 'string') {
+      const existingNodes = Array.isArray(istekData?.akisDugumleri)
+        ? [...istekData.akisDugumleri]
+        : [];
+      const activeNode = buildUpdatedNodePayload();
+      const nodeIdx = existingNodes.findIndex((x: any) => x.id === activeNode.id);
+
+      if (nodeIdx !== -1) {
+        existingNodes[nodeIdx] = { ...existingNodes[nodeIdx], ...activeNode };
+      } else {
+        existingNodes.push(activeNode);
+      }
+
       navigate(effectiveBackRoute, {
         state: {
-          fromNodeEdit: true,
-          nodeData: formData,
           agentData,
-          istekData
+          fromNodeEdit: true,
+          hizliIstekItem: istekData
+            ? {
+                ...istekData,
+                akisDugumleri: existingNodes
+              }
+            : undefined
         }
       });
     } else {
@@ -294,36 +333,102 @@ export const LoopFlowchartOgeAyarPage: React.FC<LoopFlowchartOgeAyarPageProps> =
     try {
       setIsSaving(true);
 
-      // SessionStorage veya state üzerinden geri aktar
-      try {
-        const draftKey = `webakus_flow_draft_${effectiveAgentId}_${effectiveIstekId}`;
-        const existingDraftRaw = sessionStorage.getItem(draftKey);
-        let draftObj = existingDraftRaw ? JSON.parse(existingDraftRaw) : null;
-        if (!draftObj && istekData) {
-          draftObj = { ...istekData };
+      let updatedAgent = agentData;
+      let updatedIstek = istekData;
+
+      if (effectiveAgentId) {
+        const agentToUpdate =
+          agentData || (await axios.get(`/api/AiAjanlar/${effectiveAgentId}`)).data;
+        const currentRequests = Array.isArray(agentToUpdate.hizliIstekler)
+          ? [...agentToUpdate.hizliIstekler]
+          : [];
+        const reqIdx = currentRequests.findIndex(
+          (x: any) => x.id === effectiveIstekId || (istekData?.id && x.id === istekData.id)
+        );
+
+        const baseReq =
+          reqIdx !== -1
+            ? { ...currentRequests[reqIdx], ...(istekData || {}) }
+            : istekData || {
+                id: effectiveIstekId || `req_${Date.now()}`,
+                baslik: '',
+                prompt: '',
+                ikon: 'Sparkles',
+                uiAksiyonu: 'YOK',
+                aktifMi: true,
+                akisDugumleri: []
+              };
+
+        const existingNodes = Array.isArray(baseReq.akisDugumleri)
+          ? [...baseReq.akisDugumleri]
+          : [];
+        const nodeIdx = existingNodes.findIndex((x: any) => x.id === nodeToSave.id);
+
+        if (nodeIdx !== -1) {
+          existingNodes[nodeIdx] = { ...existingNodes[nodeIdx], ...nodeToSave };
+        } else {
+          existingNodes.push(nodeToSave);
         }
-        if (draftObj && Array.isArray(draftObj.akisDugumleri)) {
-          const idx = draftObj.akisDugumleri.findIndex((n: any) => n.id === nodeToSave.id);
-          if (idx >= 0) {
-            draftObj.akisDugumleri[idx] = nodeToSave;
-          } else {
-            draftObj.akisDugumleri.push(nodeToSave);
+
+        updatedIstek = {
+          ...baseReq,
+          akisDugumleri: existingNodes
+        };
+
+        if (reqIdx !== -1) {
+          currentRequests[reqIdx] = updatedIstek;
+        } else {
+          currentRequests.push(updatedIstek);
+        }
+
+        const payload = {
+          ...agentToUpdate,
+          kapsam: parseInt(agentToUpdate.kapsam, 10) || 1,
+          aiSaglayiciId: agentToUpdate.aiSaglayiciId
+            ? parseInt(agentToUpdate.aiSaglayiciId, 10)
+            : null,
+          sicaklik: parseFloat(agentToUpdate.sicaklik) || 0.7,
+          maxTokens: parseInt(agentToUpdate.maxTokens, 10) || 2048,
+          yanitSenteziModu: parseInt(agentToUpdate.yanitSenteziModu as any, 10) || 0,
+          hizliIstekler: currentRequests
+        };
+
+        await axios.put(`/api/AiAjanlar/${effectiveAgentId}`, payload);
+        updatedAgent = payload;
+
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.removeItem(
+              `webakus_flow_draft_${effectiveAgentId}_${updatedIstek.id}`
+            );
+          } catch {
+            // ignore
           }
-          sessionStorage.setItem(draftKey, JSON.stringify(draftObj));
+          window.dispatchEvent(new CustomEvent('ai-agents-updated'));
         }
-      } catch {
-        // storage fallback
       }
 
       toast.success(t('loop_kaydedildi', 'Döngü düğümü ayarları güncellendi.'));
 
       if (onSuccess) {
         onSuccess();
+      } else if (typeof effectiveBackRoute === 'string') {
+        navigate(effectiveBackRoute, {
+          state: {
+            agentData: updatedAgent,
+            fromNodeEdit: true,
+            hizliIstekItem: updatedIstek
+          }
+        });
       } else {
-        handleBackOrClose();
+        navigate(-1);
       }
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || t('kayit_hatasi', 'Kaydedilirken hata oluştu.');
+      const msg =
+        err.response?.data?.mesaj ||
+        err.response?.data?.message ||
+        err.message ||
+        t('kayit_hatasi', 'Kaydedilirken hata oluştu.');
       toast.error(msg);
     } finally {
       setIsSaving(false);
@@ -339,8 +444,8 @@ export const LoopFlowchartOgeAyarPage: React.FC<LoopFlowchartOgeAyarPageProps> =
       nodeType="LOOP"
       agentData={agentData}
       istekData={istekData}
-      title={t('loop_oge_ayarlari', 'Döngü (Loop) Düğümü Ayarları')}
-      pageTitle={t('loop_oge_ayarlari', 'Döngü (Loop) Düğümü Ayarları')}
+      title={defaultNodeTitle}
+      pageTitle={defaultNodeTitle}
       recordTitle={defaultNodeTitle}
       subTrail={subTrail}
       icon={<Repeat size={24} color="#8b5cf6" />}
@@ -356,6 +461,57 @@ export const LoopFlowchartOgeAyarPage: React.FC<LoopFlowchartOgeAyarPageProps> =
       onBack={handleBackOrClose}
     >
       <div className="basla-ayar-page-container">
+        {/* n8n Döngü (Loop Over Items) Görsel Çalışma Özeti */}
+        <div className="loop-n8n-flow-banner">
+          <div className="loop-n8n-stage-card">
+            <div className="loop-n8n-stage-top">
+              <span className="loop-n8n-stage-title">
+                <Layers size={14} color="#8b5cf6" />
+                <span>{t('loop_n8n_stage_girdi', '1. Sol Giriş (Veri Listesi)')}</span>
+              </span>
+            </div>
+            <p className="loop-n8n-stage-desc">
+              {t(
+                'loop_n8n_stage_girdi_aciklama',
+                'Önceki düğümden gelen diziyi, PDF sayfalarını veya metin bölümlerini tekil öğelere ayırır.'
+              )}
+            </p>
+          </div>
+
+          <div className="loop-n8n-stage-card is-loop">
+            <div className="loop-n8n-stage-top">
+              <span className="loop-n8n-stage-title">
+                <Repeat size={14} color="#8b5cf6" />
+                <span>{t('loop_n8n_stage_loop', '2. Alt Çıkış: Her Öğe')}</span>
+              </span>
+              <span className="loop-n8n-stage-pill">loop ↺</span>
+            </div>
+            <p className="loop-n8n-stage-desc">
+              {t(
+                'loop_n8n_stage_loop_aciklama',
+                'Her bir öğeyi ({{degisken}}) döngü içi adıma gönderir; adım bitince alttan sıradaki öğe için geri döner.',
+                { degisken: formData.donguDegiskeniAdi || 'item' }
+              )}
+            </p>
+          </div>
+
+          <div className="loop-n8n-stage-card is-done">
+            <div className="loop-n8n-stage-top">
+              <span className="loop-n8n-stage-title">
+                <CheckCircle2 size={14} color="#10b981" />
+                <span>{t('loop_n8n_stage_done', '3. Üst Çıkış: Tamamlandı')}</span>
+              </span>
+              <span className="loop-n8n-stage-pill is-done">done ✓</span>
+            </div>
+            <p className="loop-n8n-stage-desc">
+              {t(
+                'loop_n8n_stage_done_aciklama',
+                'Tüm öğeler bittiğinde sonuçları birleştirir ve üst sağ çıkıştan ana akışa devam eder.'
+              )}
+            </p>
+          </div>
+        </div>
+
         {/* KART 1: Temel Döngü & İşleme Modu Yapılandırması */}
         <section className="basla-ayar-card">
           <div className="basla-ayar-card-header">
@@ -483,7 +639,7 @@ export const LoopFlowchartOgeAyarPage: React.FC<LoopFlowchartOgeAyarPageProps> =
                 <span className="basla-ayar-field-hint">
                   {t(
                     'dongu_degiskeni_ipucu',
-                    'Döngü içerisindeki sonraki düğümlerde erişilecek değişken adı (örn: {{ $dongu.sayfa }} veya input.item).'
+                    'Döngü içerisindeki sonraki düğümlerde erişilecek değişken adı (örn: {{item}} veya {{sayfa}}).'
                   )}
                 </span>
               </div>
@@ -518,7 +674,79 @@ export const LoopFlowchartOgeAyarPage: React.FC<LoopFlowchartOgeAyarPageProps> =
           </div>
         </section>
 
-        {/* KART 2: Hata Davranışı & Sonuç Birleştirme */}
+        {/* KART 2: n8n Sağ Çıkış Portları Yönlendirmesi (Üst: Tamamlandı / done, Alt: Her Öğe / loop) */}
+        <section className="basla-ayar-card">
+          <div className="basla-ayar-card-header">
+            <div className="basla-ayar-card-header-left">
+              <div className="basla-ayar-icon-box primary">
+                <GitBranch size={18} />
+              </div>
+              <div className="basla-ayar-header-text">
+                <h3 className="basla-ayar-card-title">
+                  {t('loop_cikis_portlari_baslik', 'n8n Sağ Çıkış Portları Yönlendirmesi (done & loop)')}
+                </h3>
+                <p className="basla-ayar-card-subtitle">
+                  {t(
+                    'loop_cikis_portlari_aciklama',
+                    'Tuval üzerindeki üst "Tamamlandı (done)" ve alt "Her Öğe (loop)" portlarından kablo çekerek veya aşağıdaki seçicilerden hedefleri belirleyebilirsiniz.'
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="basla-ayar-card-body">
+            <div className="karar-onay-branch-grid">
+              {/* Üst Çıkış Portu: Tamamlandı (done) */}
+              <div className="karar-onay-branch-box is-done">
+                <div className="karar-onay-branch-header">
+                  <span className="karar-onay-branch-dot is-done" />
+                  <span>{t('loop_done_portu_hedefi', 'Üst Çıkış: Tamamlandı (done) Hedefi')}</span>
+                </div>
+                <p className="karar-onay-branch-desc">
+                  {t(
+                    'loop_done_portu_aciklama',
+                    'Tüm öğelerin iterasyonu tamamlandığında birleştirilmiş sonucun aktarılacağı sonraki ana akış adımı.'
+                  )}
+                </p>
+                <BaseDropdownSecici
+                  id="donguSonrakiDugumSelect"
+                  options={doneTargetOptions}
+                  value={formData.sonrakiDugumId || ''}
+                  onChange={(val) =>
+                    setFormData((prev: any) => ({ ...prev, sonrakiDugumId: String(val ?? '') }))
+                  }
+                  clearable={false}
+                />
+              </div>
+
+              {/* Alt Çıkış Portu: Her Öğe (loop) */}
+              <div className="karar-onay-branch-box is-loop">
+                <div className="karar-onay-branch-header">
+                  <span className="karar-onay-branch-dot is-loop" />
+                  <span>{t('loop_govde_portu_hedefi', 'Alt Çıkış: Her Öğe (loop) Döngü Gövdesi')}</span>
+                </div>
+                <p className="karar-onay-branch-desc">
+                  {t(
+                    'loop_govde_portu_aciklama',
+                    'Her iterasyonda tekil öğe için çalıştırılacak adım. Çalışma bitince akış otomatik olarak döngü başına döner.'
+                  )}
+                </p>
+                <BaseDropdownSecici
+                  id="donguGirisDugumSelect"
+                  options={loopBodyTargetOptions}
+                  value={formData.donguGirisDugumId || ''}
+                  onChange={(val) =>
+                    setFormData((prev: any) => ({ ...prev, donguGirisDugumId: String(val ?? '') }))
+                  }
+                  clearable={false}
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* KART 3: Hata Davranışı & Sonuç Birleştirme */}
         <section className="basla-ayar-card">
           <div className="basla-ayar-card-header">
             <div className="basla-ayar-card-header-left">
@@ -580,51 +808,22 @@ export const LoopFlowchartOgeAyarPage: React.FC<LoopFlowchartOgeAyarPageProps> =
                 <span className="basla-ayar-field-hint">
                   {t(
                     'birlestirme_ipucu',
-                    'Tüm döngü iterasyonlarının çıktıları sağ çıkış portuna bu formatta birleştirilerek aktarılır.'
-                  )}
-                </span>
-              </div>
-
-              {/* Döngü Gövdesi Düğümü (Opsiyonel Açık Seçim) */}
-              <div className="form-group">
-                <label className="basla-ayar-field-label" htmlFor="donguGirisDugumSelect">
-                  <span className="basla-ayar-field-label-left">
-                    <Workflow size={14} />
-                    <span>{t('dongu_giris_dugumu_label', 'Döngü Gövdesi Düğümü (Loop Body)')}</span>
-                  </span>
-                </label>
-                <BaseDropdownSecici
-                  id="donguGirisDugumSelect"
-                  options={availableTargetNodeOptions}
-                  value={formData.donguGirisDugumId || ''}
-                  onChange={(val) => setFormData((prev: any) => ({ ...prev, donguGirisDugumId: val }))}
-                />
-                <span className="basla-ayar-field-hint">
-                  {t(
-                    'dongu_govdesi_ipucu',
-                    'Döngünün her iterasyonunda tetikleyeceği özel düğüm. Boş bırakılırsa sağ porttan bağlı sonraki düğüm kullanılır.'
+                    'Tüm döngü iterasyonlarının çıktıları Tamamlandı (done) çıkış portuna bu formatta birleştirilerek aktarılır.'
                   )}
                 </span>
               </div>
             </div>
 
-            {/* Aktiflik Durumu */}
-            <div className="basla-ayar-switch-block" style={{ marginTop: '16px' }}>
-              <div className="basla-ayar-switch-label">
-                <span className="basla-ayar-switch-title">
-                  {t('dongu_aktif_mi', 'Döngü Düğümü Aktif')}
-                </span>
-                <span className="basla-ayar-switch-sub">
+            <div className="basla-ayar-card-footer">
+              <span className="basla-ayar-footer-hint">
+                <Info size={13} />
+                <span>
                   {t(
-                    'dongu_aktif_sub',
-                    'Devre dışı bırakıldığında döngü atlanır ve veri doğrudan sonraki düğüme geçer.'
+                    'loop_tek_sorumluluk_ipucu',
+                    'Tek Sorumluluk İlkesi: Döngü düğümü doğrudan ekran açmaz veya ERP belgesi kaydetmez; öğeleri iterasyona sokup sonuçları birleştirir.'
                   )}
                 </span>
-              </div>
-              <BaseSwitch
-                checked={formData.aktifMi !== false}
-                onChange={(checked) => setFormData((prev: any) => ({ ...prev, aktifMi: checked }))}
-              />
+              </span>
             </div>
           </div>
         </section>

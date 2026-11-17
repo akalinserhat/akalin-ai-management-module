@@ -1640,6 +1640,127 @@ export const getNodeFixedOutputJsonSchema = (
     };
   }
 
+  if (nType === 'LOOP' || nType === 'DONGU') {
+    const loopModeVal = node?.donguModu || 'SENKRON';
+    const loopSourceVal = node?.donguKaynagi || 'ONCEKI_CIKTI_LISTESI';
+    const loopVarName = (node?.donguDegiskeniAdi || 'item').trim() || 'item';
+    const loopMergeVal = node?.donguBirlestirmeModu || 'DIZI';
+
+    const properties: Record<string, FlowchartNodeJsonSchemaProperty> = {
+      dugumId: {
+        type: 'string',
+        title: tr('schema_prop_dugum_id', 'Düğüm Kimliği (ID)'),
+        description: tr('schema_prop_loop_dugum_id_desc', 'Döngü (Loop) düğümünün benzersiz akış kimliği'),
+        expression: `{{ ${prefix}.dugumId }}`,
+        required: true,
+        example: nodeId
+      },
+      dugumTipi: {
+        type: 'string',
+        title: tr('schema_prop_dugum_tipi', 'Düğüm Tipi'),
+        description: tr('schema_prop_loop_dugum_tipi_desc', 'Sabit düğüm türü kodu (LOOP)'),
+        expression: `{{ ${prefix}.dugumTipi }}`,
+        required: true,
+        example: 'LOOP'
+      },
+      mevcutOge: {
+        type: 'string',
+        format: 'markdown',
+        title: `${tr('schema_prop_loop_mevcut_oge', 'Aktif İterasyon Öğesi')} ({{${loopVarName}}})`,
+        description: tr(
+          'schema_prop_loop_mevcut_oge_desc',
+          'Her Öğe (loop) çıkışında döngü gövdesine aktarılan o anki sayfa, satır veya liste elemanı'
+        ),
+        expression: `{{${loopVarName}}}`,
+        required: true,
+        example: 'Sayfa 1: BSH Kasım Kampanyası Ürün Destek Tablosu...'
+      },
+      iterasyonIndeksi: {
+        type: 'number',
+        title: tr('schema_prop_loop_iterasyon_indeksi', 'Aktif İterasyon / Sayfa Sırası'),
+        description: tr(
+          'schema_prop_loop_iterasyon_indeksi_desc',
+          'O an işlenen öğenin 1 tabanlı sıra numarası ({{sayfaNo}})'
+        ),
+        expression: '{{sayfaNo}}',
+        required: true,
+        example: 1
+      },
+      toplamIslenenOge: {
+        type: 'number',
+        title: tr('schema_prop_loop_toplam_islenen', 'Toplam İşlenen Öğe Sayısı'),
+        description: tr(
+          'schema_prop_loop_toplam_islenen_desc',
+          'Tamamlandı (done) çıkışına ulaşıldığında işlenmiş toplam öğe/sayfa adedi'
+        ),
+        expression: `{{ ${prefix}.toplamIslenenOge }}`,
+        required: true,
+        example: 12
+      },
+      birlestirilmisCikti: {
+        type: 'string',
+        format: loopMergeVal === 'METIN_BIRLESTIR' ? 'markdown' : 'json',
+        title: tr('schema_prop_loop_birlestirilmis_cikti', 'Birleştirilmiş Döngü Çıktısı (done Çıkışı)'),
+        description: tr(
+          'schema_prop_loop_birlestirilmis_cikti_desc',
+          'Tüm iterasyonlar tamamlandığında seçilen birleştirme formatında toplanan nihai çıktı'
+        ),
+        expression: `{{ ${prefix}.birlestirilmisCikti }}`,
+        required: true,
+        example: '[\n  { "urunKodu": "KDN55NWE0N", "fiyat": 1424.42 },\n  { "urunKodu": "WQG25201TR", "fiyat": 2509.69 }\n]'
+      },
+      iterasyonSonuclari: {
+        type: 'array',
+        itemsType: 'object',
+        title: tr('schema_prop_loop_iterasyon_sonuclari', 'İterasyon Sonuç Dizisi'),
+        description: tr(
+          'schema_prop_loop_iterasyon_sonuclari_desc',
+          'Her bir döngü adımından dönen sonuçların sıralı dizi listesi'
+        ),
+        expression: `{{ ${prefix}.iterasyonSonuclari }}`,
+        required: true,
+        example: [
+          { urunKodu: 'KDN55NWE0N', fiyat: 1424.42 },
+          { urunKodu: 'WQG25201TR', fiyat: 2509.69 }
+        ]
+      }
+    };
+
+    return {
+      $schema: 'https://json-schema.org/draft/2020-12/schema',
+      schemaId: 'https://webakus.ai/schemas/flowchart/loop-output.schema.json',
+      title: `${tr('schema_title_loop', 'Döngü (Loop) Düğümü Sabit Çıktı Şeması (LoopOutputSchema)')} • ${loopModeVal}`,
+      description: tr(
+        'schema_desc_loop',
+        'Döngü (Loop) düğümünün "Her Öğe (loop)" dalına aktif öğeyi ({{degisken}}) ve "Tamamlandı (done)" dalına tüm iterasyonların birleştirilmiş sonucunu ({{kaynak}}) aktaran sabit veri sözleşmesi.',
+        { degisken: loopVarName, kaynak: loopSourceVal }
+      ),
+      nodeType: 'LOOP',
+      type: 'object',
+      required: [
+        'dugumId',
+        'dugumTipi',
+        'mevcutOge',
+        'iterasyonIndeksi',
+        'toplamIslenenOge',
+        'birlestirilmisCikti',
+        'iterasyonSonuclari'
+      ],
+      properties,
+      examplePayload: {
+        dugumId: nodeId,
+        dugumTipi: 'LOOP',
+        calismaModu: loopModeVal,
+        veriKaynagi: loopSourceVal,
+        mevcutOge: properties.mevcutOge.example,
+        iterasyonIndeksi: 1,
+        toplamIslenenOge: 12,
+        birlestirilmisCikti: properties.birlestirilmisCikti.example,
+        iterasyonSonuclari: properties.iterasyonSonuclari.example
+      }
+    };
+  }
+
   // AI_ISLEM, MCP_SORGULA, BELGE_OLUSTUR ve diğer işlem düğümleri
   const properties: Record<string, FlowchartNodeJsonSchemaProperty> = {
     dugumId: {
@@ -2804,7 +2925,7 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
 
     const targetGraphNodeId = currentIdx !== -1 ? allNodes[currentIdx]?.id : effectiveNodeId;
     const hasExplicitEdges = allNodes.some((n) =>
-      Boolean(n?.sonrakiDugumId || n?.evetDugumId || n?.hayirDugumId)
+      Boolean(n?.sonrakiDugumId || n?.evetDugumId || n?.hayirDugumId || n?.donguGirisDugumId)
     );
 
     // 1. Öncelik: Sol Giriş -> Sağ Çıkış bağlantı grafiğinden (incoming edges) yukarı doğru tüm ata düğümleri çözümle
@@ -2819,9 +2940,12 @@ export const BaseAiAjanFlowchartOgeAyarPage: React.FC<BaseAiAjanFlowchartOgeAyar
 
       allNodes.forEach((n) => {
         if (!n || !n.id) return;
-        const targets = [n.sonrakiDugumId, n.evetDugumId, n.hayirDugumId].filter(
-          (tid): tid is string => Boolean(tid && nodeById.has(tid))
-        );
+        const targets = [
+          n.sonrakiDugumId,
+          n.evetDugumId,
+          n.hayirDugumId,
+          n.donguGirisDugumId
+        ].filter((tid): tid is string => Boolean(tid && nodeById.has(tid)));
         targets.forEach((tid) => {
           const prevList = incomingMap.get(tid) || [];
           if (!prevList.includes(n.id)) {

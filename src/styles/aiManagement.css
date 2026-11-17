@@ -5123,12 +5123,17 @@
   background: var(--bg-primary);
 }
 
-.karar-onay-branch-box.is-yes {
+.karar-onay-branch-box.is-yes,
+.karar-onay-branch-box.is-done {
   border-left: 3px solid #10b981;
 }
 
 .karar-onay-branch-box.is-no {
   border-left: 3px solid #ef4444;
+}
+
+.karar-onay-branch-box.is-loop {
+  border-left: 3px solid #8b5cf6;
 }
 
 .karar-onay-branch-header {
@@ -5147,12 +5152,17 @@
   flex-shrink: 0;
 }
 
-.karar-onay-branch-dot.is-yes {
+.karar-onay-branch-dot.is-yes,
+.karar-onay-branch-dot.is-done {
   background: #10b981;
 }
 
 .karar-onay-branch-dot.is-no {
   background: #ef4444;
+}
+
+.karar-onay-branch-dot.is-loop {
+  background: #8b5cf6;
 }
 
 .karar-onay-branch-desc {
@@ -5196,4 +5206,88 @@
   color: var(--text-secondary, #64748b);
   line-height: 1.4;
 }
+
+/* ─── n8n Döngü (Loop Over Items) Görsel Akış Özeti Şeridi ─────────────────── */
+.loop-n8n-flow-banner {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(139, 92, 246, 0.28);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.06) 0%, rgba(16, 185, 129, 0.04) 100%);
+}
+
+@media (max-width: 900px) {
+  .loop-n8n-flow-banner {
+    grid-template-columns: 1fr;
+  }
+}
+
+.loop-n8n-stage-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg-primary);
+  border: 1px solid var(--glass-border);
+}
+
+.loop-n8n-stage-card.is-loop {
+  border-left: 3px solid #8b5cf6;
+}
+
+.loop-n8n-stage-card.is-done {
+  border-left: 3px solid #10b981;
+}
+
+.loop-n8n-stage-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.loop-n8n-stage-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.loop-n8n-stage-pill {
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700;
+  padding: 1.5px 6px;
+  border-radius: 999px;
+  background: rgba(139, 92, 246, 0.12);
+  color: #7c3aed;
+}
+
+[data-theme='dark'] .loop-n8n-stage-pill {
+  background: rgba(139, 92, 246, 0.22);
+  color: #ddd6fe;
+}
+
+.loop-n8n-stage-pill.is-done {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+[data-theme='dark'] .loop-n8n-stage-pill.is-done {
+  background: rgba(16, 185, 129, 0.22);
+  color: #6ee7b7;
+}
+
+.loop-n8n-stage-desc {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
 

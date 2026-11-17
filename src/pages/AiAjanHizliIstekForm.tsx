@@ -41,7 +41,8 @@ import {
   type FlowchartPaletteItem,
   type FlowchartAttachedToolItem,
   type FlowchartPoint,
-  type FlowchartConnectionBranch
+  type FlowchartConnectionBranch,
+  type FlowchartLoopMeta
 } from '@akalin/ui';
 import type { AiAkisDugumu, AiBagliAracDugumu } from '../types';
 import {
@@ -319,7 +320,7 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
 
     // Yalnızca henüz hiçbir bağlantısı ve 2B koordinatı olmayan eski (legacy) doğrusal akışları ilk yüklemede otomatik zincirle
     const hasAnyExplicitEdge = cloned.some((n) =>
-      Boolean(n?.sonrakiDugumId || n?.evetDugumId || n?.hayirDugumId)
+      Boolean(n?.sonrakiDugumId || n?.evetDugumId || n?.hayirDugumId || n?.donguGirisDugumId)
     );
     const hasAnySavedNonStartCoord = otherNodes.some(
       (n) => typeof n.pozisyonX === 'number' && typeof n.pozisyonY === 'number'
@@ -347,6 +348,9 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         }
         if (curr.hayirDugumId && !validIds.has(curr.hayirDugumId)) {
           curr.hayirDugumId = '';
+        }
+        if (curr.donguGirisDugumId && !validIds.has(curr.donguGirisDugumId)) {
+          curr.donguGirisDugumId = '';
         }
       });
     }
@@ -533,8 +537,66 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
             node.taslakOlarakOlustur !== false ? t('taslak', 'Taslak') : t('kesin_kayit', 'Kesin Kayıt')
           }`
         : undefined;
+      const loopSourceLabel = isLoop
+        ? node.donguKaynagi === 'SAYFA_SAYISI'
+          ? t('loop_kaynak_kisa_sayfa', 'Döküman Sayfaları (PDF)')
+          : node.donguKaynagi === 'METIN_PARCALARI'
+            ? t('loop_kaynak_kisa_metin', 'Metin Parçaları / Bölümler')
+            : node.donguKaynagi === 'SAYI_ARALIGI'
+              ? t('loop_kaynak_kisa_aralik', 'Sayı Aralığı (1..N)')
+              : t('loop_kaynak_kisa_liste', 'Önceki Düğüm Listesi')
+        : undefined;
+      const loopIsAsync = node.donguModu === 'ASENKRON';
+      const loopConcurrency = node.donguEsZamanliGorevSayisi || 3;
+      const loopModeLabel = isLoop
+        ? loopIsAsync
+          ? `${t('dongu_mod_paralel_kisa', 'Paralel')} (${loopConcurrency}x)`
+          : `${t('dongu_mod_sirali_kisa', 'Sıralı')} (1x)`
+        : undefined;
+      const loopMergeLabel = isLoop
+        ? node.donguBirlestirmeModu === 'METIN_BIRLESTIR'
+          ? t('loop_birlestir_kisa_metin', 'Metin')
+          : node.donguBirlestirmeModu === 'NESNE_LISTESI'
+            ? t('loop_birlestir_kisa_nesne', 'JSON Havuz')
+            : t('loop_birlestir_kisa_dizi', 'Dizi []')
+        : undefined;
+      const loopBodyTargetTitle =
+        isLoop && node.donguGirisDugumId
+          ? (() => {
+              const all = formState.akisDugumleri || [];
+              const tIdx = all.findIndex((other) => other.id === node.donguGirisDugumId);
+              if (tIdx === -1) return undefined;
+              const target = all[tIdx];
+              const cleanName = getImmutableNodeTitle(target.tip, target.baslik);
+              return tIdx > 0 ? `#${tIdx} ${cleanName}` : cleanName;
+            })()
+          : undefined;
+      const loopDoneTargetTitle =
+        isLoop && node.sonrakiDugumId
+          ? (() => {
+              const all = formState.akisDugumleri || [];
+              const dIdx = all.findIndex((other) => other.id === node.sonrakiDugumId);
+              if (dIdx === -1) return undefined;
+              const target = all[dIdx];
+              const cleanName = getImmutableNodeTitle(target.tip, target.baslik);
+              return dIdx > 0 ? `#${dIdx} ${cleanName}` : cleanName;
+            })()
+          : undefined;
+      const resolvedLoopMeta: FlowchartLoopMeta | undefined = isLoop
+        ? {
+            isAsync: loopIsAsync,
+            modeLabel: loopModeLabel,
+            sourceLabel: loopSourceLabel,
+            variableName: node.donguDegiskeniAdi || 'item',
+            maxIterations: node.donguMaksimumTekrar ?? 50,
+            concurrency: loopConcurrency,
+            mergeLabel: loopMergeLabel,
+            loopBodyTitle: loopBodyTargetTitle,
+            doneTargetTitle: loopDoneTargetTitle
+          }
+        : undefined;
       const loopTargetLabel = isLoop
-        ? `${node.donguModu === 'ASENKRON' ? t('asenkron', 'Asenkron') : t('senkron', 'Senkron')} • ${node.donguKaynagi || 'SAYFA_SAYISI'} (${node.donguDegiskeniAdi || 'sayfa'})`
+        ? `${loopModeLabel} • ${loopSourceLabel} ({{${node.donguDegiskeniAdi || 'item'}}})`
         : undefined;
       const kararTargetLabel = isKararOnay
         ? (node.kullaniciMesaji || node.prompt || '').trim().slice(0, 72) || undefined
@@ -625,12 +687,8 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         noStepId: node.hayirDugumId,
         loopStepId: isLoop ? node.donguGirisDugumId : undefined,
         doneStepId: isLoop ? node.sonrakiDugumId : undefined,
-        loopTargetTitle: isLoop && node.donguGirisDugumId
-          ? (() => {
-              const target = (formState.akisDugumleri || []).find((other) => other.id === node.donguGirisDugumId);
-              return target ? (target.baslik || target.tip) : undefined;
-            })()
-          : undefined,
+        loopTargetTitle: loopBodyTargetTitle,
+        loopMeta: resolvedLoopMeta,
         position:
           typeof node.pozisyonX === 'number' && typeof node.pozisyonY === 'number'
             ? { x: node.pozisyonX, y: node.pozisyonY }
@@ -1001,18 +1059,22 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         if (srcIdx !== -1) {
           const srcNode = { ...existing[srcIdx] };
           const oldTargetId =
-            connectFrom.previousTargetId ||
-            (connectFrom.branch === 'yes'
-              ? srcNode.evetDugumId
-              : connectFrom.branch === 'no'
-                ? srcNode.hayirDugumId
-                : srcNode.sonrakiDugumId) ||
-            '';
+            connectFrom.previousTargetId !== undefined
+              ? connectFrom.previousTargetId
+              : (connectFrom.branch === 'yes'
+                  ? srcNode.evetDugumId
+                  : connectFrom.branch === 'no'
+                    ? srcNode.hayirDugumId
+                    : connectFrom.branch === 'loop'
+                      ? srcNode.donguGirisDugumId
+                      : srcNode.sonrakiDugumId) || '';
 
           if (connectFrom.branch === 'yes') {
             srcNode.evetDugumId = newId;
           } else if (connectFrom.branch === 'no') {
             srcNode.hayirDugumId = newId;
+          } else if (connectFrom.branch === 'loop') {
+            srcNode.donguGirisDugumId = newId;
           } else {
             srcNode.sonrakiDugumId = newId;
           }
@@ -1033,6 +1095,19 @@ export const AiAjanHizliIstekForm: React.FC<AiAjanHizliIstekFormProps> = ({
         if (anchorIndexInArr !== -1) {
           if (anchorUpper === 'KARAR_ONAY' && !existing[anchorIndexInArr].evetDugumId) {
             existing[anchorIndexInArr] = { ...existing[anchorIndexInArr], evetDugumId: newId };
+          } else if (anchorUpper === 'LOOP' || anchorUpper === 'DONGU') {
+            if (!existing[anchorIndexInArr].donguGirisDugumId) {
+              existing[anchorIndexInArr] = {
+                ...existing[anchorIndexInArr],
+                donguGirisDugumId: newId
+              };
+              newNode.pozisyonY = snapCoord(anchorY + 216);
+            } else if (!existing[anchorIndexInArr].sonrakiDugumId) {
+              existing[anchorIndexInArr] = {
+                ...existing[anchorIndexInArr],
+                sonrakiDugumId: newId
+              };
+            }
           } else if (anchorUpper !== 'KARAR_ONAY' && !existing[anchorIndexInArr].sonrakiDugumId) {
             existing[anchorIndexInArr] = { ...existing[anchorIndexInArr], sonrakiDugumId: newId };
           }
