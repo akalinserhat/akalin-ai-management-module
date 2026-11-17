@@ -1231,9 +1231,9 @@ const effectiveMainUiAction =
         ? currentState.uiAksiyonu
         : (firstActionNode?.uiAksiyonu || cleanedNodes[0]?.uiAksiyonu || 'YOK');
 const effectiveMainUiParams =
-  firstActionNode?.tip === 'FORM_AC' && firstActionNode?.hedefRota
-    ? firstActionNode.hedefRota
-          : (currentState as any).uiParametreleriJson;
+  firstActionNode?.tip === 'FORM_AC'
+    ? (firstActionNode?.hedefRota || '')
+    : (currentState as any).uiParametreleriJson;
 
 const savedItem = {
   ...currentState,
